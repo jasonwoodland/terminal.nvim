@@ -225,6 +225,62 @@ local function setup_keymap()
 	vim.keymap.set("t", "<C-S-]>", function()
 		SwitchTerm(1)
 	end)
+
+	local opts = { noremap = true, silent = true }
+
+	vim.keymap.set("t", "<C-\\><C-r>", function()
+		-- grab one keystroke for the register name
+		local ok, char = pcall(vim.fn.getchar)
+		if not ok or char < 0 then
+			return
+		end
+		local reg = vim.fn.nr2char(char)
+
+		-- fetch the register as a string
+		local txt = vim.fn.getreg(reg)
+
+		-- wrap in bracketed-paste
+		local opener = "\027[200~" -- \e[200~
+		local closer = "\027[201~" -- \e[201~
+
+		-- send to the terminal’s PTY
+		local job = vim.b.terminal_job_id
+		if not job then
+			vim.notify("Not in a terminal buffer!", vim.log.levels.WARN)
+			return
+		end
+		vim.api.nvim_chan_send(job, opener .. txt .. closer)
+	end, opts)
+
+	vim.keymap.set("t", "<C-\\><C-r>=", function()
+		-- 1) prompt for a Vim expression
+		local expr = vim.fn.input("=")
+		if expr == "" then
+			return
+		end
+
+		-- 2) evaluate it
+		local ok, result = pcall(vim.fn.eval, expr)
+		if not ok then
+			vim.notify("Invalid expression: " .. result, vim.log.levels.ERROR)
+			return
+		end
+
+		-- 3) turn it into a string
+		local txt = tostring(result)
+
+		-- 4) wrap in bracketed-paste so the shell sees it as one atomic paste
+		local opener = "\027[200~"
+		local closer = "\027[201~"
+
+		-- 5) send to the terminal job
+		local job = vim.b.terminal_job_id
+		if not job then
+			vim.notify("Not in a terminal buffer!", vim.log.levels.WARN)
+			return
+		end
+		vim.api.nvim_chan_send(job, opener .. txt .. closer)
+	end, opts)
 end
 
 local function setup_command()
