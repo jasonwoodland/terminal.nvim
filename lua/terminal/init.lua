@@ -160,6 +160,8 @@ local function toggle_term()
 		-- close the terminal
 		vim.g.term_bufnr = vim.api.nvim_win_get_buf(vim.t.term_winid)
 		vim.t.term_mode = vim.fn.mode()
+		-- Save cursor/scroll position
+		vim.b[vim.g.term_bufnr].term_view = vim.fn.winsaveview()
 		local term_winnr = vim.fn.bufwinnr(vim.g.term_bufnr)
 
 		if M.config.float then
@@ -208,6 +210,11 @@ local function toggle_term()
 			vim.cmd("set wfh")
 			vim.g.term_bufnr = vim.fn.bufnr()
 			vim.t.term_winid = vim.fn.win_getid()
+		end
+
+		-- Restore cursor/scroll position
+		if vim.b[vim.g.term_bufnr].term_view then
+			vim.fn.winrestview(vim.b[vim.g.term_bufnr].term_view)
 		end
 
 		if vim.t.term_mode ~= "n" then
@@ -434,7 +441,15 @@ function SwitchTerm(delta, clamp)
 		b = bufs[i % #bufs + 1]
 	end
 	if b ~= nil then
+		-- Save current buffer's mode
+		vim.b.term_mode = vim.fn.mode()
 		vim.cmd("buffer " .. b)
+		-- Restore target buffer's mode
+		if vim.b.term_mode ~= "n" then
+			vim.cmd("startinsert")
+		else
+			vim.cmd("stopinsert")
+		end
 	end
 end
 
