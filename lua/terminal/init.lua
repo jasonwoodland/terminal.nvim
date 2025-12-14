@@ -30,14 +30,97 @@ local function save_term_height()
 	end
 end
 
-local function get_terminal_buffers()
-	local terminal_buffers = {}
-	for _, buf in ipairs(vim.api.nvim_list_bufs()) do
-		if vim.api.nvim_buf_get_option(buf, "buftype") == "terminal" then
-			table.insert(terminal_buffers, buf)
+-- Forward declaration for set_terminal_winbar
+local set_terminal_winbar
+
+-- Ordered list of terminal buffers (global state)
+vim.g.term_order = vim.g.term_order or {}
+
+-- Sync term_order with actual terminal buffers, removing stale entries
+-- and adding any missing terminals at the end
+local function sync_term_order()
+	local order = vim.g.term_order or {}
+	local valid_order = {}
+	local seen = {}
+
+	-- Keep valid buffers in their current order
+	for _, buf in ipairs(order) do
+		if vim.fn.bufexists(buf) == 1 and vim.fn.getbufvar(buf, "&buftype") == "terminal" then
+			table.insert(valid_order, buf)
+			seen[buf] = true
 		end
 	end
-	return terminal_buffers
+
+	-- Add any new terminal buffers not in the order list
+	for _, buf in ipairs(vim.api.nvim_list_bufs()) do
+		if vim.api.nvim_buf_get_option(buf, "buftype") == "terminal" and not seen[buf] then
+			table.insert(valid_order, buf)
+		end
+	end
+
+	vim.g.term_order = valid_order
+	return valid_order
+end
+
+-- Add a terminal buffer to the order list
+local function add_term_to_order(bufnr)
+	local order = vim.g.term_order or {}
+	for _, buf in ipairs(order) do
+		if buf == bufnr then
+			return -- Already in list
+		end
+	end
+	table.insert(order, bufnr)
+	vim.g.term_order = order
+end
+
+-- Remove a terminal buffer from the order list
+local function remove_term_from_order(bufnr)
+	local order = vim.g.term_order or {}
+	local new_order = {}
+	for _, buf in ipairs(order) do
+		if buf ~= bufnr then
+			table.insert(new_order, buf)
+		end
+	end
+	vim.g.term_order = new_order
+end
+
+-- Move the current terminal buffer in the order list
+local function move_term_in_order(direction)
+	local bufnr = vim.fn.bufnr()
+	if vim.bo.buftype ~= "terminal" then
+		return
+	end
+
+	local order = sync_term_order()
+	local idx = nil
+	for i, buf in ipairs(order) do
+		if buf == bufnr then
+			idx = i
+			break
+		end
+	end
+
+	if not idx then
+		return
+	end
+
+	local new_idx = idx + direction
+	if new_idx < 1 or new_idx > #order then
+		return -- Can't move beyond bounds
+	end
+
+	-- Swap
+	order[idx], order[new_idx] = order[new_idx], order[idx]
+	vim.g.term_order = order
+
+	-- Refresh winbar
+	set_terminal_winbar()
+end
+
+local function get_terminal_buffers()
+	return sync_term_order()
 end
 
 local function format_terminal_buffers(terminal_buffers)
@@ -73,7 +156,7 @@ local function format_terminal_buffers(terminal_buffers)
 	return table.concat(buffer_names)
 end
 
-local function set_terminal_winbar()
+set_terminal_winbar = function()
 	local terminal_buffers = get_terminal_buffers()
 	if #terminal_buffers > 0 then
 		vim.wo.winbar = format_terminal_buffers(terminal_buffers)
@@ -144,9 +227,9 @@ local function toggle_term()
 
 	-- if a terminal window is open
 	if
-		vim.t.term_winid ~= 0
-		and vim.fn.win_id2win(vim.t.term_winid) > 0
-		and (#vim.api.nvim_tabpage_list_wins(0) > 1 or M.config.float)
+	    vim.t.term_winid ~= 0
+	    and vim.fn.win_id2win(vim.t.term_winid) > 0
+	    and (#vim.api.nvim_tabpage_list_wins(0) > 1 or M.config.float)
 	then
 		if M.config.cycle_terminal_mode then
 			-- if the terminal window is not the current window, set as current window
@@ -263,6 +346,8 @@ local function setup_autocmd()
 			vim.opt_local.relativenumber = false
 			vim.opt_local.scrolloff = 0
 			vim.opt_local.sidescrolloff = 0
+			-- Add new terminal to the order list
+			add_term_to_order(vim.fn.bufnr())
 		end,
 	})
 	vim.api.nvim_create_autocmd("WinResized", {
@@ -339,6 +424,20 @@ local function setup_keymap()
 	end)
 	vim.keymap.set("t", "<C-S-]>", function()
 		SwitchTerm(1)
+	end)
+
+	-- Term tab reordering
+	vim.keymap.set("n", "<C-S-M-[>", function()
+		MoveTerm(-1)
+	end)
+	vim.keymap.set("n", "<C-S-M-]>", function()
+		MoveTerm(1)
+	end)
+	vim.keymap.set("t", "<C-S-M-[>", function()
+		MoveTerm(-1)
+	end)
+	vim.keymap.set("t", "<C-S-M-]>", function()
+		MoveTerm(1)
 	end)
 
 	local opts = { noremap = true, silent = true }
@@ -420,14 +519,17 @@ local function setup_alias()
 end
 
 function SwitchTerm(delta, clamp)
-	local bufs = {}
-	for i = 1, vim.fn.bufnr("$") do
-		if vim.fn.getbufvar(i, "&buftype") == "terminal" then
-			table.insert(bufs, i)
+	local bufs = get_terminal_buffers()
+
+	local i = nil
+	local current_buf = vim.fn.bufnr("%")
+	for j, buf in ipairs(bufs) do
+		if buf == current_buf then
+			i = j
+			break
 		end
 	end
 
-	local i = vim.fn.index(bufs, vim.fn.bufnr("%"))
 	if i == nil then
 		i = delta == 1 and #bufs or 1
 	else
@@ -438,7 +540,9 @@ function SwitchTerm(delta, clamp)
 	if clamp then
 		b = bufs[math.max(1, math.min(#bufs, i))]
 	else
-		b = bufs[i % #bufs + 1]
+		-- Wrap around
+		i = ((i - 1) % #bufs) + 1
+		b = bufs[i]
 	end
 	if b ~= nil then
 		-- Save current buffer's mode
@@ -451,6 +555,10 @@ function SwitchTerm(delta, clamp)
 			vim.cmd("stopinsert")
 		end
 	end
+end
+
+function MoveTerm(direction)
+	move_term_in_order(direction)
 end
 
 local function get_next_terminal_buffer_before_close()
@@ -482,6 +590,8 @@ function TermDelete()
 	if b ~= nil then
 		vim.cmd("buffer " .. b)
 	end
+	-- Remove from order list before deleting
+	remove_term_from_order(bufnr)
 	vim.api.nvim_buf_delete(bufnr, { force = true })
 	if b ~= nil then
 		set_terminal_winbar()
