@@ -383,8 +383,32 @@ local function setup_keymap()
 	vim.keymap.set("t", "<C-;>", "<C-\\><C-n>", { noremap = true })
 	vim.keymap.set("n", "<C-S-->", toggle_zoom)
 	vim.keymap.set("t", "<C-S-->", toggle_zoom)
-	vim.keymap.set("t", "<C-PageUp>", "<C-\\><C-n><C-PageUp>", { noremap = true })
-	vim.keymap.set("t", "<C-PageDown>", [[<C-\><C-n><C-PageDown>]], { noremap = true })
+	local function switch_tab(direction)
+		-- Save current terminal mode if we're in a terminal buffer
+		local src_mode = vim.fn.mode()
+		if vim.bo.buftype == "terminal" then
+			vim.b.term_mode = src_mode
+		end
+		if src_mode == "t" then
+			vim.cmd("stopinsert")
+		end
+		if direction > 0 then
+			vim.cmd("tabnext")
+		else
+			vim.cmd("tabprevious")
+		end
+		-- Restore terminal mode if we landed in a terminal buffer (deferred)
+		vim.schedule(function()
+			if vim.bo.buftype == "terminal" then
+				if vim.b.term_mode == "t" or vim.b.term_mode == nil then
+					vim.cmd("startinsert")
+				end
+			end
+		end)
+	end
+
+	vim.keymap.set({ "n", "t" }, "<C-PageUp>", function() switch_tab(-1) end, { noremap = true })
+	vim.keymap.set({ "n", "t" }, "<C-PageDown>", function() switch_tab(1) end, { noremap = true })
 
 	-- C-w convenience mappings
 	-- vim.keymap.set("t", "<C-W>", "<C-\\><C-N><C-W>", { noremap = true })
@@ -395,7 +419,7 @@ local function setup_keymap()
 	-- vim.keymap.set("t", "<C-W><C-O>", "<C-\\><C-O>", { noremap = true })
 
 	-- C-S-x convenience mappings
-	vim.keymap.set("n", "<C-S-n>", "<cmd>terminal<cr>", { noremap = true })
+	vim.keymap.set("n", "<C-S-n>", "<cmd>terminal<cr><cmd>startinsert<cr>", { noremap = true })
 	vim.keymap.set("t", "<C-S-n>", "<cmd>terminal<cr>", { noremap = true })
 	vim.keymap.set("n", "<C-S-d>", TermDelete, { noremap = true })
 	vim.keymap.set("t", "<C-S-d>", TermDelete, { noremap = true })
