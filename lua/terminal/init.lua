@@ -276,8 +276,14 @@ local function toggle_term()
 				vim.cmd("botright sp term://" .. vim.env.SHELL)
 			end
 
-			local terminal_height = height > 1 and height or vim.t.term_height
-			vim.cmd("res " .. terminal_height)
+			-- If zoomed (term_prev_height is set), maximize; otherwise use stored height
+			if vim.t.term_prev_height ~= nil then
+				vim.cmd("resize")
+				vim.t.term_height = vim.fn.winheight(vim.t.term_winid) + get_winbar_height()
+			else
+				local terminal_height = height > 1 and height or vim.t.term_height
+				vim.cmd("res " .. terminal_height)
+			end
 			vim.cmd("set wfh")
 			vim.t.term_bufnr = vim.fn.bufnr()
 			vim.t.term_winid = vim.fn.win_getid()
