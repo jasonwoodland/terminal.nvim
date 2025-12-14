@@ -33,57 +33,45 @@ end
 -- Forward declaration for set_terminal_winbar
 local set_terminal_winbar
 
--- Ordered list of terminal buffers (global state)
-vim.g.term_order = vim.g.term_order or {}
-
 -- Sync term_order with actual terminal buffers, removing stale entries
--- and adding any missing terminals at the end
+-- Only keeps buffers that were explicitly added to this tab's order
 local function sync_term_order()
-	local order = vim.g.term_order or {}
+	local order = vim.t.term_order or {}
 	local valid_order = {}
-	local seen = {}
 
-	-- Keep valid buffers in their current order
+	-- Keep valid buffers in their current order (remove deleted/non-terminal buffers)
 	for _, buf in ipairs(order) do
 		if vim.fn.bufexists(buf) == 1 and vim.fn.getbufvar(buf, "&buftype") == "terminal" then
 			table.insert(valid_order, buf)
-			seen[buf] = true
 		end
 	end
 
-	-- Add any new terminal buffers not in the order list
-	for _, buf in ipairs(vim.api.nvim_list_bufs()) do
-		if vim.api.nvim_buf_get_option(buf, "buftype") == "terminal" and not seen[buf] then
-			table.insert(valid_order, buf)
-		end
-	end
-
-	vim.g.term_order = valid_order
+	vim.t.term_order = valid_order
 	return valid_order
 end
 
 -- Add a terminal buffer to the order list
 local function add_term_to_order(bufnr)
-	local order = vim.g.term_order or {}
+	local order = vim.t.term_order or {}
 	for _, buf in ipairs(order) do
 		if buf == bufnr then
 			return -- Already in list
 		end
 	end
 	table.insert(order, bufnr)
-	vim.g.term_order = order
+	vim.t.term_order = order
 end
 
 -- Remove a terminal buffer from the order list
 local function remove_term_from_order(bufnr)
-	local order = vim.g.term_order or {}
+	local order = vim.t.term_order or {}
 	local new_order = {}
 	for _, buf in ipairs(order) do
 		if buf ~= bufnr then
 			table.insert(new_order, buf)
 		end
 	end
-	vim.g.term_order = new_order
+	vim.t.term_order = new_order
 end
 
 -- Move the current terminal buffer in the order list
@@ -113,7 +101,7 @@ local function move_term_in_order(direction)
 
 	-- Swap
 	order[idx], order[new_idx] = order[new_idx], order[idx]
-	vim.g.term_order = order
+	vim.t.term_order = order
 
 	-- Refresh winbar
 	set_terminal_winbar()
@@ -241,11 +229,11 @@ local function toggle_term()
 			end
 		end
 		-- close the terminal
-		vim.g.term_bufnr = vim.api.nvim_win_get_buf(vim.t.term_winid)
+		vim.t.term_bufnr = vim.api.nvim_win_get_buf(vim.t.term_winid)
 		vim.t.term_mode = vim.fn.mode()
 		-- Save cursor/scroll position
-		vim.b[vim.g.term_bufnr].term_view = vim.fn.winsaveview()
-		local term_winnr = vim.fn.bufwinnr(vim.g.term_bufnr)
+		vim.b[vim.t.term_bufnr].term_view = vim.fn.winsaveview()
+		local term_winnr = vim.fn.bufwinnr(vim.t.term_bufnr)
 
 		if M.config.float then
 			-- Close floating window
@@ -271,18 +259,18 @@ local function toggle_term()
 		vim.t.prev_winid = vim.fn.win_getid()
 
 		if M.config.float then
-			if vim.fn.exists("g:term_bufnr") ~= 0 and vim.fn.bufexists(vim.g.term_bufnr) ~= 0 then
-				vim.t.term_winid = create_float_win(vim.g.term_bufnr)
+			if vim.fn.exists("t:term_bufnr") ~= 0 and vim.fn.bufexists(vim.t.term_bufnr) ~= 0 then
+				vim.t.term_winid = create_float_win(vim.t.term_bufnr)
 			else
 				-- Create a new terminal buffer
 				local bufnr = vim.api.nvim_create_buf(false, true)
 				vim.t.term_winid = create_float_win(bufnr)
 				vim.fn.termopen(vim.env.SHELL)
-				vim.g.term_bufnr = bufnr
+				vim.t.term_bufnr = bufnr
 			end
 		else
-			if vim.fn.exists("g:term_bufnr") ~= 0 and vim.fn.bufexists(vim.g.term_bufnr) ~= 0 then
-				vim.cmd("botright sb" .. vim.g.term_bufnr)
+			if vim.fn.exists("t:term_bufnr") ~= 0 and vim.fn.bufexists(vim.t.term_bufnr) ~= 0 then
+				vim.cmd("botright sb" .. vim.t.term_bufnr)
 				vim.t.term_winid = vim.fn.win_getid()
 			else
 				vim.cmd("botright sp term://" .. vim.env.SHELL)
@@ -291,13 +279,13 @@ local function toggle_term()
 			local terminal_height = height > 1 and height or vim.t.term_height
 			vim.cmd("res " .. terminal_height)
 			vim.cmd("set wfh")
-			vim.g.term_bufnr = vim.fn.bufnr()
+			vim.t.term_bufnr = vim.fn.bufnr()
 			vim.t.term_winid = vim.fn.win_getid()
 		end
 
 		-- Restore cursor/scroll position
-		if vim.b[vim.g.term_bufnr].term_view then
-			vim.fn.winrestview(vim.b[vim.g.term_bufnr].term_view)
+		if vim.b[vim.t.term_bufnr].term_view then
+			vim.fn.winrestview(vim.b[vim.t.term_bufnr].term_view)
 		end
 
 		if vim.t.term_mode ~= "n" then
@@ -329,7 +317,7 @@ local function toggle_zoom()
 end
 
 local function setup_vars()
-	vim.g.term_bufnr = vim.g.term_bufnr or nil
+	vim.t.term_bufnr = vim.t.term_bufnr or nil
 	vim.t.term_winid = vim.g.term_winid or 0
 	vim.t.term_height = vim.t.term_height or get_term_height()
 	vim.t.current_win = vim.t.current_win or 0
@@ -354,10 +342,10 @@ local function setup_autocmd()
 		pattern = "*",
 		group = "Term",
 		callback = function()
-			if vim.g.term_bufnr == nil then
+			if vim.t.term_bufnr == nil then
 				return
 			end
-			local height = vim.fn.winheight(vim.fn.bufwinnr(vim.g.term_bufnr))
+			local height = vim.fn.winheight(vim.fn.bufwinnr(vim.t.term_bufnr))
 			if height == -1 then
 				return
 			end
