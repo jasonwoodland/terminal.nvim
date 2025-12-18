@@ -3,8 +3,6 @@ local M = {}
 local loaded = false
 
 M.config = {
-	cycle_normal_mode = false,
-	cycle_terminal_mode = false,
 	height = 24,
 	winbar = true,
 	float = false,
@@ -235,13 +233,6 @@ end
 
 local function toggle_term()
 	local height = vim.v.count1
-	if M.config.cycle_normal_mode then
-		-- if in terminal mode, switch to normal mode
-		if vim.api.nvim_get_mode().mode == "t" then
-			vim.cmd("stopinsert")
-			return
-		end
-	end
 	if #vim.api.nvim_tabpage_list_wins(0) == 1 and not M.config.float then
 		vim.t.term_winid = nil
 	end
@@ -252,15 +243,6 @@ local function toggle_term()
 	    and vim.fn.win_id2win(vim.t.term_winid) > 0
 	    and (#vim.api.nvim_tabpage_list_wins(0) > 1 or M.config.float)
 	then
-		if M.config.cycle_terminal_mode then
-			-- if the terminal window is not the current window, set as current window
-			if vim.fn.win_getid() ~= vim.t.term_winid then
-				vim.t.current_win = vim.fn.win_getid()
-				vim.api.nvim_set_current_win(vim.t.term_winid)
-				vim.cmd("startinsert")
-				return
-			end
-		end
 		-- close the terminal
 		vim.t.term_bufnr = vim.api.nvim_win_get_buf(vim.t.term_winid)
 		vim.t.term_mode = vim.fn.mode()
