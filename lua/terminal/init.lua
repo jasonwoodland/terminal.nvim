@@ -51,11 +51,21 @@ local function sync_term_order()
 end
 
 -- Add a terminal buffer to the order list
-local function add_term_to_order(bufnr)
+local function add_term_to_order(bufnr, after_bufnr)
 	local order = vim.t.term_order or {}
 	for _, buf in ipairs(order) do
 		if buf == bufnr then
 			return -- Already in list
+		end
+	end
+	-- If after_bufnr specified, insert after it; otherwise append
+	if after_bufnr then
+		for i, buf in ipairs(order) do
+			if buf == after_bufnr then
+				table.insert(order, i + 1, bufnr)
+				vim.t.term_order = order
+				return
+			end
 		end
 	end
 	table.insert(order, bufnr)
@@ -121,7 +131,30 @@ local function format_terminal_buffers(terminal_buffers)
 		-- end
 
 		_G[fn_name] = function()
-			vim.cmd("buffer " .. buf)
+			-- Find the terminal window and switch to it first
+			local term_winid = vim.t.term_winid
+			if term_winid and vim.fn.win_id2win(term_winid) > 0 then
+				local src_bufnr = vim.api.nvim_win_get_buf(term_winid)
+				-- Set flag to prevent ModeChanged callback from overwriting term_mode
+				if vim.bo[src_bufnr].buftype == "terminal" then
+					vim.b[src_bufnr]._term_winbar_click = true
+				end
+				-- Switch to terminal window and change buffer
+				vim.api.nvim_set_current_win(term_winid)
+				vim.cmd("buffer " .. buf)
+				-- Restore target buffer's mode (default to terminal mode if not set)
+				if vim.b.term_mode == "n" then
+					vim.cmd("stopinsert")
+				else
+					vim.cmd("startinsert")
+				end
+				-- Clear flag after everything is done
+				vim.schedule(function()
+					if vim.api.nvim_buf_is_valid(src_bufnr) then
+						vim.b[src_bufnr]._term_winbar_click = nil
+					end
+				end)
+			end
 		end
 
 		local buf_name = vim.api.nvim_buf_get_name(buf)
@@ -342,6 +375,47 @@ local function setup_autocmd()
 			vim.opt_local.sidescrolloff = 0
 			-- Add new terminal to the order list
 			add_term_to_order(vim.fn.bufnr())
+			-- Initialize term_mode (terminals start in terminal mode)
+			vim.b.term_mode = "t"
+		end,
+	})
+	-- Track mode changes in terminal buffers proactively
+	vim.api.nvim_create_autocmd("ModeChanged", {
+		pattern = "*:t",
+		group = "Term",
+		callback = function()
+			if vim.bo.buftype == "terminal" then
+				vim.b.term_mode = "t"
+			end
+		end,
+	})
+	-- Track explicit exit from terminal mode (e.g., <C-\><C-n>)
+	-- Skips when clicking away to another window (preserves t mode for winbar restoration)
+	-- Uses vim.schedule to let winbar click handlers set a flag first
+	vim.api.nvim_create_autocmd("ModeChanged", {
+		pattern = { "t:nt", "t:n" },
+		group = "Term",
+		callback = function()
+			local bufnr = vim.fn.bufnr()
+			local winid = vim.fn.win_getid()
+			vim.schedule(function()
+				if not vim.api.nvim_buf_is_valid(bufnr) then
+					return
+				end
+				-- Skip if this was a winbar click (preserve terminal mode)
+				if vim.b[bufnr]._term_winbar_click then
+					return
+				end
+				-- Only set normal mode if we're still in the same window (explicit <C-\><C-n>)
+				-- If window changed, user clicked away - preserve terminal mode for when they return
+				if vim.fn.win_getid() ~= winid then
+					return
+				end
+				-- Set normal mode for the terminal buffer
+				if vim.bo[bufnr].buftype == "terminal" then
+					vim.b[bufnr].term_mode = "n"
+				end
+			end)
 		end,
 	})
 	vim.api.nvim_create_autocmd("WinResized", {
@@ -356,6 +430,22 @@ local function setup_autocmd()
 				return
 			end
 			vim.t.term_height = height + get_winbar_height()
+		end,
+	})
+	-- Track mode when entering a terminal window directly (e.g., clicking into it)
+	-- WinEnter fires when entering a window, but NOT when switching buffers within the same window
+	vim.api.nvim_create_autocmd("WinEnter", {
+		pattern = "*",
+		group = "Term",
+		callback = function()
+			if vim.bo.buftype == "terminal" then
+				-- Skip if this is part of a winbar click operation
+				if vim.b._term_winbar_click then
+					return
+				end
+				local mode = vim.fn.mode()
+				vim.b.term_mode = (mode == "t") and "t" or "n"
+			end
 		end,
 	})
 	vim.api.nvim_create_autocmd({ "TermOpen", "BufEnter" }, {
@@ -425,8 +515,17 @@ local function setup_keymap()
 	-- vim.keymap.set("t", "<C-W><C-O>", "<C-\\><C-O>", { noremap = true })
 
 	-- C-S-x convenience mappings
-	vim.keymap.set("n", "<C-S-n>", "<cmd>terminal<cr><cmd>startinsert<cr>", { noremap = true })
-	vim.keymap.set("t", "<C-S-n>", "<cmd>terminal<cr>", { noremap = true })
+	local function new_term_after_current()
+		local current_buf = vim.fn.bufnr()
+		vim.cmd("terminal")
+		local new_buf = vim.fn.bufnr()
+		-- Insert after current terminal in order (TermOpen autocmd adds to end, so fix it)
+		remove_term_from_order(new_buf)
+		add_term_to_order(new_buf, current_buf)
+		set_terminal_winbar()
+		vim.cmd("startinsert")
+	end
+	vim.keymap.set({ "n", "t" }, "<C-S-n>", new_term_after_current, { noremap = true })
 	vim.keymap.set("n", "<C-S-d>", TermDelete, { noremap = true })
 	vim.keymap.set("t", "<C-S-d>", TermDelete, { noremap = true })
 
