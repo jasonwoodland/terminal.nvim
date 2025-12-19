@@ -181,6 +181,10 @@ local function format_terminal_buffers(terminal_buffers)
 end
 
 set_terminal_winbar = function()
+	-- Only set winbar if current window is the terminal window
+	if vim.t.term_winid == nil or vim.fn.win_getid() ~= vim.t.term_winid then
+		return
+	end
 	local terminal_buffers = get_terminal_buffers()
 	if #terminal_buffers > 0 then
 		vim.wo.winbar = format_terminal_buffers(terminal_buffers)
