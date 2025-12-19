@@ -23,8 +23,13 @@ local function get_winbar_height()
 end
 
 local function save_term_height()
-	if vim.fn.exists("t:term_bufnr") ~= 0 then
-		vim.t.term_height = vim.fn.winheight(vim.fn.bufwinnr(vim.t.term_bufnr)) - get_winbar_height()
+	-- Don't save height if zoomed, to preserve the non-zoomed height
+	if vim.fn.exists("t:term_bufnr") ~= 0 and vim.t.term_prev_height == nil then
+		local height = vim.fn.winheight(vim.fn.bufwinnr(vim.t.term_bufnr))
+		if height > 0 then
+			-- Add winbar height because :resize includes it but winheight() doesn't
+			vim.t.term_height = height + get_winbar_height()
+		end
 	end
 end
 
@@ -407,10 +412,15 @@ local function setup_autocmd()
 			if vim.t.term_bufnr == nil then
 				return
 			end
-			local height = vim.fn.winheight(vim.fn.bufwinnr(vim.t.term_bufnr))
-			if height == -1 then
+			-- Don't update term_height if zoomed, to preserve the non-zoomed height
+			if vim.t.term_prev_height ~= nil then
 				return
 			end
+			local height = vim.fn.winheight(vim.fn.bufwinnr(vim.t.term_bufnr))
+			if height <= 0 then
+				return
+			end
+			-- Add winbar height because :resize includes it but winheight() doesn't
 			vim.t.term_height = height + get_winbar_height()
 		end,
 	})
