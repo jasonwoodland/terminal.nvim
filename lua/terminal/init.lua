@@ -161,16 +161,15 @@ local function format_terminal_buffers(terminal_buffers)
 		end
 
 		local buf_name = vim.api.nvim_buf_get_name(buf)
-		buf_name = vim.b[buf].term_title:match("^[^ ]+") or buf_name
-
-		local shortened_name = buf_name:match("[^/:]+$") or buf_name
-		shortened_name = vim.fn.substitute(buf_name, "\\v([^/]+)/", "\\=strpart(submatch(1), 0, 1) . '/'", "g")
+		buf_name = vim.b[buf].term_title or buf_name
+		-- Shorten directory components: ~/some/long/path -> ~/s/l/path
+		buf_name = vim.fn.substitute(buf_name, "\\v([^/~ ]+)/", "\\=strpart(submatch(1), 0, 1) . '/'", "g")
 
 		local styled_name
 		if buf == current_buf then
-			styled_name = "%#WinBarActive# " .. shortened_name .. " %*"
+			styled_name = "%#WinBarActive# " .. buf_name .. " %*"
 		else
-			styled_name = " " .. shortened_name .. " "
+			styled_name = " " .. buf_name .. " "
 		end
 
 		local clickable_name = "%@v:lua.TermWinbarClick" .. buf .. "@" .. styled_name .. "%T"
@@ -294,20 +293,39 @@ local function toggle_term()
 			end
 		else
 			if vim.fn.exists("t:term_bufnr") ~= 0 and vim.fn.bufexists(vim.t.term_bufnr) ~= 0 then
-				vim.cmd("botright sb" .. vim.t.term_bufnr)
-				vim.t.term_winid = vim.fn.win_getid()
+				local terminal_height = height > 1 and height or vim.t.term_height
+				-- Create window with a scratch buffer and pre-set the winbar,
+				-- then attach the terminal buffer so it only sees the final text area
+				local scratch = vim.api.nvim_create_buf(false, true)
+				local win = vim.api.nvim_open_win(scratch, true, {
+					split = "below",
+					win = -1,
+					height = terminal_height,
+				})
+				vim.t.term_winid = win
+				local buffers = get_terminal_buffers()
+				if #buffers > 0 then
+					vim.wo[win].winbar = format_terminal_buffers(buffers)
+				end
+				vim.api.nvim_win_set_buf(win, vim.t.term_bufnr)
+				vim.api.nvim_buf_delete(scratch, { force = true })
+				-- If zoomed, maximize after setup
+				if vim.t.term_prev_height ~= nil then
+					vim.cmd("resize")
+					vim.t.term_height = vim.fn.winheight(win) + get_winbar_height()
+				end
 			else
 				vim.cmd("botright sp term://" .. vim.env.SHELL)
+				-- If zoomed, maximize; otherwise use stored height
+				if vim.t.term_prev_height ~= nil then
+					vim.cmd("resize")
+					vim.t.term_height = vim.fn.winheight(vim.fn.win_getid()) + get_winbar_height()
+				else
+					local terminal_height = height > 1 and height or vim.t.term_height
+					vim.cmd("res " .. terminal_height)
+				end
 			end
 
-			-- If zoomed (term_prev_height is set), maximize; otherwise use stored height
-			if vim.t.term_prev_height ~= nil then
-				vim.cmd("resize")
-				vim.t.term_height = vim.fn.winheight(vim.t.term_winid) + get_winbar_height()
-			else
-				local terminal_height = height > 1 and height or vim.t.term_height
-				vim.cmd("res " .. terminal_height)
-			end
 			vim.cmd("set wfh")
 			vim.t.term_bufnr = vim.fn.bufnr()
 			vim.t.term_winid = vim.fn.win_getid()
@@ -467,6 +485,61 @@ local function setup_autocmd()
 			save_term_height()
 		end,
 	})
+	vim.api.nvim_create_autocmd("TermClose", {
+		pattern = "*",
+		group = "Term",
+		callback = function(ev)
+			local bufnr = ev.buf
+			vim.schedule(function()
+				if not vim.api.nvim_buf_is_valid(bufnr) then
+					return
+				end
+
+				local term_win_open = vim.t.term_winid and vim.fn.win_id2win(vim.t.term_winid) > 0
+				local is_displayed = term_win_open and vim.api.nvim_win_get_buf(vim.t.term_winid) == bufnr
+
+				local next_buf = get_next_terminal_buffer_before_close(bufnr)
+				remove_term_from_order(bufnr)
+
+				if not is_displayed then
+					-- Buffer not currently shown, just clean up
+					vim.api.nvim_buf_delete(bufnr, { force = true })
+					if term_win_open then
+						vim.api.nvim_win_call(vim.t.term_winid, function()
+							set_terminal_winbar()
+						end)
+					end
+					return
+				end
+
+				if next_buf then
+					-- Switch to next terminal
+					vim.api.nvim_win_set_buf(vim.t.term_winid, next_buf)
+					vim.t.term_bufnr = next_buf
+					vim.api.nvim_buf_delete(bufnr, { force = true })
+					vim.api.nvim_win_call(vim.t.term_winid, function()
+						set_terminal_winbar()
+					end)
+				else
+					-- Last terminal, close the window
+					if vim.fn.win_getid() == vim.t.term_winid then
+						vim.cmd("wincmd p")
+					end
+					if M.config.float then
+						vim.api.nvim_win_close(vim.t.term_winid, true)
+					else
+						local term_winnr = vim.fn.win_id2win(vim.t.term_winid)
+						if term_winnr > 0 then
+							vim.cmd(term_winnr .. "close")
+						end
+					end
+					vim.t.term_winid = nil
+					vim.t.term_bufnr = nil
+					vim.api.nvim_buf_delete(bufnr, { force = true })
+				end
+			end)
+		end,
+	})
 end
 
 local function setup_keymap()
@@ -499,8 +572,12 @@ local function setup_keymap()
 		end)
 	end
 
-	vim.keymap.set({ "n", "t" }, "<C-PageUp>", function() switch_tab(-1) end, { noremap = true })
-	vim.keymap.set({ "n", "t" }, "<C-PageDown>", function() switch_tab(1) end, { noremap = true })
+	vim.keymap.set({ "n", "t" }, "<C-PageUp>", function()
+		switch_tab(-1)
+	end, { noremap = true })
+	vim.keymap.set({ "n", "t" }, "<C-PageDown>", function()
+		switch_tab(1)
+	end, { noremap = true })
 
 	-- C-w convenience mappings
 	-- vim.keymap.set("t", "<C-W>", "<C-\\><C-N><C-W>", { noremap = true })
@@ -511,7 +588,7 @@ local function setup_keymap()
 	-- vim.keymap.set("t", "<C-W><C-O>", "<C-\\><C-O>", { noremap = true })
 
 	-- C-S-x convenience mappings
-	local function new_term_after_current()
+	local function TermNew()
 		local current_buf = vim.fn.bufnr()
 		vim.cmd("terminal")
 		local new_buf = vim.fn.bufnr()
@@ -521,37 +598,46 @@ local function setup_keymap()
 		set_terminal_winbar()
 		vim.cmd("startinsert")
 	end
-	vim.keymap.set({ "n", "t" }, "<C-S-n>", new_term_after_current, { noremap = true })
-	vim.keymap.set("n", "<C-S-d>", TermDelete, { noremap = true })
-	vim.keymap.set("t", "<C-S-d>", TermDelete, { noremap = true })
+	vim.keymap.set({ "n", "t" }, "<C-S-n>", TermNew, { noremap = true })
+	vim.keymap.set({ "n", "t" }, "<C-S-c>", TermDelete, { noremap = true })
 
 	-- Term tab switching
-	vim.keymap.set("n", "<C-S-[>", function()
+	vim.keymap.set({ "n", "t" }, "<C-S-[>", function()
 		SwitchTerm(-1)
 	end)
-	vim.keymap.set("n", "<C-S-]>", function()
-		SwitchTerm(1)
-	end)
-	vim.keymap.set("t", "<C-S-[>", function()
-		SwitchTerm(-1)
-	end)
-	vim.keymap.set("t", "<C-S-]>", function()
+	vim.keymap.set({ "n", "t" }, "<C-S-]>", function()
 		SwitchTerm(1)
 	end)
 
+	-- Jump to term tab by index
+	for i = 1, 9 do
+		vim.keymap.set({ "n", "t" }, "<C-S-" .. i .. ">", function()
+			GoToTerm(i)
+		end, { noremap = true })
+	end
+
 	-- Term tab reordering
-	vim.keymap.set("n", "<C-S-M-[>", function()
+	vim.keymap.set({ "n", "t" }, "<C-S-M-[>", function()
 		MoveTerm(-1)
 	end)
-	vim.keymap.set("n", "<C-S-M-]>", function()
+	vim.keymap.set({ "n", "t" }, "<C-S-M-]>", function()
 		MoveTerm(1)
 	end)
-	vim.keymap.set("t", "<C-S-M-[>", function()
-		MoveTerm(-1)
-	end)
-	vim.keymap.set("t", "<C-S-M-]>", function()
-		MoveTerm(1)
-	end)
+
+	local function TermRedraw()
+		if vim.bo.buftype ~= "terminal" then
+			return
+		end
+		local win = vim.api.nvim_get_current_win()
+		local height = vim.api.nvim_win_get_height(win)
+		vim.api.nvim_win_set_height(win, height - 1)
+		-- vim.schedule(function()
+		vim.defer_fn(function()
+			vim.api.nvim_win_set_height(win, height)
+			-- end)
+		end, 10)
+	end
+	vim.keymap.set({ "n", "t" }, "<C-S-;>", TermRedraw, { noremap = true })
 
 	local opts = { noremap = true, silent = true }
 
@@ -633,9 +719,26 @@ end
 
 function SwitchTerm(delta, clamp)
 	local bufs = get_terminal_buffers()
+	if #bufs == 0 then
+		return
+	end
+
+	local in_term_win = vim.t.term_winid and vim.fn.win_getid() == vim.t.term_winid
+	local term_win_open = vim.t.term_winid and vim.fn.win_id2win(vim.t.term_winid) > 0
+
+	if not in_term_win and not term_win_open then
+		return
+	end
+
+	-- Get the current buffer in the terminal window
+	local current_buf
+	if in_term_win then
+		current_buf = vim.fn.bufnr("%")
+	else
+		current_buf = vim.api.nvim_win_get_buf(vim.t.term_winid)
+	end
 
 	local i = nil
-	local current_buf = vim.fn.bufnr("%")
 	for j, buf in ipairs(bufs) do
 		if buf == current_buf then
 			i = j
@@ -657,8 +760,13 @@ function SwitchTerm(delta, clamp)
 		i = ((i - 1) % #bufs) + 1
 		b = bufs[i]
 	end
-	if b ~= nil then
-		-- Save current buffer's mode
+
+	if b == nil or b == current_buf then
+		return
+	end
+
+	if in_term_win then
+		-- In terminal window: switch normally
 		vim.b.term_mode = vim.fn.mode()
 		vim.cmd("buffer " .. b)
 		-- Restore target buffer's mode
@@ -667,6 +775,58 @@ function SwitchTerm(delta, clamp)
 		else
 			vim.cmd("stopinsert")
 		end
+	else
+		-- Remote switch: change buffer in terminal window without moving cursor
+		vim.api.nvim_win_set_buf(vim.t.term_winid, b)
+		vim.t.term_bufnr = b
+		vim.api.nvim_win_call(vim.t.term_winid, function()
+			set_terminal_winbar()
+		end)
+	end
+end
+
+function GoToTerm(index)
+	local bufs = get_terminal_buffers()
+	if index < 1 or index > #bufs then
+		return
+	end
+	local b = bufs[index]
+
+	local in_term_win = vim.t.term_winid and vim.fn.win_getid() == vim.t.term_winid
+	local term_win_open = vim.t.term_winid and vim.fn.win_id2win(vim.t.term_winid) > 0
+
+	if not in_term_win and not term_win_open then
+		return
+	end
+
+	local current_buf
+	if in_term_win then
+		current_buf = vim.fn.bufnr("%")
+	else
+		current_buf = vim.api.nvim_win_get_buf(vim.t.term_winid)
+	end
+
+	if b == current_buf then
+		return
+	end
+
+	if in_term_win then
+		-- In terminal window: switch normally
+		vim.b.term_mode = vim.fn.mode()
+		vim.cmd("buffer " .. b)
+		-- Restore target buffer's mode
+		if vim.b.term_mode ~= "n" then
+			vim.cmd("startinsert")
+		else
+			vim.cmd("stopinsert")
+		end
+	else
+		-- Remote switch: change buffer in terminal window without moving cursor
+		vim.api.nvim_win_set_buf(vim.t.term_winid, b)
+		vim.t.term_bufnr = b
+		vim.api.nvim_win_call(vim.t.term_winid, function()
+			set_terminal_winbar()
+		end)
 	end
 end
 
@@ -674,16 +834,19 @@ function MoveTerm(direction)
 	move_term_in_order(direction)
 end
 
-local function get_next_terminal_buffer_before_close()
+local function get_next_terminal_buffer_before_close(bufnr)
 	local bufs = get_terminal_buffers()
 
 	local i
-	local bufnr = vim.fn.bufnr()
+	bufnr = bufnr or vim.fn.bufnr()
 	for j = 1, #bufs do
 		if bufs[j] == bufnr then
 			i = j
 			break
 		end
+	end
+	if i == nil then
+		return nil
 	end
 	table.remove(bufs, i)
 
