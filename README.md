@@ -1,18 +1,17 @@
 # terminal.nvim
 
-Minimal terminal plugin for unobtrusive terminal buffer management in Neovim.
+Minimal plugin for unobtrusive terminal management in Neovim.
 
 ## Features
 
-- Toggleable drawer-style and floating window modes
-- Toggle zoom to utilise screen real estate
+- Drawer-style and floating window modes
 - Unobtrusive, idiomatic keymaps that work in Terminal and Normal modes
 - Multiple terminal tabs per Vim tab
-- Rearrange terminal tabs
+- Fast tab switching and rearranging
+- Toggle zoom to fullscreen terminal windows
 - Preserve and restore terminal buffer mode when switching buffers/windows
-- Insert the contents of any register while in Terminal mode
+- Insert the contents of registers while in Terminal mode
 - Fully configurable keymaps
-- Floating zoom for near-fullscreen terminal buffers
 
 ## Configuration
 
