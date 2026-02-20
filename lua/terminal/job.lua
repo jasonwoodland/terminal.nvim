@@ -8,7 +8,9 @@ function M.run(cmd, cb)
 	vim.fn.termopen(cmd, {
 		on_exit = function(_, code, _)
 			if code == 0 then
-				vim.cmd("bd" .. job_bufnr)
+				if vim.api.nvim_buf_is_valid(job_bufnr) then
+					vim.api.nvim_buf_delete(job_bufnr, { force = true })
+				end
 				if cb then
 					cb()
 				end

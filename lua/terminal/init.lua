@@ -270,8 +270,22 @@ local function get_float_win_config()
 	}
 end
 
+local function open_window(bufnr, win_config)
+	local scratch = vim.api.nvim_create_buf(false, true)
+	local win = vim.api.nvim_open_win(scratch, true, win_config)
+	if M.config.winbar then
+		local buffers = get_terminal_buffers()
+		if #buffers > 0 then
+			vim.wo[win].winbar = format_terminal_buffers(buffers)
+		end
+	end
+	vim.api.nvim_win_set_buf(win, bufnr)
+	vim.api.nvim_buf_delete(scratch, { force = true })
+	return win
+end
+
 local function create_float_win(bufnr)
-	local win = vim.api.nvim_open_win(bufnr, true, get_float_win_config())
+	local win = open_window(bufnr, get_float_win_config())
 	vim.wo[win].winblend = 0
 	return win
 end
@@ -317,31 +331,27 @@ function M.toggle()
 		else
 			if vim.fn.exists("t:term_bufnr") ~= 0 and vim.fn.bufexists(vim.t.term_bufnr) ~= 0 then
 				local terminal_height = height > 1 and height or vim.t.term_height or get_term_height()
-				local scratch = vim.api.nvim_create_buf(false, true)
-				local win = vim.api.nvim_open_win(scratch, true, {
+				vim.t.term_winid = open_window(vim.t.term_bufnr, {
 					split = "below",
 					win = -1,
 					height = terminal_height,
 				})
-				vim.t.term_winid = win
-				local buffers = get_terminal_buffers()
-				if #buffers > 0 then
-					vim.wo[win].winbar = format_terminal_buffers(buffers)
-				end
-				vim.api.nvim_win_set_buf(win, vim.t.term_bufnr)
-				vim.api.nvim_buf_delete(scratch, { force = true })
 				if vim.t.term_prev_height ~= nil then
 					vim.cmd("resize")
-					vim.t.term_height = vim.fn.winheight(win) + get_winbar_height()
+					vim.t.term_height = vim.fn.winheight(vim.t.term_winid) + get_winbar_height()
 				end
 			else
-				vim.cmd("botright sp term://" .. vim.env.SHELL)
+				local bufnr = vim.api.nvim_create_buf(false, true)
+				local terminal_height = height > 1 and height or vim.t.term_height or get_term_height()
+				vim.t.term_winid = open_window(bufnr, {
+					split = "below",
+					win = -1,
+					height = terminal_height,
+				})
+				vim.fn.termopen(vim.env.SHELL)
 				if vim.t.term_prev_height ~= nil then
 					vim.cmd("resize")
-					vim.t.term_height = vim.fn.winheight(vim.fn.win_getid()) + get_winbar_height()
-				else
-					local terminal_height = height > 1 and height or vim.t.term_height
-					vim.cmd("res " .. terminal_height)
+					vim.t.term_height = vim.fn.winheight(vim.t.term_winid) + get_winbar_height()
 				end
 			end
 
@@ -395,21 +405,11 @@ function M.zoom()
 			local height = vim.t.term_height or get_term_height()
 			vim.api.nvim_win_close(vim.t.term_winid, true)
 			vim.t.term_zoom = nil
-			local scratch = vim.api.nvim_create_buf(false, true)
-			local win = vim.api.nvim_open_win(scratch, true, {
+			vim.t.term_winid = open_window(bufnr, {
 				split = "below",
 				win = -1,
 				height = height,
 			})
-			vim.t.term_winid = win
-			if M.config.winbar then
-				local buffers = get_terminal_buffers()
-				if #buffers > 0 then
-					vim.wo[win].winbar = format_terminal_buffers(buffers)
-				end
-			end
-			vim.api.nvim_win_set_buf(win, bufnr)
-			vim.api.nvim_buf_delete(scratch, { force = true })
 			vim.cmd("set wfh")
 			vim.t.term_bufnr = bufnr
 			vim.t.term_height = height
