@@ -411,6 +411,7 @@ function M.zoom()
 				height = height,
 			})
 			vim.cmd("set wfh")
+			print("") -- trigger redraw of cmdline to clear ruler
 			vim.t.term_bufnr = bufnr
 			vim.t.term_height = height
 		end
