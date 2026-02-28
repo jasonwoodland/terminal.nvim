@@ -109,6 +109,24 @@ local function remove_term_from_order(bufnr)
 	_G["TermWinbarClick" .. bufnr] = nil
 end
 
+local function adopt_orphaned_terminals()
+	local owned = {}
+	for _, tab in ipairs(vim.api.nvim_list_tabpages()) do
+		local ok, order = pcall(vim.api.nvim_tabpage_get_var, tab, "term_order")
+		if ok and order then
+			for _, buf in ipairs(order) do
+				owned[buf] = true
+			end
+		end
+	end
+
+	for _, buf in ipairs(vim.api.nvim_list_bufs()) do
+		if vim.api.nvim_buf_is_valid(buf) and vim.bo[buf].buftype == "terminal" and not owned[buf] then
+			add_term_to_order(buf)
+		end
+	end
+end
+
 local set_terminal_winbar
 
 local function move_term_in_order(direction)
@@ -674,6 +692,7 @@ local function setup_autocmd()
 		pattern = "*",
 		group = "Term",
 		callback = function()
+			adopt_orphaned_terminals()
 			if vim.bo.buftype == "terminal" then
 				if vim.b._term_winbar_click then
 					return
@@ -717,7 +736,16 @@ local function setup_autocmd()
 		group = "Term",
 		callback = update_float_win_config,
 	})
-	vim.api.nvim_create_autocmd({ "TabEnter", "TabClosed" }, {
+	vim.api.nvim_create_autocmd("TabEnter", {
+		group = "Term",
+		callback = function()
+			vim.schedule(function()
+				adopt_orphaned_terminals()
+				update_float_win_config()
+			end)
+		end,
+	})
+	vim.api.nvim_create_autocmd("TabClosed", {
 		group = "Term",
 		callback = function()
 			vim.schedule(update_float_win_config)
