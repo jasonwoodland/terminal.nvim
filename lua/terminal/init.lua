@@ -13,6 +13,7 @@ M.config = {
 	winbar = true,
 	float = false,
 	float_zoom = true,
+	float_zoom_show_tabline = true,
 	keys = {
 		toggle = "<C-->",
 		normal_mode = "<C-;>",
@@ -231,11 +232,15 @@ end
 
 local function get_float_win_config()
 	if vim.t.term_zoom then
+		local tabline_height = 0
+		if M.config.float_zoom_show_tabline and vim.o.showtabline == 2 or (vim.o.showtabline == 1 and #vim.api.nvim_list_tabpages() > 1) then
+			tabline_height = 1
+		end
 		return {
 			relative = "editor",
 			width = vim.o.columns,
-			height = vim.o.lines - 1,
-			row = 0,
+			height = vim.o.lines - 1 - tabline_height,
+			row = tabline_height,
 			col = 0,
 			style = "minimal",
 			border = "none",
@@ -286,7 +291,6 @@ end
 
 local function create_float_win(bufnr)
 	local win = open_window(bufnr, get_float_win_config())
-	vim.wo[win].winblend = 0
 	return win
 end
 
@@ -398,6 +402,7 @@ function M.zoom()
 			end
 			local term_winnr = vim.fn.win_id2win(vim.t.term_winid)
 			vim.cmd(term_winnr .. "close")
+			print("") -- trigger redraw of cmdline to clear ruler
 
 			vim.t.term_winid = create_float_win(bufnr)
 			vim.t.term_bufnr = bufnr
@@ -605,6 +610,7 @@ local function setup_autocmd()
 			vim.opt_local.relativenumber = false
 			vim.opt_local.scrolloff = 0
 			vim.opt_local.sidescrolloff = 0
+			vim.opt_local.winblend = 0
 			add_term_to_order(vim.fn.bufnr())
 			vim.b.term_mode = "t"
 		end,
@@ -682,6 +688,25 @@ local function setup_autocmd()
 		group = "Term",
 		callback = function()
 			save_term_height()
+		end,
+	})
+	local function update_float_win_config()
+		if not is_float_mode() then
+			return
+		end
+		if not vim.t.term_winid or vim.fn.win_id2win(vim.t.term_winid) == 0 then
+			return
+		end
+		vim.api.nvim_win_set_config(vim.t.term_winid, get_float_win_config())
+	end
+	vim.api.nvim_create_autocmd("VimResized", {
+		group = "Term",
+		callback = update_float_win_config,
+	})
+	vim.api.nvim_create_autocmd({ "TabEnter", "TabClosed" }, {
+		group = "Term",
+		callback = function()
+			vim.schedule(update_float_win_config)
 		end,
 	})
 	vim.api.nvim_create_autocmd("TermClose", {
