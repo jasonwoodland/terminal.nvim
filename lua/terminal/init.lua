@@ -52,6 +52,8 @@ local function is_float_mode()
 	return M.config.float or (M.config.float_zoom and vim.t.term_zoom)
 end
 
+local toggling = false
+
 local function save_term_height()
 	if vim.fn.exists("t:term_bufnr") ~= 0 and vim.t.term_prev_height == nil and not vim.t.term_zoom then
 		local height = vim.fn.winheight(vim.fn.bufwinnr(vim.t.term_bufnr))
@@ -295,6 +297,11 @@ local function create_float_win(bufnr)
 end
 
 function M.toggle()
+	toggling = true
+	vim.schedule(function()
+		toggling = false
+	end)
+
 	local height = vim.v.count1
 	if #vim.api.nvim_tabpage_list_wins(0) == 1 and not is_float_mode() then
 		vim.t.term_winid = nil
@@ -688,6 +695,13 @@ local function setup_autocmd()
 		group = "Term",
 		callback = function()
 			save_term_height()
+			if not toggling and is_float_mode() and vim.fn.win_getid() == vim.t.term_winid then
+				vim.schedule(function()
+					if vim.fn.win_getid() ~= vim.t.term_winid then
+						M.toggle()
+					end
+				end)
+			end
 		end,
 	})
 	local function update_float_win_config()
