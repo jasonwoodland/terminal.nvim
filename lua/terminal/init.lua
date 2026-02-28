@@ -28,6 +28,8 @@ M.config = {
 		reset_height = "<C-S-=>",
 		tab_next = "<C-PageDown>",
 		tab_prev = "<C-PageUp>",
+		move_to_tab_prev = "<C-M-PageUp>",
+		move_to_tab_next = "<C-M-PageDown>",
 	},
 }
 
@@ -128,6 +130,7 @@ local function adopt_orphaned_terminals()
 end
 
 local set_terminal_winbar
+local setup_vars
 
 local function move_term_in_order(direction)
 	local bufnr = vim.fn.bufnr()
@@ -148,10 +151,7 @@ local function move_term_in_order(direction)
 		return
 	end
 
-	local new_idx = idx + direction
-	if new_idx < 1 or new_idx > #order then
-		return
-	end
+	local new_idx = ((idx + direction - 1) % #order) + 1
 
 	order[idx], order[new_idx] = order[new_idx], order[idx]
 	vim.t.term_order = order
@@ -314,7 +314,7 @@ local function create_float_win(bufnr)
 	return win
 end
 
-function M.toggle()
+function M.toggle(opts)
 	toggling = true
 	vim.schedule(function()
 		toggling = false
@@ -325,11 +325,18 @@ function M.toggle()
 		vim.t.term_winid = nil
 	end
 
-	if
-	    vim.t.term_winid ~= 0
+	local is_open = vim.t.term_winid ~= 0
 	    and vim.fn.win_id2win(vim.t.term_winid) > 0
 	    and (#vim.api.nvim_tabpage_list_wins(0) > 1 or is_float_mode())
-	then
+
+	if opts and opts.open == true and is_open then
+		return
+	end
+	if opts and opts.open == false and not is_open then
+		return
+	end
+
+	if is_open then
 		vim.t.term_bufnr = vim.api.nvim_win_get_buf(vim.t.term_winid)
 		vim.t.term_mode = vim.fn.mode()
 		vim.b[vim.t.term_bufnr].term_view = vim.fn.winsaveview()
@@ -400,6 +407,11 @@ function M.toggle()
 end
 
 function M.zoom()
+	toggling = true
+	vim.schedule(function()
+		toggling = false
+	end)
+
 	if M.config.float then
 		vim.t.term_zoom = not vim.t.term_zoom
 		local win_config = get_float_win_config()
@@ -579,6 +591,98 @@ function M.move(direction)
 	move_term_in_order(direction)
 end
 
+function M.move_to_tab(direction)
+	if vim.bo.buftype ~= "terminal" then
+		return
+	end
+
+	local tabs = vim.api.nvim_list_tabpages()
+	if #tabs < 2 then
+		return
+	end
+
+	local current_tab = vim.api.nvim_get_current_tabpage()
+	local idx
+	for i, tab in ipairs(tabs) do
+		if tab == current_tab then
+			idx = i
+			break
+		end
+	end
+
+	local target_idx = ((idx + direction - 1) % #tabs) + 1
+
+	local target_tab = tabs[target_idx]
+	local bufnr = vim.fn.bufnr()
+
+	-- Remove from current tab
+	local next_buf = get_next_terminal_buffer_before_close(bufnr)
+	remove_term_from_order(bufnr)
+
+	-- Add to target tab
+	local ok, target_order = pcall(vim.api.nvim_tabpage_get_var, target_tab, "term_order")
+	if not ok then
+		target_order = {}
+	end
+	table.insert(target_order, bufnr)
+	vim.api.nvim_tabpage_set_var(target_tab, "term_order", target_order)
+
+	-- Update source tab
+	toggling = true
+	local term_win_open = vim.t.term_winid and vim.fn.win_id2win(vim.t.term_winid) > 0
+	if term_win_open then
+		if next_buf then
+			vim.api.nvim_win_set_buf(vim.t.term_winid, next_buf)
+			vim.api.nvim_win_call(vim.t.term_winid, function()
+				set_terminal_winbar()
+			end)
+		else
+			if is_float_mode() then
+				vim.api.nvim_win_close(vim.t.term_winid, true)
+			else
+				if vim.fn.win_getid() == vim.t.term_winid then
+					vim.cmd("wincmd p")
+				end
+				local term_winnr = vim.fn.win_id2win(vim.t.term_winid)
+				if term_winnr > 0 then
+					vim.cmd(term_winnr .. "close")
+				end
+			end
+			vim.t.term_winid = nil
+		end
+	end
+	vim.t.term_bufnr = next_buf
+
+	-- Switch to target tab and show the terminal
+	vim.api.nvim_set_current_tabpage(target_tab)
+	if #target_order == 1 then
+		vim.t.term_winid = 0
+		vim.t.term_height = get_term_height()
+		vim.t.term_zoom = nil
+		vim.t.current_win = vim.fn.win_getid()
+		pcall(vim.api.nvim_tabpage_del_var, 0, "term_prev_height")
+	else
+		setup_vars()
+	end
+	vim.t.term_bufnr = bufnr
+	local target_term_open = vim.t.term_winid and vim.fn.win_id2win(vim.t.term_winid) > 0
+	if target_term_open then
+		vim.api.nvim_win_set_buf(vim.t.term_winid, bufnr)
+		vim.api.nvim_set_current_win(vim.t.term_winid)
+		vim.api.nvim_win_call(vim.t.term_winid, function()
+			set_terminal_winbar()
+		end)
+	else
+		M.toggle({ open = true })
+	end
+	if vim.t.term_winid and vim.fn.win_id2win(vim.t.term_winid) > 0 then
+		vim.api.nvim_win_call(vim.t.term_winid, function()
+			set_terminal_winbar()
+		end)
+	end
+	toggling = false
+end
+
 function M.delete()
 	if vim.bo.buftype ~= "terminal" then
 		return
@@ -617,7 +721,7 @@ end
 -- Setup
 --------------------------------------------------------------------------------
 
-local function setup_vars()
+setup_vars = function()
 	vim.t.term_winid = vim.t.term_winid or 0
 	vim.t.term_height = vim.t.term_height or get_term_height()
 	vim.t.current_win = vim.t.current_win or 0
@@ -713,11 +817,18 @@ local function setup_autocmd()
 		pattern = "*",
 		group = "Term",
 		callback = function()
-			save_term_height()
+			if not toggling then
+				save_term_height()
+			end
 			if not toggling and is_float_mode() and vim.fn.win_getid() == vim.t.term_winid then
+				local tab = vim.api.nvim_get_current_tabpage()
+				local term_winid = vim.t.term_winid
 				vim.schedule(function()
-					if vim.fn.win_getid() ~= vim.t.term_winid then
-						M.toggle()
+					if vim.api.nvim_get_current_tabpage() ~= tab then
+						return
+					end
+					if vim.fn.win_getid() ~= term_winid then
+						M.toggle({ open = false })
 					end
 				end)
 			end
@@ -877,6 +988,13 @@ local function setup_keymap()
 		M.move(1)
 	end)
 
+	map({ "n", "t" }, keys.move_to_tab_prev, function()
+		M.move_to_tab(-1)
+	end)
+	map({ "n", "t" }, keys.move_to_tab_next, function()
+		M.move_to_tab(1)
+	end)
+
 	for i = 1, 9 do
 		vim.keymap.set({ "n", "t" }, "<C-S-" .. i .. ">", function()
 			M.go_to(i)
@@ -996,6 +1114,8 @@ function M.setup(config)
 			reset_height = "<C-S-=>",
 			tab_next = "<C-PageDown>",
 			tab_prev = "<C-PageUp>",
+			move_to_tab_prev = "<C-M-PageUp>",
+			move_to_tab_next = "<C-M-PageDown>",
 		}
 		M.config.keys = vim.tbl_extend("force", default_keys, M.config.keys or {})
 	end
