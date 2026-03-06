@@ -1549,6 +1549,19 @@ function M.move_to_tab(direction)
 	open_group_windows(target_groups[target_group_idx], target_group_idx)
 end
 
+local function term_has_foreground_process(bufnr)
+	local job_id = vim.b[bufnr].terminal_job_id
+	if not job_id then
+		return false
+	end
+	local ok, pid = pcall(vim.fn.jobpid, job_id)
+	if not ok or not pid then
+		return false
+	end
+	local result = vim.fn.system("pgrep -P " .. pid)
+	return vim.v.shell_error == 0 and result ~= ""
+end
+
 function M.delete()
 	set_toggling()
 
@@ -1557,6 +1570,13 @@ function M.delete()
 	end
 
 	local bufnr = vim.fn.bufnr()
+
+	if term_has_foreground_process(bufnr) then
+		if vim.fn.confirm("Terminal has a running process. Close anyway?", "&Yes\n&No", 2) ~= 1 then
+			return
+		end
+	end
+
 	local group_idx, _ = find_buf_group(bufnr)
 	if not group_idx then
 		return
