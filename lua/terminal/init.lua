@@ -567,6 +567,7 @@ update_winbar_overlay = function()
 		winbar_winid = vim.api.nvim_open_win(winbar_bufnr, false, config)
 		vim.t.term_winbar_winid = winbar_winid
 		vim.wo[winbar_winid].winhighlight = "Normal:WinBar"
+		vim.wo[winbar_winid].winblend = 0
 		vim.wo[winbar_winid].cursorline = false
 		vim.wo[winbar_winid].number = false
 		vim.wo[winbar_winid].relativenumber = false
@@ -677,6 +678,7 @@ local function update_float_statuslines()
 			focusable = false,
 		})
 		vim.wo[stl_win].winhighlight = hl
+		vim.wo[stl_win].winblend = 0
 		vim.wo[stl_win].cursorline = false
 
 		::continue::
