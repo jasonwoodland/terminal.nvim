@@ -59,11 +59,16 @@ end
 local toggling = false
 local saved_cmdheight = nil
 local saved_ruler = nil
+local drag_state = nil
 
 local function clamp(val, min, max)
 	if val < min then return min end
 	if val > max then return max end
 	return val
+end
+
+local function win_valid(win)
+	return win and vim.fn.win_id2win(win) > 0
 end
 
 local function set_toggling()
@@ -76,7 +81,7 @@ end
 local function is_term_open()
 	local wins = vim.t.term_winids or {}
 	for _, win in ipairs(wins) do
-		if vim.fn.win_id2win(win) > 0 then
+		if win_valid(win) then
 			return true
 		end
 	end
@@ -89,10 +94,6 @@ local function is_term_related_window(win)
 		if w == win then return true end
 	end
 	if win == vim.t.term_winbar_winid then return true end
-	local seps = vim.t.term_sep_winids or {}
-	for _, w in ipairs(seps) do
-		if w == win then return true end
-	end
 	return false
 end
 
@@ -140,7 +141,7 @@ end
 local function save_term_height()
 	if vim.fn.exists("t:term_bufnr") ~= 0 and vim.t.term_prev_height == nil and not vim.t.term_zoom then
 		local wins = vim.t.term_winids or {}
-		if #wins > 0 and vim.fn.win_id2win(wins[1]) > 0 then
+		if #wins > 0 and win_valid(wins[1]) then
 			local height = vim.api.nvim_win_get_height(wins[1])
 			if height > 0 then
 				vim.t.term_height = height
@@ -178,9 +179,13 @@ local function migrate_term_order(order)
 	return order
 end
 
-local function sync_term_order()
+local function get_term_order()
 	local order = vim.t.term_order or {}
-	order = migrate_term_order(order)
+	return migrate_term_order(order)
+end
+
+local function get_groups()
+	local order = get_term_order()
 
 	local valid_order = {}
 	for _, group in ipairs(order) do
@@ -203,7 +208,7 @@ local function sync_term_order()
 end
 
 local function find_buf_group(bufnr)
-	local groups = sync_term_order()
+	local groups = get_groups()
 	for gi, group in ipairs(groups) do
 		for pi, buf in ipairs(group) do
 			if buf == bufnr then
@@ -215,8 +220,7 @@ local function find_buf_group(bufnr)
 end
 
 local function add_term_to_order(bufnr, after_bufnr)
-	local order = vim.t.term_order or {}
-	order = migrate_term_order(order)
+	local order = get_term_order()
 
 	for _, group in ipairs(order) do
 		for _, buf in ipairs(group) do
@@ -243,8 +247,7 @@ local function add_term_to_order(bufnr, after_bufnr)
 end
 
 local function remove_term_from_order(bufnr)
-	local order = vim.t.term_order or {}
-	order = migrate_term_order(order)
+	local order = get_term_order()
 
 	local new_order = {}
 	for _, group in ipairs(order) do
@@ -264,21 +267,23 @@ local function remove_term_from_order(bufnr)
 end
 
 local function add_buf_to_group(bufnr, group_idx, after_pane_idx)
-	local order = vim.t.term_order or {}
-	order = migrate_term_order(order)
-	if group_idx < 1 or group_idx > #order then
+	local order = get_term_order()
+
+	if not order[group_idx] then
 		return
 	end
-	if after_pane_idx then
-		table.insert(order[group_idx], after_pane_idx + 1, bufnr)
-	else
-		table.insert(order[group_idx], bufnr)
-	end
-	vim.t.term_order = order
-end
 
-local function get_groups()
-	return sync_term_order()
+	local group = order[group_idx]
+
+	for _, buf in ipairs(group) do
+		if buf == bufnr then
+			return
+		end
+	end
+
+	local insert_pos = after_pane_idx and (after_pane_idx + 1) or (#group + 1)
+	table.insert(group, insert_pos, bufnr)
+	vim.t.term_order = order
 end
 
 local function get_current_group()
@@ -288,17 +293,6 @@ local function get_current_group()
 		return nil, idx
 	end
 	return groups[idx], idx
-end
-
-local function get_terminal_buffers()
-	local groups = sync_term_order()
-	local bufs = {}
-	for _, group in ipairs(groups) do
-		for _, buf in ipairs(group) do
-			table.insert(bufs, buf)
-		end
-	end
-	return bufs
 end
 
 local function adopt_orphaned_terminals()
@@ -326,6 +320,21 @@ end
 local update_winbar_overlay
 local destroy_winbar_overlay
 local setup_vars
+
+-------------------------------------------------------------------------------
+-- Group State Helpers
+-------------------------------------------------------------------------------
+
+local function get_group_state(group_idx)
+	local group_state = vim.t.term_group_state or {}
+	return group_state[tostring(group_idx)] or {}
+end
+
+local function set_group_state(group_idx, st)
+	local group_state = vim.t.term_group_state or {}
+	group_state[tostring(group_idx)] = st
+	vim.t.term_group_state = group_state
+end
 
 --------------------------------------------------------------------------------
 -- Floating Winbar Overlay
@@ -438,7 +447,7 @@ local function get_winbar_overlay_config()
 
 	local first_win = nil
 	for _, win in ipairs(wins) do
-		if vim.fn.win_id2win(win) > 0 then
+		if win_valid(win) then
 			first_win = win
 			break
 		end
@@ -454,7 +463,7 @@ local function get_winbar_overlay_config()
 	local total_width = 0
 	local valid_count = 0
 	for _, win in ipairs(wins) do
-		if vim.fn.win_id2win(win) > 0 then
+		if win_valid(win) then
 			total_width = total_width + vim.api.nvim_win_get_width(win)
 			valid_count = valid_count + 1
 		end
@@ -467,20 +476,32 @@ local function get_winbar_overlay_config()
 		return nil
 	end
 
-	-- nvim_win_get_position returns the window top including winbar,
-	-- so row is already the correct position for the overlay
-
-	return {
-		relative = "editor",
-		row = row,
-		col = col,
-		width = total_width,
-		height = 1,
-		style = "minimal",
-		border = "none",
-		zindex = 60,
-		focusable = true,
-	}
+	if is_float_mode() then
+		return {
+			relative = "editor",
+			row = row,
+			col = col,
+			width = total_width,
+			height = 1,
+			style = "minimal",
+			border = "none",
+			zindex = 60,
+			focusable = true,
+		}
+	else
+		return {
+			relative = "win",
+			win = first_win,
+			row = -1,
+			col = 0,
+			width = total_width,
+			height = 1,
+			style = "minimal",
+			border = "none",
+			zindex = 60,
+			focusable = true,
+		}
+	end
 end
 
 update_winbar_overlay = function()
@@ -497,7 +518,7 @@ update_winbar_overlay = function()
 	local wins = vim.t.term_winids or {}
 	local any_open = false
 	for _, win in ipairs(wins) do
-		if vim.fn.win_id2win(win) > 0 then
+		if win_valid(win) then
 			any_open = true
 			break
 		end
@@ -519,7 +540,7 @@ update_winbar_overlay = function()
 				for _, range in ipairs(winbar_click_ranges) do
 					if col >= range.start_col and col < range.end_col then
 						local term_wins = vim.t.term_winids or {}
-						if #term_wins > 0 and vim.fn.win_id2win(term_wins[1]) > 0 then
+						if #term_wins > 0 and win_valid(term_wins[1]) then
 							vim.api.nvim_set_current_win(term_wins[1])
 						end
 						M.go_to(range.group_idx)
@@ -539,7 +560,7 @@ update_winbar_overlay = function()
 	end
 
 	local winbar_winid = vim.t.term_winbar_winid
-	if winbar_winid and vim.fn.win_id2win(winbar_winid) > 0 then
+	if win_valid(winbar_winid) then
 		vim.api.nvim_win_set_config(winbar_winid, config)
 		vim.api.nvim_win_set_buf(winbar_winid, winbar_bufnr)
 	else
@@ -621,7 +642,7 @@ local function update_float_statuslines()
 	local current_win = vim.fn.win_getid()
 
 	for _, win in ipairs(wins) do
-		if vim.fn.win_id2win(win) == 0 then
+		if not win_valid(win) then
 			goto continue
 		end
 
@@ -632,7 +653,11 @@ local function update_float_statuslines()
 
 		local width = vim.api.nvim_win_get_width(win)
 		local stl_row = cfg.row + cfg.height
-		local stl_col = cfg.col
+		local idx
+		for j, w in ipairs(wins) do
+			if w == win then idx = j break end
+		end
+		local stl_col = cfg.col + ((idx and idx > 1 and #wins > 1) and 1 or 0)
 		local hl = (win == current_win) and "Normal:StatusLine" or "Normal:StatusLineNC"
 
 		local stl_buf = vim.api.nvim_create_buf(false, true)
@@ -659,13 +684,12 @@ local function update_float_statuslines()
 end
 
 --------------------------------------------------------------------------------
--- Float separator windows (draggable vertical splits)
+-- Float pane layout and draggable borders
 --------------------------------------------------------------------------------
 
--- Apply widths to all float pane windows and reposition separators
+-- Apply widths to all float pane windows
 local function apply_float_pane_layout(widths)
 	local wins = vim.t.term_winids or {}
-	local sep_wins = vim.t.term_sep_winids or {}
 	if #wins == 0 then
 		return
 	end
@@ -674,18 +698,17 @@ local function apply_float_pane_layout(widths)
 	local col = first_cfg.col
 
 	for i, win in ipairs(wins) do
-		if vim.fn.win_id2win(win) > 0 then
+		if win_valid(win) then
 			local cfg = vim.api.nvim_win_get_config(win)
 			cfg.col = col
 			cfg.width = widths[i]
 			vim.api.nvim_win_set_config(win, cfg)
 		end
-		col = col + widths[i]
-		if i <= #sep_wins and vim.fn.win_id2win(sep_wins[i]) > 0 then
-			local sep_cfg = vim.api.nvim_win_get_config(sep_wins[i])
-			sep_cfg.col = col
-			vim.api.nvim_win_set_config(sep_wins[i], sep_cfg)
-			col = col + 1
+		-- Advance: pane 1 has no left border; panes 2+ have left border (+1)
+		if i == 1 then
+			col = col + widths[i]
+		else
+			col = col + 1 + widths[i]
 		end
 	end
 	update_float_statuslines()
@@ -702,15 +725,13 @@ local function save_pane_widths()
 	end
 	local widths = {}
 	for i, win in ipairs(wins) do
-		if vim.fn.win_id2win(win) > 0 then
+		if win_valid(win) then
 			widths[i] = vim.api.nvim_win_get_width(win)
 		end
 	end
-	local group_state = vim.t.term_group_state or {}
-	local st = group_state[tostring(group_idx)] or {}
+	local st = get_group_state(group_idx)
 	st.widths = widths
-	group_state[tostring(group_idx)] = st
-	vim.t.term_group_state = group_state
+	set_group_state(group_idx, st)
 end
 
 local function equalize_panes()
@@ -720,7 +741,7 @@ local function equalize_panes()
 	end
 	local total = 0
 	for _, win in ipairs(wins) do
-		if vim.fn.win_id2win(win) > 0 then
+		if win_valid(win) then
 			total = total + vim.api.nvim_win_get_width(win)
 		end
 	end
@@ -729,7 +750,7 @@ local function equalize_panes()
 		apply_float_pane_layout(widths)
 	else
 		for i, win in ipairs(wins) do
-			if vim.fn.win_id2win(win) > 0 then
+			if win_valid(win) then
 				vim.api.nvim_win_set_width(win, widths[i])
 			end
 		end
@@ -794,122 +815,99 @@ local function calc_resized_widths(widths, pane_idx, delta)
 	return new_widths
 end
 
-local sep_bufnr = nil
-
-local function ensure_sep_buffer(height)
-	local fillchar = vim.opt.fillchars:get().vert or "│"
-	local lines = {}
-	for j = 1, height do
-		lines[j] = fillchar
+local function get_sep_screen_col(sep_idx)
+	local wins = vim.t.term_winids or {}
+	if sep_idx < 1 or sep_idx >= #wins then return nil end
+	local win = wins[sep_idx]
+	if not win_valid(win) then return nil end
+	local cfg = vim.api.nvim_win_get_config(win)
+	local width = vim.api.nvim_win_get_width(win)
+	-- Right border position: for pane 1 (no left border) it's cfg.col + width
+	-- For pane i>1 (has left border) it's cfg.col + 1 + width
+	if sep_idx == 1 then
+		return cfg.col + width
+	else
+		return cfg.col + 1 + width
 	end
-
-	if sep_bufnr and vim.api.nvim_buf_is_valid(sep_bufnr) then
-		vim.api.nvim_buf_set_lines(sep_bufnr, 0, -1, false, lines)
-		return sep_bufnr
-	end
-
-	sep_bufnr = vim.api.nvim_create_buf(false, true)
-	vim.bo[sep_bufnr].bufhidden = "hide"
-	vim.bo[sep_bufnr].buftype = "nofile"
-	vim.api.nvim_buf_set_lines(sep_bufnr, 0, -1, false, lines)
-
-	vim.api.nvim_buf_set_keymap(sep_bufnr, "n", "<LeftMouse>", "", {
-		noremap = true,
-		callback = function()
-			-- Save which pane had focus and its mode before the separator got focus
-			local prev = vim.t.term_winid
-			if prev and vim.fn.win_id2win(prev) > 0 then
-				local buf = vim.api.nvim_win_get_buf(prev)
-				vim.b[sep_bufnr].drag_prev_win = prev
-				vim.b[sep_bufnr].drag_prev_mode = vim.b[buf].term_mode or "t"
-			end
-		end,
-	})
-
-	vim.api.nvim_buf_set_keymap(sep_bufnr, "n", "<LeftDrag>", "", {
-		noremap = true,
-		callback = function()
-			local mouse = vim.fn.getmousepos()
-			local mouse_col = mouse.screencol - 1
-
-			local pane_wins = vim.t.term_winids or {}
-			local sep_wins = vim.t.term_sep_winids or {}
-			local current_win = vim.fn.win_getid()
-
-			local sep_idx
-			for i, sw in ipairs(sep_wins) do
-				if sw == current_win then
-					sep_idx = i
-					break
-				end
-			end
-			if not sep_idx or not pane_wins[sep_idx] then
-				return
-			end
-			if vim.fn.win_id2win(pane_wins[sep_idx]) == 0 then
-				return
-			end
-
-			-- Get current widths of all panes
-			local widths = {}
-			for i, win in ipairs(pane_wins) do
-				if vim.fn.win_id2win(win) > 0 then
-					widths[i] = vim.api.nvim_win_get_width(win)
-				else
-					return
-				end
-			end
-
-			local left_cfg = vim.api.nvim_win_get_config(pane_wins[sep_idx])
-			local desired_w = mouse_col - left_cfg.col
-			local delta = desired_w - widths[sep_idx]
-			if delta == 0 then
-				return
-			end
-
-			local new_widths = calc_resized_widths(widths, sep_idx, delta)
-			apply_float_pane_layout(new_widths)
-		end,
-	})
-
-	vim.api.nvim_buf_set_keymap(sep_bufnr, "n", "<LeftRelease>", "", {
-		noremap = true,
-		callback = function()
-			save_pane_widths()
-
-			-- Defer refocus so it runs after Neovim finishes processing the mouse event
-			local prev_win = vim.b[sep_bufnr].drag_prev_win
-			local prev_mode = vim.b[sep_bufnr].drag_prev_mode or "t"
-			vim.schedule(function()
-				if prev_win and vim.fn.win_id2win(prev_win) > 0 then
-					vim.api.nvim_set_current_win(prev_win)
-				else
-					local term_wins = vim.t.term_winids or {}
-					for _, win in ipairs(term_wins) do
-						if vim.fn.win_id2win(win) > 0 then
-							vim.api.nvim_set_current_win(win)
-							break
-						end
-					end
-				end
-				if prev_mode == "t" then
-					vim.cmd("startinsert")
-				end
-			end)
-		end,
-	})
-
-	return sep_bufnr
 end
 
-local function close_sep_windows()
-	local sep_wins = vim.t.term_sep_winids or {}
-	for _, win in pairs(sep_wins) do
-		if type(win) == "number" and vim.api.nvim_win_is_valid(win) then
-			vim.api.nvim_win_close(win, true)
-		end
+local function setup_term_mouse_mappings(bufnr)
+	for _, mode in ipairs({ "n", "t" }) do
+		vim.api.nvim_buf_set_keymap(bufnr, mode, "<LeftMouse>", "", {
+			noremap = true,
+			expr = true,
+			callback = function()
+				if not is_float_mode() or not is_term_open() then
+					return vim.api.nvim_replace_termcodes("<LeftMouse>", true, true, true)
+				end
+				local mouse = vim.fn.getmousepos()
+				local screencol = mouse.screencol - 1
+				local wins = vim.t.term_winids or {}
+				for i = 1, #wins - 1 do
+					local sc = get_sep_screen_col(i)
+					if sc and screencol == sc then
+						drag_state = { sep_idx = i }
+						-- Match Neovim's behaviour of exiting to normal mode when resizing
+						vim.schedule(function()
+							vim.cmd("stopinsert")
+						end)
+						return ""
+					end
+				end
+				return vim.api.nvim_replace_termcodes("<LeftMouse>", true, true, true)
+			end,
+		})
+
+		vim.api.nvim_buf_set_keymap(bufnr, mode, "<LeftDrag>", "", {
+			noremap = true,
+			expr = true,
+			callback = function()
+				if not drag_state then
+					return vim.api.nvim_replace_termcodes("<LeftDrag>", true, true, true)
+				end
+				local mouse = vim.fn.getmousepos()
+				local mouse_col = mouse.screencol - 1
+				local pane_wins = vim.t.term_winids or {}
+				if not pane_wins[drag_state.sep_idx] then return "" end
+				if not win_valid(pane_wins[drag_state.sep_idx]) then return "" end
+
+				local widths = {}
+				for i, win in ipairs(pane_wins) do
+					if win_valid(win) then
+						widths[i] = vim.api.nvim_win_get_width(win)
+					else
+						return ""
+					end
+				end
+
+				local current_sep_col = get_sep_screen_col(drag_state.sep_idx)
+				if not current_sep_col then return "" end
+				local delta = mouse_col - current_sep_col
+				if delta == 0 then return "" end
+
+				local new_widths = calc_resized_widths(widths, drag_state.sep_idx, delta)
+				vim.schedule(function()
+					apply_float_pane_layout(new_widths)
+				end)
+				return ""
+			end,
+		})
+
+		vim.api.nvim_buf_set_keymap(bufnr, mode, "<LeftRelease>", "", {
+			noremap = true,
+			expr = true,
+			callback = function()
+				if not drag_state then
+					return vim.api.nvim_replace_termcodes("<LeftRelease>", true, true, true)
+				end
+				vim.schedule(function()
+					save_pane_widths()
+				end)
+				drag_state = nil
+				return ""
+			end,
+		})
 	end
-	vim.t.term_sep_winids = {}
 end
 
 --------------------------------------------------------------------------------
@@ -978,8 +976,7 @@ local function save_group_state()
 		return
 	end
 
-	local group_state = vim.t.term_group_state or {}
-	local prev_state = group_state[tostring(group_idx)] or {}
+	local prev_state = get_group_state(group_idx)
 
 	local state = {
 		widths = prev_state.widths,
@@ -990,7 +987,7 @@ local function save_group_state()
 
 	local current_win = vim.fn.win_getid()
 	for i, win in ipairs(wins) do
-		if vim.fn.win_id2win(win) > 0 then
+		if win_valid(win) then
 			state.views[i] = vim.api.nvim_win_call(win, function()
 				return vim.fn.winsaveview()
 			end)
@@ -1002,8 +999,7 @@ local function save_group_state()
 		end
 	end
 
-	group_state[tostring(group_idx)] = state
-	vim.t.term_group_state = group_state
+	set_group_state(group_idx, state)
 end
 
 local function close_pane_windows()
@@ -1011,11 +1007,10 @@ local function close_pane_windows()
 	restore_ruler()
 	destroy_winbar_overlay()
 	close_stl_windows()
-	close_sep_windows()
 
 	local wins = vim.t.term_winids or {}
 	for _, win in ipairs(wins) do
-		if vim.fn.win_id2win(win) > 0 then
+		if win_valid(win) then
 			local cfg = vim.api.nvim_win_get_config(win)
 			if cfg.relative and cfg.relative ~= "" then
 				vim.api.nvim_win_close(win, true)
@@ -1045,8 +1040,7 @@ local function open_group_windows(group, group_idx)
 		set_zoom_ruler()
 	end
 
-	local group_state = vim.t.term_group_state or {}
-	local state = group_state[tostring(group_idx)]
+	local state = get_group_state(group_idx)
 
 	local wins = {}
 	local scratches = {}
@@ -1062,7 +1056,7 @@ local function open_group_windows(group, group_idx)
 		-- Calculate pane widths
 		local pane_widths = {}
 		local content_available = total_width - (num_panes - 1)
-		if state and state.widths and #state.widths == num_panes then
+		if state.widths and #state.widths == num_panes then
 			local sum = 0
 			for i = 1, num_panes do
 				sum = sum + (state.widths[i] or 1)
@@ -1092,50 +1086,37 @@ local function open_group_windows(group, group_idx)
 		has_stl = vim.t.term_zoom and true or false
 		local stl_height = has_stl and 1 or 0
 		local col_offset = 0
+		local fillchar = vim.opt.fillchars:get().vert or "│"
 		for i, bufnr in ipairs(group) do
+			local has_left = (i > 1)
+			local has_right = (i < num_panes)
+			local border = "none"
+			if has_left or has_right then
+				border = {
+					"", "", "",
+					has_right and { fillchar, "WinSeparator" } or "",
+					"", "", "",
+					has_left and { fillchar, "WinSeparator" } or "",
+				}
+			end
+
 			local config = vim.tbl_extend("force", {}, base_config)
 			config.width = pane_widths[i]
 			config.height = base_config.height - stl_height
 			config.col = base_config.col + col_offset
-			config.border = "none"
+			config.border = border
+			config.zindex = 50
 
-			col_offset = col_offset + pane_widths[i] + (i < num_panes and 1 or 0)
+			-- Advance col_offset past this pane
+			if i == 1 then
+				col_offset = col_offset + pane_widths[i]
+			else
+				col_offset = col_offset + 1 + pane_widths[i]
+			end
 
 			local win, scratch = open_window(config)
 			table.insert(wins, win)
 			table.insert(scratches, scratch)
-		end
-
-		-- Create separator windows between panes
-		if num_panes > 1 then
-			local wb_h = get_winbar_height()
-			local sep_height = base_config.height - wb_h - stl_height
-			local sb = ensure_sep_buffer(sep_height)
-			local sep_wins = {}
-			local sep_offset = pane_widths[1]
-
-			for i = 1, num_panes - 1 do
-				local sep_config = {
-					relative = "editor",
-					row = base_config.row + wb_h,
-					col = base_config.col + sep_offset,
-					width = 1,
-					height = sep_height,
-					style = "minimal",
-					border = "none",
-					zindex = 61,
-					focusable = true,
-				}
-
-				local sep_win = vim.api.nvim_open_win(sb, false, sep_config)
-				vim.wo[sep_win].winhighlight = "Normal:WinSeparator"
-				vim.wo[sep_win].cursorline = false
-				table.insert(sep_wins, sep_win)
-
-				sep_offset = sep_offset + 1 + pane_widths[i + 1]
-			end
-
-			vim.t.term_sep_winids = sep_wins
 		end
 	else
 		local first_win, first_scratch = open_window({
@@ -1159,7 +1140,7 @@ local function open_group_windows(group, group_idx)
 
 		if #wins > 1 then
 			local widths
-			if state and state.widths and #state.widths == #wins then
+			if state.widths and #state.widths == #wins then
 				widths = state.widths
 			else
 				local total = 0
@@ -1169,7 +1150,7 @@ local function open_group_windows(group, group_idx)
 				widths = compute_equal_widths(total, #wins)
 			end
 			for i, win in ipairs(wins) do
-				if widths[i] and vim.fn.win_id2win(win) > 0 then
+				if widths[i] and win_valid(win) then
 					vim.api.nvim_win_set_width(win, widths[i])
 				end
 			end
@@ -1177,7 +1158,7 @@ local function open_group_windows(group, group_idx)
 	end
 
 	for _, win in ipairs(wins) do
-		if vim.fn.win_id2win(win) > 0 then
+		if win_valid(win) then
 			vim.wo[win].signcolumn = "no"
 			vim.wo[win].foldcolumn = "0"
 			vim.wo[win].number = false
@@ -1191,7 +1172,7 @@ local function open_group_windows(group, group_idx)
 	-- Set terminal buffers after layout is configured to avoid corrupting
 	-- the terminal display (e.g. when switching tabs)
 	for i, win in ipairs(wins) do
-		if vim.fn.win_id2win(win) > 0 then
+		if win_valid(win) then
 			vim.api.nvim_win_set_buf(win, group[i])
 			if M.config.winbar then
 				vim.wo[win].winbar = " "
@@ -1204,11 +1185,10 @@ local function open_group_windows(group, group_idx)
 		end
 	end
 
-	local focus_idx = 1
-	if state then
-		focus_idx = state.focus or 1
+	local focus_idx = state.focus or 1
+	if state.views then
 		for i, win in ipairs(wins) do
-			if vim.fn.win_id2win(win) > 0 and state.views and state.views[i] then
+			if win_valid(win) and state.views[i] then
 				vim.api.nvim_win_call(win, function()
 					vim.fn.winrestview(state.views[i])
 				end)
@@ -1218,7 +1198,7 @@ local function open_group_windows(group, group_idx)
 
 	focus_idx = clamp(focus_idx, 1, #wins)
 
-	if wins[focus_idx] and vim.fn.win_id2win(wins[focus_idx]) > 0 then
+	if wins[focus_idx] and win_valid(wins[focus_idx]) then
 		vim.api.nvim_set_current_win(wins[focus_idx])
 	end
 
@@ -1227,8 +1207,21 @@ local function open_group_windows(group, group_idx)
 	vim.t.term_bufnr = group[focus_idx] or group[1]
 	vim.t.term_group_idx = group_idx
 
+	-- Raise active pane's z-index
+	if is_float_mode() and #wins > 1 then
+		for i, win in ipairs(wins) do
+			if win_valid(win) then
+				local cfg = vim.api.nvim_win_get_config(win)
+				if cfg.relative and cfg.relative ~= "" then
+					cfg.zindex = (win == vim.t.term_winid) and 51 or 50
+					vim.api.nvim_win_set_config(win, cfg)
+				end
+			end
+		end
+	end
+
 	local mode_to_restore = "t"
-	if state and state.modes and state.modes[focus_idx] then
+	if state.modes and state.modes[focus_idx] then
 		mode_to_restore = state.modes[focus_idx]
 	end
 	if mode_to_restore ~= "n" then
@@ -1241,17 +1234,28 @@ local function open_group_windows(group, group_idx)
 	update_winbar_overlay()
 end
 
-local function switch_to_group(target_idx)
-	set_toggling()
-
+local function reopen_current_group(target_idx)
 	local groups = get_groups()
-	if target_idx < 1 or target_idx > #groups then
+	if #groups == 0 then
+		vim.t.term_winid = nil
+		vim.t.term_winids = {}
+		vim.t.term_bufnr = nil
 		return
 	end
+	target_idx = target_idx or vim.t.term_group_idx or 1
+	target_idx = clamp(target_idx, 1, #groups)
+	open_group_windows(groups[target_idx], target_idx)
+end
 
+local function rebuild_group(target_idx)
 	save_group_state()
 	close_pane_windows()
-	open_group_windows(groups[target_idx], target_idx)
+	reopen_current_group(target_idx)
+end
+
+local function switch_to_group(target_idx)
+	set_toggling()
+	rebuild_group(target_idx)
 end
 
 --------------------------------------------------------------------------------
@@ -1269,7 +1273,7 @@ function M.toggle(opts)
 	end
 
 	local is_open = is_term_open()
-	if not is_open and vim.t.term_winid and vim.t.term_winid ~= 0 and vim.fn.win_id2win(vim.t.term_winid) > 0 then
+	if not is_open and vim.t.term_winid and vim.t.term_winid ~= 0 and win_valid(vim.t.term_winid) then
 		is_open = true
 	end
 	-- In non-float mode with only 1 window total, terminal is not meaningfully open
@@ -1297,7 +1301,7 @@ function M.toggle(opts)
 	if is_open then
 		-- Close
 		save_group_state()
-		if vim.t.term_winid and vim.fn.win_id2win(vim.t.term_winid) > 0 then
+		if win_valid(vim.t.term_winid) then
 			vim.t.term_bufnr = vim.api.nvim_win_get_buf(vim.t.term_winid)
 			vim.t.term_mode = vim.fn.mode()
 			vim.b[vim.t.term_bufnr].term_view = vim.fn.winsaveview()
@@ -1315,37 +1319,16 @@ function M.toggle(opts)
 			end
 			open_group_windows(group, group_idx)
 		else
+			-- Create a new terminal and open it via open_group_windows
 			local bufnr = vim.api.nvim_create_buf(false, true)
-			if is_float_mode() then
-				local win, scratch = open_window(get_float_win_config())
-				vim.api.nvim_win_set_buf(win, bufnr)
-				vim.api.nvim_buf_delete(scratch, { force = true })
-				if M.config.winbar then
-					vim.wo[win].winbar = " "
-				end
-				vim.t.term_winids = { win }
-				vim.t.term_winid = win
-			else
-				local terminal_height = height > 1 and height or vim.t.term_height or get_term_height()
-				local win, scratch = open_window({
-					split = "below",
-					win = -1,
-					height = terminal_height,
-				})
-				vim.api.nvim_win_set_buf(win, bufnr)
-				vim.api.nvim_buf_delete(scratch, { force = true })
-				if M.config.winbar then
-					vim.wo[win].winbar = " "
-				end
-				vim.cmd("set wfh")
-				vim.t.term_winids = { win }
-				vim.t.term_winid = win
-			end
-			vim.fn.termopen(vim.env.SHELL)
-			vim.t.term_bufnr = bufnr
-			vim.t.term_group_idx = vim.t.term_group_idx or 1
-			vim.cmd("startinsert")
-			update_winbar_overlay()
+			local order = get_term_order()
+			table.insert(order, { bufnr })
+			vim.t.term_order = order
+			vim.t.term_group_idx = #order
+			vim.api.nvim_buf_call(bufnr, function()
+				vim.fn.termopen(vim.env.SHELL)
+			end)
+			reopen_current_group()
 		end
 	end
 end
@@ -1355,12 +1338,7 @@ function M.zoom()
 
 	if M.config.float then
 		vim.t.term_zoom = not vim.t.term_zoom
-		save_group_state()
-		close_pane_windows()
-		local group, group_idx = get_current_group()
-		if group then
-			open_group_windows(group, group_idx)
-		end
+		rebuild_group()
 		return
 	end
 
@@ -1371,11 +1349,6 @@ function M.zoom()
 
 		save_group_state()
 
-		local group, group_idx = get_current_group()
-		if not group then
-			return
-		end
-
 		if not vim.t.term_zoom then
 			save_term_height()
 			vim.t.term_zoom = true
@@ -1384,7 +1357,7 @@ function M.zoom()
 		end
 
 		close_pane_windows()
-		open_group_windows(group, group_idx)
+		reopen_current_group()
 		return
 	end
 
@@ -1393,7 +1366,7 @@ function M.zoom()
 		vim.t.term_prev_height = vim.t.term_height
 		vim.cmd("resize")
 		local wins2 = vim.t.term_winids or {}
-		if #wins2 > 0 and vim.fn.win_id2win(wins2[1]) > 0 then
+		if #wins2 > 0 and win_valid(wins2[1]) then
 			vim.t.term_height = vim.api.nvim_win_get_height(wins2[1])
 		end
 	else
@@ -1401,7 +1374,7 @@ function M.zoom()
 		vim.t.term_prev_height = nil
 	end
 	local wins2 = vim.t.term_winids or {}
-	if #wins2 > 0 and vim.fn.win_id2win(wins2[1]) > 0 then
+	if #wins2 > 0 and win_valid(wins2[1]) then
 		vim.api.nvim_win_call(wins2[1], function()
 			vim.cmd("resize " .. vim.t.term_height)
 		end)
@@ -1414,7 +1387,7 @@ function M.reset_height()
 	end
 	vim.t.term_height = get_term_height()
 	local wins = vim.t.term_winids or {}
-	if #wins > 0 and vim.fn.win_id2win(wins[1]) > 0 then
+	if #wins > 0 and win_valid(wins[1]) then
 		vim.api.nvim_win_call(wins[1], function()
 			vim.cmd("resize " .. vim.t.term_height)
 		end)
@@ -1478,17 +1451,14 @@ function M.move(direction)
 	local current_idx = vim.t.term_group_idx or 1
 	local new_idx = ((current_idx + direction - 1) % #groups) + 1
 
-	local order = vim.t.term_order or {}
-	order = migrate_term_order(order)
+	local order = get_term_order()
 
 	order[current_idx], order[new_idx] = order[new_idx], order[current_idx]
 	vim.t.term_order = order
 
-	local group_state = vim.t.term_group_state or {}
-	local k1 = tostring(current_idx)
-	local k2 = tostring(new_idx)
-	group_state[k1], group_state[k2] = group_state[k2], group_state[k1]
-	vim.t.term_group_state = group_state
+	local s1, s2 = get_group_state(current_idx), get_group_state(new_idx)
+	set_group_state(current_idx, s2)
+	set_group_state(new_idx, s1)
 
 	vim.t.term_group_idx = new_idx
 
@@ -1526,15 +1496,14 @@ function M.move_to_tab(direction)
 	close_pane_windows()
 
 	-- Remove group from current tab
-	local order = vim.t.term_order or {}
-	order = migrate_term_order(order)
+	local order = get_term_order()
 	table.remove(order, group_idx)
 	vim.t.term_order = order
 
 	local new_idx2 = clamp(vim.t.term_group_idx or 1, 1, math.max(#order, 1))
 	vim.t.term_group_idx = new_idx2
 
-	toggling = true
+	set_toggling()
 	local groups = get_groups()
 	if #groups > 0 and new_idx2 >= 1 and new_idx2 <= #groups then
 		open_group_windows(groups[new_idx2], new_idx2)
@@ -1560,10 +1529,10 @@ function M.move_to_tab(direction)
 	local target_groups = get_groups()
 	local target_group_idx = #target_groups
 
-	local target_wins = vim.t.term_winids or {}
 	local target_open = false
+	local target_wins = vim.t.term_winids or {}
 	for _, win in ipairs(target_wins) do
-		if vim.fn.win_id2win(win) > 0 then
+		if win_valid(win) then
 			target_open = true
 			break
 		end
@@ -1576,7 +1545,6 @@ function M.move_to_tab(direction)
 
 	vim.t.term_group_idx = target_group_idx
 	open_group_windows(target_groups[target_group_idx], target_group_idx)
-	toggling = false
 end
 
 function M.delete()
@@ -1600,24 +1568,12 @@ function M.delete()
 		close_pane_windows()
 		remove_term_from_order(bufnr)
 		vim.api.nvim_buf_delete(bufnr, { force = true })
-
-		groups = get_groups()
-		if #groups == 0 then
-			vim.t.term_winid = nil
-			vim.t.term_winids = {}
-			vim.t.term_bufnr = nil
-			vim.t.term_group_idx = 1
-			return
-		end
-
-		local target_idx2 = clamp(vim.t.term_group_idx or 1, 1, #groups)
-		open_group_windows(groups[target_idx2], target_idx2)
+		reopen_current_group()
 	else
 		save_group_state()
 		close_pane_windows()
 
-		local order = vim.t.term_order or {}
-		order = migrate_term_order(order)
+		local order = get_term_order()
 		local g = order[group_idx]
 		local new_g = {}
 		for _, buf in ipairs(g) do
@@ -1628,20 +1584,15 @@ function M.delete()
 		order[group_idx] = new_g
 		vim.t.term_order = order
 
-		local grp_state = vim.t.term_group_state or {}
-		local st = grp_state[tostring(group_idx)]
-		if st and st.focus and st.focus > #new_g then
+		local st = get_group_state(group_idx)
+		st.widths = nil
+		if st.focus and st.focus > #new_g then
 			st.focus = #new_g
-			grp_state[tostring(group_idx)] = st
-			vim.t.term_group_state = grp_state
 		end
+		set_group_state(group_idx, st)
 
 		vim.api.nvim_buf_delete(bufnr, { force = true })
-
-		groups = get_groups()
-		if group_idx <= #groups then
-			open_group_windows(groups[group_idx], group_idx)
-		end
+		reopen_current_group(group_idx)
 	end
 end
 
@@ -1656,8 +1607,7 @@ function M.new()
 	local bufnr = vim.api.nvim_create_buf(false, true)
 
 	-- Add to order before termopen so TermOpen autocmd doesn't double-add
-	local order = vim.t.term_order or {}
-	order = migrate_term_order(order)
+	local order = get_term_order()
 	local insert_idx = (current_idx or #order) + 1
 	table.insert(order, insert_idx, { bufnr })
 	vim.t.term_order = order
@@ -1695,17 +1645,13 @@ function M.vsplit()
 		vim.fn.termopen(vim.env.SHELL)
 	end)
 
-	local groups = get_groups()
-	group = groups[group_idx]
-
-	local insert_pos = (current_pane_idx or #group - 1) + 1
-	local grp_state = vim.t.term_group_state or {}
-	local st = grp_state[tostring(group_idx)] or { widths = {}, views = {}, modes = {} }
+	local insert_pos = (current_pane_idx or #group) + 1
+	local st = get_group_state(group_idx)
+	st.widths = nil
 	st.focus = insert_pos
-	grp_state[tostring(group_idx)] = st
-	vim.t.term_group_state = grp_state
+	set_group_state(group_idx, st)
 
-	open_group_windows(group, group_idx)
+	reopen_current_group(group_idx)
 end
 
 function M.next()
@@ -1746,6 +1692,7 @@ local function setup_autocmd()
 				add_term_to_order(bufnr)
 			end
 			vim.b.term_mode = "t"
+			setup_term_mouse_mappings(bufnr)
 		end,
 	})
 	vim.api.nvim_create_autocmd("ModeChanged", {
@@ -1790,7 +1737,7 @@ local function setup_autocmd()
 				return
 			end
 			local wins = vim.t.term_winids or {}
-			if #wins > 0 and vim.fn.win_id2win(wins[1]) > 0 then
+			if #wins > 0 and win_valid(wins[1]) then
 				local height = vim.api.nvim_win_get_height(wins[1])
 				if height > 0 then
 					vim.t.term_height = height
@@ -1803,7 +1750,7 @@ local function setup_autocmd()
 					local widths = {}
 					local all_valid = true
 					for i, win in ipairs(wins) do
-						if vim.fn.win_id2win(win) > 0 then
+						if win_valid(win) then
 							widths[i] = vim.api.nvim_win_get_width(win)
 						else
 							all_valid = false
@@ -1811,11 +1758,9 @@ local function setup_autocmd()
 						end
 					end
 					if all_valid then
-						local group_state = vim.t.term_group_state or {}
-						local st = group_state[tostring(group_idx)] or {}
+						local st = get_group_state(group_idx)
 						st.widths = widths
-						group_state[tostring(group_idx)] = st
-						vim.t.term_group_state = group_state
+						set_group_state(group_idx, st)
 					end
 				end
 			end
@@ -1839,14 +1784,36 @@ local function setup_autocmd()
 				end
 			end
 
+			-- Raise active pane's z-index so its borders receive clicks
+			if is_float_mode() then
+				for _, w in ipairs(wins) do
+					if win_valid(w) then
+						local cfg = vim.api.nvim_win_get_config(w)
+						if cfg.relative and cfg.relative ~= "" then
+							cfg.zindex = (w == current_win) and 51 or 50
+							vim.api.nvim_win_set_config(w, cfg)
+						end
+					end
+				end
+			end
+
 			-- Refocus terminal pane if winbar overlay is entered
 			if current_win == vim.t.term_winbar_winid then
 				vim.schedule(function()
-					local term_wins = vim.t.term_winids or {}
-					for _, win in ipairs(term_wins) do
-						if vim.fn.win_id2win(win) > 0 then
-							vim.api.nvim_set_current_win(win)
-							return
+					-- Another handler may have already moved focus away
+					if vim.fn.win_getid() ~= vim.t.term_winbar_winid then
+						return
+					end
+					local target = vim.t.term_winid
+					if win_valid(target) then
+						vim.api.nvim_set_current_win(target)
+					else
+						local term_wins = vim.t.term_winids or {}
+						for _, win in ipairs(term_wins) do
+							if win_valid(win) then
+								vim.api.nvim_set_current_win(win)
+								return
+							end
 						end
 					end
 				end)
@@ -1885,15 +1852,7 @@ local function setup_autocmd()
 		if not is_float_mode() or not is_term_open() then
 			return
 		end
-
-		-- Rebuild all float windows for correct sizing
-		local group, group_idx = get_current_group()
-		if not group then
-			return
-		end
-		save_group_state()
-		close_pane_windows()
-		open_group_windows(group, group_idx)
+		rebuild_group()
 	end
 
 	vim.api.nvim_create_autocmd("VimResized", {
@@ -1942,24 +1901,7 @@ local function setup_autocmd()
 				end
 
 				if is_displayed then
-					local groups = get_groups()
-					if #groups == 0 then
-						close_pane_windows()
-						vim.t.term_winid = nil
-						vim.t.term_winids = {}
-						vim.t.term_bufnr = nil
-						return
-					end
-
-					local target = vim.t.term_group_idx or 1
-					if target > #groups then
-						target = #groups
-					end
-
-					-- Rebuild windows
-					save_group_state()
-					close_pane_windows()
-					open_group_windows(groups[target], target)
+					rebuild_group()
 				else
 					update_winbar_overlay()
 				end
@@ -2138,7 +2080,7 @@ local function setup_keymap()
 		for i, win in ipairs(wins) do
 			if win == current then
 				local target = i + delta
-				if target >= 1 and target <= #wins and vim.fn.win_id2win(wins[target]) > 0 then
+				if target >= 1 and target <= #wins and win_valid(wins[target]) then
 					vim.api.nvim_set_current_win(wins[target])
 					restore_term_mode()
 					update_float_statuslines()
@@ -2162,7 +2104,7 @@ local function setup_keymap()
 		for i, win in ipairs(wins) do
 			if win == current then
 				local target = (i % #wins) + 1
-				if vim.fn.win_id2win(wins[target]) > 0 then
+				if win_valid(wins[target]) then
 					vim.api.nvim_set_current_win(wins[target])
 					restore_term_mode()
 					update_float_statuslines()
@@ -2202,7 +2144,7 @@ local function setup_keymap()
 
 		local widths = {}
 		for i, win in ipairs(wins) do
-			if vim.fn.win_id2win(win) > 0 then
+			if win_valid(win) then
 				widths[i] = vim.api.nvim_win_get_width(win)
 			else
 				return
@@ -2236,21 +2178,17 @@ local function setup_keymap()
 		save_group_state()
 		close_pane_windows()
 
-		local order = vim.t.term_order or {}
-		order = migrate_term_order(order)
+		local order = get_term_order()
 		table.remove(order[group_idx], pane_idx)
 		table.insert(order[group_idx], target_pos, bufnr)
 		vim.t.term_order = order
 
-		local grp_state = vim.t.term_group_state or {}
-		local st = grp_state[tostring(group_idx)] or {}
+		local st = get_group_state(group_idx)
 		st.widths = nil
 		st.focus = target_pos
-		grp_state[tostring(group_idx)] = st
-		vim.t.term_group_state = grp_state
+		set_group_state(group_idx, st)
 
-		local groups = get_groups()
-		open_group_windows(groups[group_idx], group_idx)
+		reopen_current_group(group_idx)
 	end
 
 	local function rotate_panes(direction)
@@ -2270,8 +2208,7 @@ local function setup_keymap()
 		save_group_state()
 		close_pane_windows()
 
-		local order = vim.t.term_order or {}
-		order = migrate_term_order(order)
+		local order = get_term_order()
 		local g = order[group_idx]
 		if direction > 0 then
 			local last = table.remove(g)
@@ -2290,15 +2227,12 @@ local function setup_keymap()
 			end
 		end
 
-		local grp_state = vim.t.term_group_state or {}
-		local st = grp_state[tostring(group_idx)] or {}
+		local st = get_group_state(group_idx)
 		st.widths = nil
 		st.focus = new_pane_idx or 1
-		grp_state[tostring(group_idx)] = st
-		vim.t.term_group_state = grp_state
+		set_group_state(group_idx, st)
 
-		local groups = get_groups()
-		open_group_windows(groups[group_idx], group_idx)
+		reopen_current_group(group_idx)
 	end
 
 	if keys.wincmd ~= false then
@@ -2366,7 +2300,7 @@ local function setup_keymap()
 					elseif key_match(c, "<CR>", "<C-S-CR>") and count > 1 then
 						vim.t.term_height = count
 						local wins = vim.t.term_winids or {}
-						if not is_float_mode() and #wins > 0 and vim.fn.win_id2win(wins[1]) > 0 then
+						if not is_float_mode() and #wins > 0 and win_valid(wins[1]) then
 							vim.api.nvim_win_call(wins[1], function()
 								vim.cmd("resize " .. count)
 							end)
@@ -2381,9 +2315,9 @@ local function setup_keymap()
 	end
 
 	-- <C-w> overrides for terminal panes (normal mode)
-	local function nmap_cw(suffix, action, cond)
+	local function nmap_cw(suffix, action)
 		vim.keymap.set({ "n" }, "<C-w>" .. suffix, function()
-			if cond() then
+			if is_in_term_window() then
 				action()
 			else
 				local fallback = vim.api.nvim_replace_termcodes("<C-w>" .. suffix, true, true, true)
@@ -2392,33 +2326,27 @@ local function setup_keymap()
 		end, { noremap = true })
 	end
 
-	-- All terminal pane windows (float and non-float)
-	nmap_cw("w", pane_cycle, is_in_term_window)
-	nmap_cw("<C-w>", pane_cycle, is_in_term_window)
-	nmap_cw("h", function() pane_navigate(-1) end, is_in_term_window)
-	nmap_cw("<C-h>", function() pane_navigate(-1) end, is_in_term_window)
-	nmap_cw("l", function() pane_navigate(1) end, is_in_term_window)
-	nmap_cw("<C-l>", function() pane_navigate(1) end, is_in_term_window)
-	nmap_cw(">", function() resize_current_pane(vim.v.count1) end, is_in_term_window)
-	nmap_cw("<lt>", function() resize_current_pane(-vim.v.count1) end, is_in_term_window)
-	nmap_cw("=", equalize_panes, is_in_term_window)
-	nmap_cw("p", function() M.toggle({ open = false }) end, is_in_term_window)
-	nmap_cw("<C-p>", function() M.toggle({ open = false }) end, is_in_term_window)
-	nmap_cw("c", M.delete, is_in_term_window)
-	nmap_cw("<C-c>", M.delete, is_in_term_window)
-	nmap_cw("v", M.vsplit, is_in_term_window)
-	nmap_cw("<C-v>", M.vsplit, is_in_term_window)
-	nmap_cw("H", function()
-		local group = get_current_group()
-		if group then move_pane_to(1) end
-	end, is_in_term_window)
-	nmap_cw("L", function()
-		local group = get_current_group()
-		if group then move_pane_to(#group) end
-	end, is_in_term_window)
-	nmap_cw("r", function() rotate_panes(1) end, is_in_term_window)
-	nmap_cw("<C-r>", function() rotate_panes(1) end, is_in_term_window)
-	nmap_cw("R", function() rotate_panes(-1) end, is_in_term_window)
+	local cw_actions = {
+		{ { "w", "<C-w>" }, pane_cycle },
+		{ { "h", "<C-h>" }, function() pane_navigate(-1) end },
+		{ { "l", "<C-l>" }, function() pane_navigate(1) end },
+		{ { ">" }, function() resize_current_pane(vim.v.count1) end },
+		{ { "<lt>" }, function() resize_current_pane(-vim.v.count1) end },
+		{ { "=" }, equalize_panes },
+		{ { "p", "<C-p>" }, function() M.toggle({ open = false }) end },
+		{ { "c", "<C-c>" }, M.delete },
+		{ { "v", "<C-v>" }, M.vsplit },
+		{ { "H" }, function() local g = get_current_group(); if g then move_pane_to(1) end end },
+		{ { "L" }, function() local g = get_current_group(); if g then move_pane_to(#g) end end },
+		{ { "r", "<C-r>" }, function() rotate_panes(1) end },
+		{ { "R" }, function() rotate_panes(-1) end },
+	}
+
+	for _, entry in ipairs(cw_actions) do
+		for _, suffix in ipairs(entry[1]) do
+			nmap_cw(suffix, entry[2])
+		end
+	end
 end
 
 local function setup_command()
