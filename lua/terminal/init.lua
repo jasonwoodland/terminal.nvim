@@ -60,6 +60,52 @@ local toggling = false
 local saved_cmdheight = nil
 local saved_ruler = nil
 
+local function clamp(val, min, max)
+	if val < min then return min end
+	if val > max then return max end
+	return val
+end
+
+local function set_toggling()
+	toggling = true
+	vim.schedule(function()
+		toggling = false
+	end)
+end
+
+local function is_term_open()
+	local wins = vim.t.term_winids or {}
+	for _, win in ipairs(wins) do
+		if vim.fn.win_id2win(win) > 0 then
+			return true
+		end
+	end
+	return false
+end
+
+local function is_term_related_window(win)
+	local wins = vim.t.term_winids or {}
+	for _, w in ipairs(wins) do
+		if w == win then return true end
+	end
+	if win == vim.t.term_winbar_winid then return true end
+	local seps = vim.t.term_sep_winids or {}
+	for _, w in ipairs(seps) do
+		if w == win then return true end
+	end
+	return false
+end
+
+local function compute_equal_widths(total, count)
+	local base_w = math.floor(total / count)
+	local extra = total - base_w * count
+	local widths = {}
+	for i = 1, count do
+		widths[i] = base_w + (i <= extra and 1 or 0)
+	end
+	return widths
+end
+
 local function set_zoom_cmdheight()
 	if not M.config.float_zoom_hide_cmdline then
 		return
@@ -151,17 +197,7 @@ local function sync_term_order()
 
 	vim.t.term_order = valid_order
 
-	local idx = vim.t.term_group_idx or 1
-	if idx < 1 then
-		idx = 1
-	end
-	if idx > #valid_order then
-		idx = #valid_order
-	end
-	if idx < 1 then
-		idx = 1
-	end
-	vim.t.term_group_idx = idx
+	vim.t.term_group_idx = clamp(vim.t.term_group_idx or 1, 1, math.max(#valid_order, 1))
 
 	return valid_order
 end
@@ -224,15 +260,7 @@ local function remove_term_from_order(bufnr)
 	end
 
 	vim.t.term_order = new_order
-
-	local idx = vim.t.term_group_idx or 1
-	if idx > #new_order then
-		idx = #new_order
-	end
-	if idx < 1 then
-		idx = 1
-	end
-	vim.t.term_group_idx = idx
+	vim.t.term_group_idx = clamp(vim.t.term_group_idx or 1, 1, math.max(#new_order, 1))
 end
 
 local function add_buf_to_group(bufnr, group_idx, after_pane_idx)
@@ -295,7 +323,6 @@ local function adopt_orphaned_terminals()
 end
 
 -- Forward declarations
-local set_terminal_winbar
 local update_winbar_overlay
 local destroy_winbar_overlay
 local setup_vars
@@ -534,8 +561,6 @@ destroy_winbar_overlay = function()
 	vim.t.term_winbar_winid = nil
 end
 
-set_terminal_winbar = update_winbar_overlay
-
 --------------------------------------------------------------------------------
 -- Float statusline overlays
 --------------------------------------------------------------------------------
@@ -686,6 +711,30 @@ local function save_pane_widths()
 	st.widths = widths
 	group_state[tostring(group_idx)] = st
 	vim.t.term_group_state = group_state
+end
+
+local function equalize_panes()
+	local wins = vim.t.term_winids or {}
+	if #wins < 2 then
+		return
+	end
+	local total = 0
+	for _, win in ipairs(wins) do
+		if vim.fn.win_id2win(win) > 0 then
+			total = total + vim.api.nvim_win_get_width(win)
+		end
+	end
+	local widths = compute_equal_widths(total, #wins)
+	if is_float_mode() then
+		apply_float_pane_layout(widths)
+	else
+		for i, win in ipairs(wins) do
+			if vim.fn.win_id2win(win) > 0 then
+				vim.api.nvim_win_set_width(win, widths[i])
+			end
+		end
+	end
+	save_pane_widths()
 end
 
 -- Resize pane_idx by delta, cascading to neighbors when they hit min width
@@ -1113,17 +1162,11 @@ local function open_group_windows(group, group_idx)
 			if state and state.widths and #state.widths == #wins then
 				widths = state.widths
 			else
-				-- Use same equal distribution as float mode
 				local total = 0
 				for _, win in ipairs(wins) do
 					total = total + vim.api.nvim_win_get_width(win)
 				end
-				widths = {}
-				local base_w = math.floor(total / #wins)
-				local extra = total - base_w * #wins
-				for i = 1, #wins do
-					widths[i] = base_w + (i <= extra and 1 or 0)
-				end
+				widths = compute_equal_widths(total, #wins)
 			end
 			for i, win in ipairs(wins) do
 				if widths[i] and vim.fn.win_id2win(win) > 0 then
@@ -1173,12 +1216,7 @@ local function open_group_windows(group, group_idx)
 		end
 	end
 
-	if focus_idx < 1 then
-		focus_idx = 1
-	end
-	if focus_idx > #wins then
-		focus_idx = #wins
-	end
+	focus_idx = clamp(focus_idx, 1, #wins)
 
 	if wins[focus_idx] and vim.fn.win_id2win(wins[focus_idx]) > 0 then
 		vim.api.nvim_set_current_win(wins[focus_idx])
@@ -1204,10 +1242,7 @@ local function open_group_windows(group, group_idx)
 end
 
 local function switch_to_group(target_idx)
-	toggling = true
-	vim.schedule(function()
-		toggling = false
-	end)
+	set_toggling()
 
 	local groups = get_groups()
 	if target_idx < 1 or target_idx > #groups then
@@ -1224,10 +1259,7 @@ end
 --------------------------------------------------------------------------------
 
 function M.toggle(opts)
-	toggling = true
-	vim.schedule(function()
-		toggling = false
-	end)
+	set_toggling()
 
 	local height = vim.v.count1
 
@@ -1236,14 +1268,7 @@ function M.toggle(opts)
 		vim.t.term_winids = {}
 	end
 
-	local is_open = false
-	local wins = vim.t.term_winids or {}
-	for _, win in ipairs(wins) do
-		if vim.fn.win_id2win(win) > 0 then
-			is_open = true
-			break
-		end
-	end
+	local is_open = is_term_open()
 	if not is_open and vim.t.term_winid and vim.t.term_winid ~= 0 and vim.fn.win_id2win(vim.t.term_winid) > 0 then
 		is_open = true
 	end
@@ -1280,7 +1305,6 @@ function M.toggle(opts)
 		close_pane_windows()
 	else
 		-- Open
-		vim.t.current_win = vim.fn.win_getid()
 		vim.t.prev_winid = vim.fn.win_getid()
 
 		local group, group_idx = get_current_group()
@@ -1327,10 +1351,7 @@ function M.toggle(opts)
 end
 
 function M.zoom()
-	toggling = true
-	vim.schedule(function()
-		toggling = false
-	end)
+	set_toggling()
 
 	if M.config.float then
 		vim.t.term_zoom = not vim.t.term_zoom
@@ -1344,15 +1365,7 @@ function M.zoom()
 	end
 
 	if M.config.float_zoom then
-		local term_win_open = false
-		local wins = vim.t.term_winids or {}
-		for _, win in ipairs(wins) do
-			if vim.fn.win_id2win(win) > 0 then
-				term_win_open = true
-				break
-			end
-		end
-		if not term_win_open then
+		if not is_term_open() then
 			return
 		end
 
@@ -1412,28 +1425,20 @@ end
 -- Buffer switching
 --------------------------------------------------------------------------------
 
-function M.switch(delta, clamp)
+function M.switch(delta, clamp_range)
 	local groups = get_groups()
 	if #groups == 0 then
 		return
 	end
 
-	local term_win_open = false
-	local wins = vim.t.term_winids or {}
-	for _, win in ipairs(wins) do
-		if vim.fn.win_id2win(win) > 0 then
-			term_win_open = true
-			break
-		end
-	end
-	if not term_win_open then
+	if not is_term_open() then
 		return
 	end
 
 	local current_idx = vim.t.term_group_idx or 1
 	local target_idx
 
-	if clamp then
+	if clamp_range then
 		target_idx = math.max(1, math.min(#groups, current_idx + delta))
 	else
 		target_idx = ((current_idx + delta - 1) % #groups) + 1
@@ -1457,15 +1462,7 @@ function M.go_to(index)
 		return
 	end
 
-	local term_win_open = false
-	local wins = vim.t.term_winids or {}
-	for _, win in ipairs(wins) do
-		if vim.fn.win_id2win(win) > 0 then
-			term_win_open = true
-			break
-		end
-	end
-	if not term_win_open then
+	if not is_term_open() then
 		return
 	end
 
@@ -1534,13 +1531,7 @@ function M.move_to_tab(direction)
 	table.remove(order, group_idx)
 	vim.t.term_order = order
 
-	local new_idx2 = vim.t.term_group_idx or 1
-	if new_idx2 > #order then
-		new_idx2 = #order
-	end
-	if new_idx2 < 1 then
-		new_idx2 = 1
-	end
+	local new_idx2 = clamp(vim.t.term_group_idx or 1, 1, math.max(#order, 1))
 	vim.t.term_group_idx = new_idx2
 
 	toggling = true
@@ -1589,10 +1580,7 @@ function M.move_to_tab(direction)
 end
 
 function M.delete()
-	toggling = true
-	vim.schedule(function()
-		toggling = false
-	end)
+	set_toggling()
 
 	if vim.bo.buftype ~= "terminal" then
 		return
@@ -1622,10 +1610,7 @@ function M.delete()
 			return
 		end
 
-		local target_idx2 = vim.t.term_group_idx or 1
-		if target_idx2 > #groups then
-			target_idx2 = #groups
-		end
+		local target_idx2 = clamp(vim.t.term_group_idx or 1, 1, #groups)
 		open_group_windows(groups[target_idx2], target_idx2)
 	else
 		save_group_state()
@@ -1661,10 +1646,7 @@ function M.delete()
 end
 
 function M.new()
-	toggling = true
-	vim.schedule(function()
-		toggling = false
-	end)
+	set_toggling()
 
 	local _, current_idx = get_current_group()
 
@@ -1689,10 +1671,7 @@ function M.new()
 end
 
 function M.vsplit()
-	toggling = true
-	vim.schedule(function()
-		toggling = false
-	end)
+	set_toggling()
 
 	local group, group_idx = get_current_group()
 	if not group then
@@ -1745,7 +1724,6 @@ setup_vars = function()
 	vim.t.term_winid = vim.t.term_winid or 0
 	vim.t.term_winids = vim.t.term_winids or {}
 	vim.t.term_height = vim.t.term_height or get_term_height()
-	vim.t.current_win = vim.t.current_win or 0
 	vim.t.term_group_idx = vim.t.term_group_idx or 1
 	vim.t.term_group_state = vim.t.term_group_state or {}
 end
@@ -1889,76 +1867,22 @@ local function setup_autocmd()
 			if not toggling then
 				save_term_height()
 			end
-			if not toggling and is_float_mode() then
-				local current_win = vim.fn.win_getid()
-				-- Check if leaving a term pane, winbar overlay, or separator
-				local is_term_win = false
-				local wins = vim.t.term_winids or {}
-				for _, win in ipairs(wins) do
-					if win == current_win then
-						is_term_win = true
-						break
+			if not toggling and is_float_mode() and is_term_related_window(vim.fn.win_getid()) then
+				local tab = vim.api.nvim_get_current_tabpage()
+				vim.schedule(function()
+					if vim.api.nvim_get_current_tabpage() ~= tab then
+						return
 					end
-				end
-				if current_win == vim.t.term_winbar_winid then
-					is_term_win = true
-				end
-				local seps = vim.t.term_sep_winids or {}
-				for _, win in ipairs(seps) do
-					if win == current_win then
-						is_term_win = true
-						break
+					if not is_term_related_window(vim.fn.win_getid()) then
+						M.toggle({ open = false })
 					end
-				end
-				if is_term_win then
-					local tab = vim.api.nvim_get_current_tabpage()
-					vim.schedule(function()
-						if vim.api.nvim_get_current_tabpage() ~= tab then
-							return
-						end
-						local new_win = vim.fn.win_getid()
-						-- Check if new focus is still in term panes, winbar, or separators
-						local still_in_term = false
-						local term_wins = vim.t.term_winids or {}
-						for _, win in ipairs(term_wins) do
-							if win == new_win then
-								still_in_term = true
-								break
-							end
-						end
-						if new_win == vim.t.term_winbar_winid then
-							still_in_term = true
-						end
-						local seps = vim.t.term_sep_winids or {}
-						for _, win in ipairs(seps) do
-							if win == new_win then
-								still_in_term = true
-								break
-							end
-						end
-						if not still_in_term then
-							M.toggle({ open = false })
-						end
-					end)
-				end
+				end)
 			end
 		end,
 	})
 
 	local function update_float_win_config()
-		if not is_float_mode() then
-			return
-		end
-		-- Update all pane windows
-		local wins = vim.t.term_winids or {}
-		local any_valid = false
-		for _, win in ipairs(wins) do
-			if vim.fn.win_id2win(win) > 0 then
-				any_valid = true
-				break
-			end
-		end
-		if not any_valid then
+		if not is_float_mode() or not is_term_open() then
 			return
 		end
 
@@ -2008,16 +1932,7 @@ local function setup_autocmd()
 			local current_group_idx = vim.t.term_group_idx or 1
 			local is_in_active_group = group_idx_closed == current_group_idx
 
-			local term_win_open = false
-			local wins = vim.t.term_winids or {}
-			for _, win in ipairs(wins) do
-				if vim.fn.win_id2win(win) > 0 then
-					term_win_open = true
-					break
-				end
-			end
-
-			local is_displayed = is_in_active_group and term_win_open
+			local is_displayed = is_in_active_group and is_term_open()
 
 			remove_term_from_order(bufnr)
 
@@ -2317,11 +2232,7 @@ local function setup_keymap()
 			return
 		end
 
-		toggling = true
-		vim.schedule(function()
-			toggling = false
-		end)
-
+		set_toggling()
 		save_group_state()
 		close_pane_windows()
 
@@ -2354,10 +2265,7 @@ local function setup_keymap()
 			return
 		end
 
-		toggling = true
-		vim.schedule(function()
-			toggling = false
-		end)
+		set_toggling()
 
 		save_group_state()
 		close_pane_windows()
@@ -2450,31 +2358,7 @@ local function setup_keymap()
 					elseif key_match(c, "R", "<S-R>") then
 						rotate_panes(-1)
 					elseif c == "=" then
-						local wins = vim.t.term_winids or {}
-						if #wins > 1 then
-							local total = 0
-							for _, win in ipairs(wins) do
-								if vim.fn.win_id2win(win) > 0 then
-									total = total + vim.api.nvim_win_get_width(win)
-								end
-							end
-							local base_w = math.floor(total / #wins)
-							local extra = total - base_w * #wins
-							local widths = {}
-							for i = 1, #wins do
-								widths[i] = base_w + (i <= extra and 1 or 0)
-							end
-							if is_float_mode() then
-								apply_float_pane_layout(widths)
-							else
-								for i, win in ipairs(wins) do
-									if vim.fn.win_id2win(win) > 0 then
-										vim.api.nvim_win_set_width(win, widths[i])
-									end
-								end
-							end
-							save_pane_widths()
-						end
+						equalize_panes()
 					elseif key_match(c, "p", "<C-S-p>") then
 						M.toggle({ open = false })
 					elseif key_match(c, "c", "<C-S-c>") then
@@ -2502,8 +2386,8 @@ local function setup_keymap()
 			if cond() then
 				action()
 			else
-				local keys = vim.api.nvim_replace_termcodes("<C-w>" .. suffix, true, true, true)
-				vim.api.nvim_feedkeys(keys, "n", false)
+				local fallback = vim.api.nvim_replace_termcodes("<C-w>" .. suffix, true, true, true)
+				vim.api.nvim_feedkeys(fallback, "n", false)
 			end
 		end, { noremap = true })
 	end
@@ -2517,33 +2401,7 @@ local function setup_keymap()
 	nmap_cw("<C-l>", function() pane_navigate(1) end, is_in_term_window)
 	nmap_cw(">", function() resize_current_pane(vim.v.count1) end, is_in_term_window)
 	nmap_cw("<lt>", function() resize_current_pane(-vim.v.count1) end, is_in_term_window)
-	nmap_cw("=", function()
-		local wins = vim.t.term_winids or {}
-		if #wins > 1 then
-			local total = 0
-			for _, win in ipairs(wins) do
-				if vim.fn.win_id2win(win) > 0 then
-					total = total + vim.api.nvim_win_get_width(win)
-				end
-			end
-			local base_w = math.floor(total / #wins)
-			local extra = total - base_w * #wins
-			local widths = {}
-			for i = 1, #wins do
-				widths[i] = base_w + (i <= extra and 1 or 0)
-			end
-			if is_float_mode() then
-				apply_float_pane_layout(widths)
-			else
-				for i, win in ipairs(wins) do
-					if vim.fn.win_id2win(win) > 0 then
-						vim.api.nvim_win_set_width(win, widths[i])
-					end
-				end
-			end
-			save_pane_widths()
-		end
-	end, is_in_term_window)
+	nmap_cw("=", equalize_panes, is_in_term_window)
 	nmap_cw("p", function() M.toggle({ open = false }) end, is_in_term_window)
 	nmap_cw("<C-p>", function() M.toggle({ open = false }) end, is_in_term_window)
 	nmap_cw("c", M.delete, is_in_term_window)
@@ -2587,27 +2445,10 @@ local function setup_alias()
 end
 
 function M.setup(config)
+	local default_keys = M.config.keys
 	M.config = vim.tbl_extend("force", M.config, config or {})
 
 	if M.config.keys ~= false then
-		local default_keys = {
-			toggle = "<C-S-/>",
-			normal_mode = "<C-;>",
-			zoom = "<C-S-->",
-			new = "<C-S-t>",
-			wincmd = "<C-S-w>",
-			delete = "<C-S-c>",
-			prev = "<C-S-[>",
-			next = "<C-S-]>",
-			move_prev = "<C-S-M-[>",
-			move_next = "<C-S-M-]>",
-			paste_register = "<C-S-r>",
-			reset_height = "<C-S-=>",
-			tab_next = "<C-PageDown>",
-			tab_prev = "<C-PageUp>",
-			move_to_tab_prev = "<C-M-PageUp>",
-			move_to_tab_next = "<C-M-PageDown>",
-		}
 		M.config.keys = vim.tbl_extend("force", default_keys, M.config.keys or {})
 	end
 
