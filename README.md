@@ -103,19 +103,19 @@ These work anywhere in Normal and/or Terminal mode:
 |        |    x     | <kbd>&lt;C-S-n&gt;</kbd>                              | Go to Normal mode                     |
 |   x    |    x     | <kbd>&lt;C-S-z&gt;</kbd>                              | Toggle zoom                           |
 |   x    |    x     | <kbd>&lt;C-S-=&gt;</kbd>                              | Reset height to default               |
-|        |          | **Groups**                                            |                                       |
-|   x    |    x     | <kbd>&lt;C-S-t&gt;</kbd>                              | New terminal group                    |
+|        |          | **Tabs**                                              |                                       |
+|   x    |    x     | <kbd>&lt;C-S-t&gt;</kbd>                              | New terminal tab                      |
 |   x    |    x     | <kbd>&lt;C-S-c&gt;</kbd>                              | Delete current terminal               |
-|   x    |    x     | <kbd>&lt;C-S-[&gt;</kbd>                              | Previous group                        |
-|   x    |    x     | <kbd>&lt;C-S-]&gt;</kbd>                              | Next group                            |
-|   x    |    x     | <kbd>&lt;C-S-1&gt;</kbd> ... <kbd>&lt;C-S-9&gt;</kbd> | Go to group by index                  |
-|   x    |    x     | <kbd>&lt;C-S-M-[&gt;</kbd>                            | Move group left                       |
-|   x    |    x     | <kbd>&lt;C-S-M-]&gt;</kbd>                            | Move group right                      |
+|   x    |    x     | <kbd>&lt;C-S-[&gt;</kbd>                              | Previous tab                          |
+|   x    |    x     | <kbd>&lt;C-S-]&gt;</kbd>                              | Next tab                              |
+|   x    |    x     | <kbd>&lt;C-S-1&gt;</kbd> ... <kbd>&lt;C-S-9&gt;</kbd> | Go to tab by index                    |
+|   x    |    x     | <kbd>&lt;C-S-M-[&gt;</kbd>                            | Move tab left                         |
+|   x    |    x     | <kbd>&lt;C-S-M-]&gt;</kbd>                            | Move tab right                        |
 |        |          | **Vim tabs**                                          |                                       |
 |   x    |    x     | <kbd>&lt;C-PageUp&gt;</kbd>                           | Previous Vim tab                      |
 |   x    |    x     | <kbd>&lt;C-PageDown&gt;</kbd>                         | Next Vim tab                          |
-|   x    |    x     | <kbd>&lt;C-M-PageUp&gt;</kbd>                         | Move group to previous Vim tab        |
-|   x    |    x     | <kbd>&lt;C-M-PageDown&gt;</kbd>                       | Move group to next Vim tab            |
+|   x    |    x     | <kbd>&lt;C-M-PageUp&gt;</kbd>                         | Move tab to previous Vim tab          |
+|   x    |    x     | <kbd>&lt;C-M-PageDown&gt;</kbd>                       | Move tab to next Vim tab              |
 |        |          | **Notifications**                                     |                                       |
 |   x    |    x     | <kbd>&lt;C-S-a&gt;</kbd>                              | Jump to last notification             |
 |        |          | **Panes**                                             |                                       |
@@ -181,15 +181,15 @@ terminal.toggle({ open = true })  -- Only open
 terminal.toggle({ open = false }) -- Only close
 terminal.zoom()                -- Toggle zoom
 terminal.reset_height()        -- Reset terminal height to default
-terminal.new()                 -- Create new terminal group
-terminal.delete()              -- Delete current terminal
-terminal.vsplit()              -- Split current group with a new pane
-terminal.next()                -- Switch to next group
-terminal.prev()                -- Switch to previous group
-terminal.switch(delta, clamp)  -- Switch by delta (wraps by default, clamp=true to stop at ends)
-terminal.go_to(index)          -- Go to group by index (1-based)
-terminal.move(direction)       -- Move current group (-1 = left, 1 = right)
-terminal.move_to_tab(direction) -- Move current group to adjacent Vim tab (-1 = prev, 1 = next)
+terminal.new()                     -- Create new terminal tab
+terminal.delete()                  -- Delete current terminal
+terminal.vsplit()                  -- Split current tab with a new pane
+terminal.next()                    -- Switch to next tab
+terminal.prev()                    -- Switch to previous tab
+terminal.switch(delta, clamp)      -- Switch by delta (wraps by default, clamp=true to stop at ends)
+terminal.go_to(index)              -- Go to tab by index (1-based)
+terminal.move(direction)           -- Move current tab (-1 = left, 1 = right)
+terminal.move_to_vim_tab(direction) -- Move current tab to adjacent Vim tab (-1 = prev, 1 = next)
 terminal.go_to_notification()  -- Jump to terminal with last OSC notification
 ```
 

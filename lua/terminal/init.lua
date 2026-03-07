@@ -29,10 +29,10 @@ M.config = {
 		move_next = "<C-S-M-]>",
 		paste_register = "<C-S-r>",
 		reset_height = "<C-S-=>",
-		tab_next = "<C-PageDown>",
-		tab_prev = "<C-PageUp>",
-		move_to_tab_prev = "<C-M-PageUp>",
-		move_to_tab_next = "<C-M-PageDown>",
+		vim_tab_next = "<C-PageDown>",
+		vim_tab_prev = "<C-PageUp>",
+		move_to_vim_tab_prev = "<C-M-PageUp>",
+		move_to_vim_tab_next = "<C-M-PageDown>",
 		last_notification = "<C-S-a>",
 	},
 }
@@ -161,12 +161,12 @@ local function save_term_height()
 end
 
 -------------------------------------------------------------------------------
--- Data Model: Groups
+-- Data Model: Tabs
 --
--- term_order: {{buf1, buf2}, {buf3}, {buf4}} — list of groups
--- term_group_idx: 1-based index of the active group
--- term_group_state: saved state per group {[idx_str] = {widths, focus, views, modes}}
--- term_winids: list of window IDs for panes in the current group
+-- term_order: {{buf1, buf2}, {buf3}, {buf4}} — list of tabs
+-- term_tab_idx: 1-based index of the active tab
+-- term_tab_state: saved state per tab {[idx_str] = {widths, focus, views, modes}}
+-- term_winids: list of window IDs for panes in the current tab
 -- term_winbar_winid: window ID of the floating winbar overlay
 -------------------------------------------------------------------------------
 
@@ -189,28 +189,28 @@ local function get_term_order()
 	return migrate_term_order(order)
 end
 
-local function get_groups()
+local function get_tabs()
 	local order = get_term_order()
 
 	local valid_order = {}
 	local removed = {}
-	for gi, group in ipairs(order) do
-		local valid_group = {}
-		for _, buf in ipairs(group) do
+	for gi, tab in ipairs(order) do
+		local valid_tab = {}
+		for _, buf in ipairs(tab) do
 			if vim.fn.bufexists(buf) == 1 and vim.fn.getbufvar(buf, "&buftype") == "terminal" then
-				table.insert(valid_group, buf)
+				table.insert(valid_tab, buf)
 			end
 		end
-		if #valid_group > 0 then
-			table.insert(valid_order, valid_group)
+		if #valid_tab > 0 then
+			table.insert(valid_order, valid_tab)
 		else
 			table.insert(removed, gi)
 		end
 	end
 
-	-- Remap activity keys when groups are removed by filtering
+	-- Remap activity keys when tabs are removed by filtering
 	if #removed > 0 then
-		local old = vim.t.term_group_activity or {}
+		local old = vim.t.term_tab_activity or {}
 		local new = {}
 		local offset = 0
 		for i = 1, #order do
@@ -220,20 +220,20 @@ local function get_groups()
 				new[tostring(i - offset)] = true
 			end
 		end
-		vim.t.term_group_activity = new
+		vim.t.term_tab_activity = new
 	end
 
 	vim.t.term_order = valid_order
 
-	vim.t.term_group_idx = clamp(vim.t.term_group_idx or 1, 1, math.max(#valid_order, 1))
+	vim.t.term_tab_idx = clamp(vim.t.term_tab_idx or 1, 1, math.max(#valid_order, 1))
 
 	return valid_order
 end
 
-local function find_buf_group(bufnr)
-	local groups = get_groups()
-	for gi, group in ipairs(groups) do
-		for pi, buf in ipairs(group) do
+local function find_buf_tab(bufnr)
+	local tabs = get_tabs()
+	for gi, tab in ipairs(tabs) do
+		for pi, buf in ipairs(tab) do
 			if buf == bufnr then
 				return gi, pi
 			end
@@ -243,14 +243,14 @@ local function find_buf_group(bufnr)
 end
 
 local function swap_activity(idx1, idx2)
-	local activity = vim.t.term_group_activity or {}
+	local activity = vim.t.term_tab_activity or {}
 	local k1, k2 = tostring(idx1), tostring(idx2)
 	activity[k1], activity[k2] = activity[k2], activity[k1]
-	vim.t.term_group_activity = activity
+	vim.t.term_tab_activity = activity
 end
 
 local function shift_activity_after_remove(removed_idx, total_before)
-	local old = vim.t.term_group_activity or {}
+	local old = vim.t.term_tab_activity or {}
 	local new = {}
 	for i = 1, total_before do
 		if i < removed_idx then
@@ -263,14 +263,14 @@ local function shift_activity_after_remove(removed_idx, total_before)
 			end
 		end
 	end
-	vim.t.term_group_activity = new
+	vim.t.term_tab_activity = new
 end
 
 local function add_term_to_order(bufnr, after_bufnr)
 	local order = get_term_order()
 
-	for _, group in ipairs(order) do
-		for _, buf in ipairs(group) do
+	for _, tab in ipairs(order) do
+		for _, buf in ipairs(tab) do
 			if buf == bufnr then
 				return
 			end
@@ -278,8 +278,8 @@ local function add_term_to_order(bufnr, after_bufnr)
 	end
 
 	if after_bufnr then
-		for i, group in ipairs(order) do
-			for _, buf in ipairs(group) do
+		for i, tab in ipairs(order) do
+			for _, buf in ipairs(tab) do
 				if buf == after_bufnr then
 					table.insert(order, i + 1, { bufnr })
 					vim.t.term_order = order
@@ -297,57 +297,57 @@ local function remove_term_from_order(bufnr)
 	local order = get_term_order()
 	local total_before = #order
 
-	local removed_group_idx = nil
+	local removed_tab_idx = nil
 	local new_order = {}
-	for gi, group in ipairs(order) do
-		local new_group = {}
-		for _, buf in ipairs(group) do
+	for gi, tab in ipairs(order) do
+		local new_tab = {}
+		for _, buf in ipairs(tab) do
 			if buf ~= bufnr then
-				table.insert(new_group, buf)
+				table.insert(new_tab, buf)
 			end
 		end
-		if #new_group > 0 then
-			table.insert(new_order, new_group)
-		elseif not removed_group_idx then
-			removed_group_idx = gi
+		if #new_tab > 0 then
+			table.insert(new_order, new_tab)
+		elseif not removed_tab_idx then
+			removed_tab_idx = gi
 		end
 	end
 
 	vim.t.term_order = new_order
-	vim.t.term_group_idx = clamp(vim.t.term_group_idx or 1, 1, math.max(#new_order, 1))
+	vim.t.term_tab_idx = clamp(vim.t.term_tab_idx or 1, 1, math.max(#new_order, 1))
 
-	if removed_group_idx then
-		shift_activity_after_remove(removed_group_idx, total_before)
+	if removed_tab_idx then
+		shift_activity_after_remove(removed_tab_idx, total_before)
 	end
 end
 
-local function add_buf_to_group(bufnr, group_idx, after_pane_idx)
+local function add_buf_to_tab(bufnr, tab_idx, after_pane_idx)
 	local order = get_term_order()
 
-	if not order[group_idx] then
+	if not order[tab_idx] then
 		return
 	end
 
-	local group = order[group_idx]
+	local tab = order[tab_idx]
 
-	for _, buf in ipairs(group) do
+	for _, buf in ipairs(tab) do
 		if buf == bufnr then
 			return
 		end
 	end
 
-	local insert_pos = after_pane_idx and (after_pane_idx + 1) or (#group + 1)
-	table.insert(group, insert_pos, bufnr)
+	local insert_pos = after_pane_idx and (after_pane_idx + 1) or (#tab + 1)
+	table.insert(tab, insert_pos, bufnr)
 	vim.t.term_order = order
 end
 
-local function get_current_group()
-	local groups = get_groups()
-	local idx = vim.t.term_group_idx or 1
-	if idx < 1 or idx > #groups then
+local function get_current_tab()
+	local tabs = get_tabs()
+	local idx = vim.t.term_tab_idx or 1
+	if idx < 1 or idx > #tabs then
 		return nil, idx
 	end
-	return groups[idx], idx
+	return tabs[idx], idx
 end
 
 local function adopt_orphaned_terminals()
@@ -356,8 +356,8 @@ local function adopt_orphaned_terminals()
 		local ok, order = pcall(vim.api.nvim_tabpage_get_var, tab, "term_order")
 		if ok and order then
 			order = migrate_term_order(order)
-			for _, group in ipairs(order) do
-				for _, buf in ipairs(group) do
+			for _, tab in ipairs(order) do
+				for _, buf in ipairs(tab) do
 					owned[buf] = true
 				end
 			end
@@ -377,18 +377,18 @@ local destroy_winbar_overlay
 local setup_vars
 
 -------------------------------------------------------------------------------
--- Group State Helpers
+-- Tab State Helpers
 -------------------------------------------------------------------------------
 
-local function get_group_state(group_idx)
-	local group_state = vim.t.term_group_state or {}
-	return group_state[tostring(group_idx)] or {}
+local function get_tab_state(tab_idx)
+	local tab_state = vim.t.term_tab_state or {}
+	return tab_state[tostring(tab_idx)] or {}
 end
 
-local function set_group_state(group_idx, st)
-	local group_state = vim.t.term_group_state or {}
-	group_state[tostring(group_idx)] = st
-	vim.t.term_group_state = group_state
+local function set_tab_state(tab_idx, st)
+	local tab_state = vim.t.term_tab_state or {}
+	tab_state[tostring(tab_idx)] = st
+	vim.t.term_tab_state = tab_state
 end
 
 --------------------------------------------------------------------------------
@@ -399,8 +399,8 @@ local winbar_bufnr = nil
 local winbar_ns = vim.api.nvim_create_namespace("terminal_winbar")
 local winbar_click_ranges = {}
 
-local function get_winbar_title(group)
-	local buf = group[1]
+local function get_winbar_title(tab)
+	local buf = tab[1]
 	local title = vim.b[buf].term_title or vim.api.nvim_buf_get_name(buf)
 	title = vim.fn.substitute(title, "\\v([^/~ ]+)/", "\\=strpart(submatch(1), 0, 1) . '/'", "g")
 	return title
@@ -411,13 +411,13 @@ local function render_winbar_content()
 		return
 	end
 
-	local groups = get_groups()
-	local current_idx = vim.t.term_group_idx or 1
+	local tabs = get_tabs()
+	local current_idx = vim.t.term_tab_idx or 1
 
-	-- Always clear activity for the current group
-	local activity = vim.t.term_group_activity or {}
+	-- Always clear activity for the current tab
+	local activity = vim.t.term_tab_activity or {}
 	activity[tostring(current_idx)] = nil
-	vim.t.term_group_activity = activity
+	vim.t.term_tab_activity = activity
 
 	vim.api.nvim_buf_clear_namespace(winbar_bufnr, winbar_ns, 0, -1)
 	winbar_click_ranges = {}
@@ -425,20 +425,20 @@ local function render_winbar_content()
 	local parts = {}
 	local byte_offset = 0
 
-	for i, group in ipairs(groups) do
-		local title = get_winbar_title(group)
-		local group_activity = vim.t.term_group_activity or {}
-		local has_activity = i ~= current_idx and group_activity[tostring(i)] or false
+	for i, tab in ipairs(tabs) do
+		local title = get_winbar_title(tab)
+		local tab_activity = vim.t.term_tab_activity or {}
+		local has_activity = i ~= current_idx and tab_activity[tostring(i)] or false
 		local label = " " .. i .. ":" .. title .. (has_activity and "*" or "") .. " "
-		if #group > 1 then
-			label = label .. "[" .. #group .. "] "
+		if #tab > 1 then
+			label = label .. "[" .. #tab .. "] "
 		end
 
 		local start_col = byte_offset
 		local end_col = byte_offset + #label
 
 		table.insert(parts, label)
-		table.insert(winbar_click_ranges, { group_idx = i, start_col = start_col, end_col = end_col })
+		table.insert(winbar_click_ranges, { tab_idx = i, start_col = start_col, end_col = end_col })
 
 		byte_offset = end_col
 	end
@@ -447,20 +447,20 @@ local function render_winbar_content()
 	vim.api.nvim_buf_set_lines(winbar_bufnr, 0, -1, false, { line })
 
 	for _, range in ipairs(winbar_click_ranges) do
-		local hl = range.group_idx == current_idx and "WinBarActive" or "WinBar"
+		local hl = range.tab_idx == current_idx and "WinBarActive" or "WinBar"
 		vim.api.nvim_buf_add_highlight(winbar_bufnr, winbar_ns, hl, 0, range.start_col, range.end_col)
 	end
 end
 
 local function get_term_windows()
-	local group = get_current_group()
-	if not group then
+	local tab = get_current_tab()
+	if not tab then
 		return {}
 	end
 
-	local group_bufs = {}
-	for _, buf in ipairs(group) do
-		group_bufs[buf] = true
+	local tab_bufs = {}
+	for _, buf in ipairs(tab) do
+		tab_bufs[buf] = true
 	end
 
 	local wins = {}
@@ -469,7 +469,7 @@ local function get_term_windows()
 	for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
 		if vim.api.nvim_win_is_valid(win) then
 			local buf = vim.api.nvim_win_get_buf(win)
-			if group_bufs[buf] then
+			if tab_bufs[buf] then
 				local win_config = vim.api.nvim_win_get_config(win)
 				local is_float = win_config.relative and win_config.relative ~= ""
 				if (float_mode and is_float) or (not float_mode and not is_float) then
@@ -571,8 +571,8 @@ update_winbar_overlay = function()
 		return
 	end
 
-	local groups = get_groups()
-	if #groups == 0 then
+	local tabs = get_tabs()
+	if #tabs == 0 then
 		destroy_winbar_overlay()
 		return
 	end
@@ -769,8 +769,8 @@ local function save_pane_widths()
 	if #wins < 2 then
 		return
 	end
-	local _, group_idx = get_current_group()
-	if not group_idx then
+	local _, tab_idx = get_current_tab()
+	if not tab_idx then
 		return
 	end
 	local widths = {}
@@ -779,9 +779,9 @@ local function save_pane_widths()
 			widths[i] = vim.api.nvim_win_get_width(win)
 		end
 	end
-	local st = get_group_state(group_idx)
+	local st = get_tab_state(tab_idx)
 	st.widths = widths
-	set_group_state(group_idx, st)
+	set_tab_state(tab_idx, st)
 end
 
 local function equalize_panes()
@@ -895,7 +895,7 @@ local function setup_term_mouse_mappings(bufnr)
 					for _, range in ipairs(winbar_click_ranges) do
 						if col >= range.start_col and col < range.end_col then
 							vim.schedule(function()
-								M.go_to(range.group_idx)
+								M.go_to(range.tab_idx)
 							end)
 							break
 						end
@@ -1053,9 +1053,9 @@ local function open_window(win_config)
 	return win, scratch
 end
 
-local function save_group_state()
-	local _, group_idx = get_current_group()
-	if not group_idx then
+local function save_tab_state()
+	local _, tab_idx = get_current_tab()
+	if not tab_idx then
 		return
 	end
 
@@ -1064,7 +1064,7 @@ local function save_group_state()
 		return
 	end
 
-	local prev_state = get_group_state(group_idx)
+	local prev_state = get_tab_state(tab_idx)
 
 	local state = {
 		widths = prev_state.widths,
@@ -1087,7 +1087,7 @@ local function save_group_state()
 		end
 	end
 
-	set_group_state(group_idx, state)
+	set_tab_state(tab_idx, state)
 end
 
 local function close_pane_windows()
@@ -1118,8 +1118,8 @@ local function close_pane_windows()
 	vim.t.term_winid = nil
 end
 
-local function open_group_windows(group, group_idx)
-	if not group or #group == 0 then
+local function open_tab_windows(tab, tab_idx)
+	if not tab or #tab == 0 then
 		return
 	end
 
@@ -1128,7 +1128,7 @@ local function open_group_windows(group, group_idx)
 		set_zoom_ruler()
 	end
 
-	local state = get_group_state(group_idx)
+	local state = get_tab_state(tab_idx)
 
 	local wins = {}
 	local scratches = {}
@@ -1138,7 +1138,7 @@ local function open_group_windows(group, group_idx)
 
 	if is_float_mode() then
 		local base_config = get_float_win_config()
-		local num_panes = #group
+		local num_panes = #tab
 		local total_width = base_config.width
 
 		-- Calculate pane widths
@@ -1175,7 +1175,7 @@ local function open_group_windows(group, group_idx)
 		local stl_height = has_stl and 1 or 0
 		local col_offset = 0
 		local fillchar = vim.opt.fillchars:get().vert or "│"
-		for i in ipairs(group) do
+		for i in ipairs(tab) do
 			local has_left = (i > 1)
 			local has_right = (i < num_panes)
 			local border = "none"
@@ -1216,7 +1216,7 @@ local function open_group_windows(group, group_idx)
 		table.insert(wins, first_win)
 		table.insert(scratches, first_scratch)
 
-		for i = 2, #group do
+		for i = 2, #tab do
 			local prev_win = wins[i - 1]
 			local win, scratch = open_window({
 				split = "right",
@@ -1261,7 +1261,7 @@ local function open_group_windows(group, group_idx)
 	-- the terminal display (e.g. when switching tabs)
 	for i, win in ipairs(wins) do
 		if win_valid(win) then
-			vim.api.nvim_win_set_buf(win, group[i])
+			vim.api.nvim_win_set_buf(win, tab[i])
 			if M.config.winbar then
 				vim.wo[win].winbar = " "
 			end
@@ -1292,13 +1292,13 @@ local function open_group_windows(group, group_idx)
 
 	vim.t.term_winids = wins
 	vim.t.term_winid = wins[focus_idx] or wins[1]
-	vim.t.term_bufnr = group[focus_idx] or group[1]
-	vim.t.term_group_idx = group_idx
+	vim.t.term_bufnr = tab[focus_idx] or tab[1]
+	vim.t.term_tab_idx = tab_idx
 
-	-- Clear activity flag now that term_group_idx is set
-	local activity = vim.t.term_group_activity or {}
-	activity[tostring(group_idx)] = nil
-	vim.t.term_group_activity = activity
+	-- Clear activity flag now that term_tab_idx is set
+	local activity = vim.t.term_tab_activity or {}
+	activity[tostring(tab_idx)] = nil
+	vim.t.term_tab_activity = activity
 
 	-- Raise active pane's z-index
 	if is_float_mode() and #wins > 1 then
@@ -1327,28 +1327,28 @@ local function open_group_windows(group, group_idx)
 	update_winbar_overlay()
 end
 
-local function reopen_current_group(target_idx)
-	local groups = get_groups()
-	if #groups == 0 then
+local function reopen_current_tab(target_idx)
+	local tabs = get_tabs()
+	if #tabs == 0 then
 		vim.t.term_winid = nil
 		vim.t.term_winids = {}
 		vim.t.term_bufnr = nil
 		return
 	end
-	target_idx = target_idx or vim.t.term_group_idx or 1
-	target_idx = clamp(target_idx, 1, #groups)
-	open_group_windows(groups[target_idx], target_idx)
+	target_idx = target_idx or vim.t.term_tab_idx or 1
+	target_idx = clamp(target_idx, 1, #tabs)
+	open_tab_windows(tabs[target_idx], target_idx)
 end
 
-local function rebuild_group(target_idx)
-	save_group_state()
+local function rebuild_tab(target_idx)
+	save_tab_state()
 	close_pane_windows()
-	reopen_current_group(target_idx)
+	reopen_current_tab(target_idx)
 end
 
-local function switch_to_group(target_idx)
+local function switch_to_tab(target_idx)
 	set_toggling()
-	rebuild_group(target_idx)
+	rebuild_tab(target_idx)
 end
 
 --------------------------------------------------------------------------------
@@ -1393,7 +1393,7 @@ function M.toggle(opts)
 
 	if is_open then
 		-- Close
-		save_group_state()
+		save_tab_state()
 		if win_valid(vim.t.term_winid) then
 			vim.t.term_bufnr = vim.api.nvim_win_get_buf(vim.t.term_winid)
 			vim.t.term_mode = vim.fn.mode()
@@ -1404,24 +1404,24 @@ function M.toggle(opts)
 		-- Open
 		vim.t.prev_winid = vim.fn.win_getid()
 
-		local group, group_idx = get_current_group()
+		local tab, tab_idx = get_current_tab()
 
-		if group and #group > 0 then
+		if tab and #tab > 0 then
 			if height > 1 then
 				vim.t.term_height = height
 			end
-			open_group_windows(group, group_idx)
+			open_tab_windows(tab, tab_idx)
 		else
-			-- Create a new terminal and open it via open_group_windows
+			-- Create a new terminal and open it via open_tab_windows
 			local bufnr = vim.api.nvim_create_buf(false, true)
 			local order = get_term_order()
 			table.insert(order, { bufnr })
 			vim.t.term_order = order
-			vim.t.term_group_idx = #order
+			vim.t.term_tab_idx = #order
 			vim.api.nvim_buf_call(bufnr, function()
 				vim.fn.termopen(vim.env.SHELL)
 			end)
-			reopen_current_group()
+			reopen_current_tab()
 		end
 	end
 end
@@ -1431,7 +1431,7 @@ function M.zoom()
 
 	if M.config.float then
 		vim.t.term_zoom = not vim.t.term_zoom
-		rebuild_group()
+		rebuild_tab()
 		return
 	end
 
@@ -1440,7 +1440,7 @@ function M.zoom()
 			return
 		end
 
-		save_group_state()
+		save_tab_state()
 
 		if not vim.t.term_zoom then
 			save_term_height()
@@ -1450,7 +1450,7 @@ function M.zoom()
 		end
 
 		close_pane_windows()
-		reopen_current_group()
+		reopen_current_tab()
 		return
 	end
 
@@ -1492,8 +1492,8 @@ end
 --------------------------------------------------------------------------------
 
 function M.switch(delta, clamp_range)
-	local groups = get_groups()
-	if #groups == 0 then
+	local tabs = get_tabs()
+	if #tabs == 0 then
 		return
 	end
 
@@ -1501,29 +1501,29 @@ function M.switch(delta, clamp_range)
 		return
 	end
 
-	local current_idx = vim.t.term_group_idx or 1
+	local current_idx = vim.t.term_tab_idx or 1
 	local target_idx
 
 	if clamp_range then
-		target_idx = math.max(1, math.min(#groups, current_idx + delta))
+		target_idx = math.max(1, math.min(#tabs, current_idx + delta))
 	else
-		target_idx = ((current_idx + delta - 1) % #groups) + 1
+		target_idx = ((current_idx + delta - 1) % #tabs) + 1
 	end
 
 	if target_idx == current_idx then
 		return
 	end
 
-	switch_to_group(target_idx)
+	switch_to_tab(target_idx)
 end
 
 function M.go_to(index)
-	local groups = get_groups()
-	if index < 1 or index > #groups then
+	local tabs = get_tabs()
+	if index < 1 or index > #tabs then
 		return
 	end
 
-	local current_idx = vim.t.term_group_idx or 1
+	local current_idx = vim.t.term_tab_idx or 1
 	if index == current_idx then
 		return
 	end
@@ -1532,35 +1532,35 @@ function M.go_to(index)
 		return
 	end
 
-	switch_to_group(index)
+	switch_to_tab(index)
 end
 
 function M.move(direction)
-	local groups = get_groups()
-	if #groups < 2 then
+	local tabs = get_tabs()
+	if #tabs < 2 then
 		return
 	end
 
-	local current_idx = vim.t.term_group_idx or 1
-	local new_idx = ((current_idx + direction - 1) % #groups) + 1
+	local current_idx = vim.t.term_tab_idx or 1
+	local new_idx = ((current_idx + direction - 1) % #tabs) + 1
 
 	local order = get_term_order()
 
 	order[current_idx], order[new_idx] = order[new_idx], order[current_idx]
 	vim.t.term_order = order
 
-	local s1, s2 = get_group_state(current_idx), get_group_state(new_idx)
-	set_group_state(current_idx, s2)
-	set_group_state(new_idx, s1)
+	local s1, s2 = get_tab_state(current_idx), get_tab_state(new_idx)
+	set_tab_state(current_idx, s2)
+	set_tab_state(new_idx, s1)
 
 	swap_activity(current_idx, new_idx)
 
-	vim.t.term_group_idx = new_idx
+	vim.t.term_tab_idx = new_idx
 
 	update_winbar_overlay()
 end
 
-function M.move_to_tab(direction)
+function M.move_to_vim_tab(direction)
 	if not is_in_term_window() then
 		return
 	end
@@ -1582,23 +1582,23 @@ function M.move_to_tab(direction)
 	local target_idx = ((idx + direction - 1) % #tabs) + 1
 	local target_tab = tabs[target_idx]
 
-	local group, group_idx = get_current_group()
-	if not group then
+	local tab, tab_idx = get_current_tab()
+	if not tab then
 		return
 	end
 
-	save_group_state()
+	save_tab_state()
 	close_pane_windows()
 
-	-- Remove group from current tab
+	-- Remove tab from current tab
 	local order = get_term_order()
 	local total_before = #order
-	table.remove(order, group_idx)
+	table.remove(order, tab_idx)
 	vim.t.term_order = order
 
-	shift_activity_after_remove(group_idx, total_before)
+	shift_activity_after_remove(tab_idx, total_before)
 
-	-- Add group to target tab before opening remaining groups, so
+	-- Add tab to target tab before opening remaining tabs, so
 	-- adopt_orphaned_terminals() (triggered by WinEnter) doesn't re-adopt
 	-- the moved buffers into the source tab.
 	local ok, target_order = pcall(vim.api.nvim_tabpage_get_var, target_tab, "term_order")
@@ -1606,16 +1606,16 @@ function M.move_to_tab(direction)
 		target_order = {}
 	end
 	target_order = migrate_term_order(target_order)
-	table.insert(target_order, group)
+	table.insert(target_order, tab)
 	vim.api.nvim_tabpage_set_var(target_tab, "term_order", target_order)
 
-	local new_idx2 = clamp(vim.t.term_group_idx or 1, 1, math.max(#order, 1))
-	vim.t.term_group_idx = new_idx2
+	local new_idx2 = clamp(vim.t.term_tab_idx or 1, 1, math.max(#order, 1))
+	vim.t.term_tab_idx = new_idx2
 
 	set_toggling()
-	local groups = get_groups()
-	if #groups > 0 and new_idx2 >= 1 and new_idx2 <= #groups then
-		open_group_windows(groups[new_idx2], new_idx2)
+	local tabs = get_tabs()
+	if #tabs > 0 and new_idx2 >= 1 and new_idx2 <= #tabs then
+		open_tab_windows(tabs[new_idx2], new_idx2)
 	else
 		vim.t.term_winid = nil
 		vim.t.term_winids = {}
@@ -1626,8 +1626,8 @@ function M.move_to_tab(direction)
 	vim.api.nvim_set_current_tabpage(target_tab)
 	setup_vars()
 
-	local target_groups = get_groups()
-	local target_group_idx = #target_groups
+	local target_tabs = get_tabs()
+	local target_tab_idx = #target_tabs
 
 	local target_open = false
 	local target_wins = vim.t.term_winids or {}
@@ -1639,12 +1639,12 @@ function M.move_to_tab(direction)
 	end
 
 	if target_open then
-		save_group_state()
+		save_tab_state()
 		close_pane_windows()
 	end
 
-	vim.t.term_group_idx = target_group_idx
-	open_group_windows(target_groups[target_group_idx], target_group_idx)
+	vim.t.term_tab_idx = target_tab_idx
+	open_tab_windows(target_tabs[target_tab_idx], target_tab_idx)
 end
 
 function M.go_to_notification()
@@ -1661,8 +1661,8 @@ function M.go_to_notification()
 		local ok, order = pcall(vim.api.nvim_tabpage_get_var, tab, "term_order")
 		if ok and order then
 			order = migrate_term_order(order)
-			for _, group in ipairs(order) do
-				for _, buf in ipairs(group) do
+			for _, tab in ipairs(order) do
+				for _, buf in ipairs(tab) do
 					if buf == bufnr then
 						target_tab = tab
 						break
@@ -1693,24 +1693,24 @@ function M.go_to_notification()
 		M.toggle({ open = true })
 	end
 
-	-- Find the group/pane index now (after groups are validated)
-	local group_idx, pane_idx = find_buf_group(bufnr)
-	if not group_idx then
+	-- Find the tab/pane index now (after tabs are validated)
+	local tab_idx, pane_idx = find_buf_tab(bufnr)
+	if not tab_idx then
 		return
 	end
 
-	local current_idx = vim.t.term_group_idx or 1
-	if group_idx ~= current_idx then
-		save_group_state()
+	local current_idx = vim.t.term_tab_idx or 1
+	if tab_idx ~= current_idx then
+		save_tab_state()
 		close_pane_windows()
 
-		local st = get_group_state(group_idx)
+		local st = get_tab_state(tab_idx)
 		st.focus = pane_idx
-		set_group_state(group_idx, st)
+		set_tab_state(tab_idx, st)
 
-		reopen_current_group(group_idx)
+		reopen_current_tab(tab_idx)
 	else
-		-- Already on the right group, just focus the pane
+		-- Already on the right tab, just focus the pane
 		local wins = vim.t.term_winids or {}
 		if pane_idx and pane_idx <= #wins and win_valid(wins[pane_idx]) then
 			vim.api.nvim_set_current_win(wins[pane_idx])
@@ -1753,53 +1753,53 @@ function M.delete()
 		end
 	end
 
-	local group_idx, _ = find_buf_group(bufnr)
-	if not group_idx then
+	local tab_idx, _ = find_buf_tab(bufnr)
+	if not tab_idx then
 		return
 	end
 
-	local groups = get_groups()
-	local group = groups[group_idx]
+	local tabs = get_tabs()
+	local tab = tabs[tab_idx]
 
-	if #group == 1 then
-		save_group_state()
+	if #tab == 1 then
+		save_tab_state()
 		close_pane_windows()
 		remove_term_from_order(bufnr)
 		vim.api.nvim_buf_delete(bufnr, { force = true })
-		reopen_current_group()
+		reopen_current_tab()
 	else
-		save_group_state()
+		save_tab_state()
 		close_pane_windows()
 
 		local order = get_term_order()
-		local g = order[group_idx]
+		local g = order[tab_idx]
 		local new_g = {}
 		for _, buf in ipairs(g) do
 			if buf ~= bufnr then
 				table.insert(new_g, buf)
 			end
 		end
-		order[group_idx] = new_g
+		order[tab_idx] = new_g
 		vim.t.term_order = order
 
-		local st = get_group_state(group_idx)
+		local st = get_tab_state(tab_idx)
 		st.widths = nil
 		if st.focus and st.focus > #new_g then
 			st.focus = #new_g
 		end
-		set_group_state(group_idx, st)
+		set_tab_state(tab_idx, st)
 
 		vim.api.nvim_buf_delete(bufnr, { force = true })
-		reopen_current_group(group_idx)
+		reopen_current_tab(tab_idx)
 	end
 end
 
 function M.new()
 	set_toggling()
 
-	local _, current_idx = get_current_group()
+	local _, current_idx = get_current_tab()
 
-	save_group_state()
+	save_tab_state()
 	close_pane_windows()
 
 	local bufnr = vim.api.nvim_create_buf(false, true)
@@ -1809,47 +1809,47 @@ function M.new()
 	local insert_idx = (current_idx or #order) + 1
 	table.insert(order, insert_idx, { bufnr })
 	vim.t.term_order = order
-	vim.t.term_group_idx = insert_idx
+	vim.t.term_tab_idx = insert_idx
 
 	vim.api.nvim_buf_call(bufnr, function()
 		vim.fn.termopen(vim.env.SHELL)
 	end)
 
-	open_group_windows({ bufnr }, insert_idx)
+	open_tab_windows({ bufnr }, insert_idx)
 end
 
 function M.vsplit()
 	set_toggling()
 
-	local group, group_idx = get_current_group()
-	if not group then
+	local tab, tab_idx = get_current_tab()
+	if not tab then
 		M.toggle({ open = true })
 		return
 	end
 
 	-- Find current pane index before closing windows
 	local current_bufnr = vim.fn.bufnr()
-	local _, current_pane_idx = find_buf_group(current_bufnr)
+	local _, current_pane_idx = find_buf_tab(current_bufnr)
 
-	save_group_state()
+	save_tab_state()
 	close_pane_windows()
 
 	local bufnr = vim.api.nvim_create_buf(false, true)
 
-	-- Add to group after current pane, before termopen so TermOpen autocmd doesn't double-add
-	add_buf_to_group(bufnr, group_idx, current_pane_idx)
+	-- Add to tab after current pane, before termopen so TermOpen autocmd doesn't double-add
+	add_buf_to_tab(bufnr, tab_idx, current_pane_idx)
 
 	vim.api.nvim_buf_call(bufnr, function()
 		vim.fn.termopen(vim.env.SHELL)
 	end)
 
-	local insert_pos = (current_pane_idx or #group) + 1
-	local st = get_group_state(group_idx)
+	local insert_pos = (current_pane_idx or #tab) + 1
+	local st = get_tab_state(tab_idx)
 	st.widths = nil
 	st.focus = insert_pos
-	set_group_state(group_idx, st)
+	set_tab_state(tab_idx, st)
 
-	reopen_current_group(group_idx)
+	reopen_current_tab(tab_idx)
 end
 
 function M.next()
@@ -1868,8 +1868,8 @@ setup_vars = function()
 	vim.t.term_winid = vim.t.term_winid or 0
 	vim.t.term_winids = vim.t.term_winids or {}
 	vim.t.term_height = vim.t.term_height or get_term_height()
-	vim.t.term_group_idx = vim.t.term_group_idx or 1
-	vim.t.term_group_state = vim.t.term_group_state or {}
+	vim.t.term_tab_idx = vim.t.term_tab_idx or 1
+	vim.t.term_tab_state = vim.t.term_tab_state or {}
 end
 
 local function setup_autocmd()
@@ -1886,7 +1886,7 @@ local function setup_autocmd()
 			vim.opt_local.sidescrolloff = 0
 			vim.opt_local.winblend = 0
 			local bufnr = vim.fn.bufnr()
-			if not find_buf_group(bufnr) then
+			if not find_buf_tab(bufnr) then
 				add_term_to_order(bufnr)
 			end
 			vim.b.term_mode = "t"
@@ -1906,16 +1906,16 @@ local function setup_autocmd()
 							return
 						end
 					end
-					local gi = find_buf_group(buf)
-					if not gi or gi == (vim.t.term_group_idx or 1) then
+					local gi = find_buf_tab(buf)
+					if not gi or gi == (vim.t.term_tab_idx or 1) then
 						return
 					end
-					local activity = vim.t.term_group_activity or {}
+					local activity = vim.t.term_tab_activity or {}
 					if activity[tostring(gi)] then
 						return
 					end
 					activity[tostring(gi)] = true
-					vim.t.term_group_activity = activity
+					vim.t.term_tab_activity = activity
 					vim.schedule(function()
 						update_winbar_overlay()
 					end)
@@ -1973,8 +1973,8 @@ local function setup_autocmd()
 			end
 			-- Save pane widths when user explicitly resizes (2+ panes)
 			if #wins >= 2 then
-				local _, group_idx = get_current_group()
-				if group_idx then
+				local _, tab_idx = get_current_tab()
+				if tab_idx then
 					local widths = {}
 					local all_valid = true
 					for i, win in ipairs(wins) do
@@ -1986,9 +1986,9 @@ local function setup_autocmd()
 						end
 					end
 					if all_valid then
-						local st = get_group_state(group_idx)
+						local st = get_tab_state(tab_idx)
 						st.widths = widths
-						set_group_state(group_idx, st)
+						set_tab_state(tab_idx, st)
 					end
 				end
 			end
@@ -2009,12 +2009,12 @@ local function setup_autocmd()
 					vim.t.term_winid = current_win
 					vim.t.term_bufnr = vim.api.nvim_win_get_buf(current_win)
 
-					-- Clear activity for the current group
-					local current_group_idx = vim.t.term_group_idx or 1
-					local activity = vim.t.term_group_activity or {}
-					if activity[tostring(current_group_idx)] then
-						activity[tostring(current_group_idx)] = nil
-						vim.t.term_group_activity = activity
+					-- Clear activity for the current tab
+					local current_tab_idx = vim.t.term_tab_idx or 1
+					local activity = vim.t.term_tab_activity or {}
+					if activity[tostring(current_tab_idx)] then
+						activity[tostring(current_tab_idx)] = nil
+						vim.t.term_tab_activity = activity
 						update_winbar_overlay()
 					end
 					break
@@ -2088,7 +2088,7 @@ local function setup_autocmd()
 		if not is_float_mode() or not is_term_open() then
 			return
 		end
-		rebuild_group()
+		rebuild_tab()
 	end
 
 	vim.api.nvim_create_autocmd("VimResized", {
@@ -2122,12 +2122,12 @@ local function setup_autocmd()
 		group = "Term",
 		callback = function(ev)
 			local bufnr = ev.buf
-			local group_idx_closed = find_buf_group(bufnr)
+			local tab_idx_closed = find_buf_tab(bufnr)
 
-			local current_group_idx = vim.t.term_group_idx or 1
-			local is_in_active_group = group_idx_closed == current_group_idx
+			local current_tab_idx = vim.t.term_tab_idx or 1
+			local is_in_active_tab = tab_idx_closed == current_tab_idx
 
-			local is_displayed = is_in_active_group and is_term_open()
+			local is_displayed = is_in_active_tab and is_term_open()
 
 			remove_term_from_order(bufnr)
 
@@ -2137,7 +2137,7 @@ local function setup_autocmd()
 				end
 
 				if is_displayed then
-					rebuild_group()
+					rebuild_tab()
 				else
 					update_winbar_overlay()
 				end
@@ -2270,11 +2270,11 @@ local function setup_keymap()
 		M.move(1)
 	end)
 
-	map({ "n", "t" }, keys.move_to_tab_prev, function()
-		M.move_to_tab(-1)
+	map({ "n", "t" }, keys.move_to_vim_tab_prev, function()
+		M.move_to_vim_tab(-1)
 	end)
-	map({ "n", "t" }, keys.move_to_tab_next, function()
-		M.move_to_tab(1)
+	map({ "n", "t" }, keys.move_to_vim_tab_next, function()
+		M.move_to_vim_tab(1)
 	end)
 
 	map({ "n", "t" }, keys.last_notification, M.go_to_notification, { noremap = true })
@@ -2288,7 +2288,7 @@ local function setup_keymap()
 		end
 	end
 
-	local function switch_tab(direction)
+	local function switch_vim_tab(direction)
 		local src_mode = vim.fn.mode()
 		if vim.bo.buftype == "terminal" then
 			vim.b.term_mode = src_mode
@@ -2310,11 +2310,11 @@ local function setup_keymap()
 		end)
 	end
 
-	map({ "n", "t" }, keys.tab_prev, function()
-		switch_tab(-1)
+	map({ "n", "t" }, keys.vim_tab_prev, function()
+		switch_vim_tab(-1)
 	end, { noremap = true })
-	map({ "n", "t" }, keys.tab_next, function()
-		switch_tab(1)
+	map({ "n", "t" }, keys.vim_tab_next, function()
+		switch_vim_tab(1)
 	end, { noremap = true })
 
 	if keys.paste_register ~= false then
@@ -2451,59 +2451,59 @@ local function setup_keymap()
 	end
 
 	local function move_pane_to(target_pos)
-		local group, group_idx = get_current_group()
-		if not group or #group < 2 then
+		local tab, tab_idx = get_current_tab()
+		if not tab or #tab < 2 then
 			return
 		end
 
 		local bufnr = vim.fn.bufnr()
-		local _, pane_idx = find_buf_group(bufnr)
+		local _, pane_idx = find_buf_tab(bufnr)
 		if not pane_idx then
 			return
 		end
 		if target_pos == 1 and pane_idx == 1 then
 			return
 		end
-		if target_pos == #group and pane_idx == #group then
+		if target_pos == #tab and pane_idx == #tab then
 			return
 		end
 
 		set_toggling()
-		save_group_state()
+		save_tab_state()
 		close_pane_windows()
 
 		local order = get_term_order()
-		table.remove(order[group_idx], pane_idx)
-		table.insert(order[group_idx], target_pos, bufnr)
+		table.remove(order[tab_idx], pane_idx)
+		table.insert(order[tab_idx], target_pos, bufnr)
 		vim.t.term_order = order
 
-		local st = get_group_state(group_idx)
+		local st = get_tab_state(tab_idx)
 		st.widths = nil
 		st.focus = target_pos
-		set_group_state(group_idx, st)
+		set_tab_state(tab_idx, st)
 
-		reopen_current_group(group_idx)
+		reopen_current_tab(tab_idx)
 	end
 
 	local function rotate_panes(direction)
-		local group, group_idx = get_current_group()
-		if not group or #group < 2 then
+		local tab, tab_idx = get_current_tab()
+		if not tab or #tab < 2 then
 			return
 		end
 
 		local bufnr = vim.fn.bufnr()
-		local _, pane_idx = find_buf_group(bufnr)
+		local _, pane_idx = find_buf_tab(bufnr)
 		if not pane_idx then
 			return
 		end
 
 		set_toggling()
 
-		save_group_state()
+		save_tab_state()
 		close_pane_windows()
 
 		local order = get_term_order()
-		local g = order[group_idx]
+		local g = order[tab_idx]
 		if direction > 0 then
 			local last = table.remove(g)
 			table.insert(g, 1, last)
@@ -2521,12 +2521,12 @@ local function setup_keymap()
 			end
 		end
 
-		local st = get_group_state(group_idx)
+		local st = get_tab_state(tab_idx)
 		st.widths = nil
 		st.focus = new_pane_idx or 1
-		set_group_state(group_idx, st)
+		set_tab_state(tab_idx, st)
 
-		reopen_current_group(group_idx)
+		reopen_current_tab(tab_idx)
 	end
 
 	if keys.wincmd ~= false then
@@ -2572,14 +2572,14 @@ local function setup_keymap()
 					elseif c == "<" then
 						resize_current_pane(-count)
 					elseif key_match(c, "H", "<S-H>") then
-						local group = get_current_group()
-						if group then
+						local tab = get_current_tab()
+						if tab then
 							move_pane_to(1)
 						end
 					elseif key_match(c, "L", "<S-L>") then
-						local group = get_current_group()
-						if group then
-							move_pane_to(#group)
+						local tab = get_current_tab()
+						if tab then
+							move_pane_to(#tab)
 						end
 					elseif key_match(c, "r", "<C-R>", "<C-S-R>") then
 						rotate_panes(1)
@@ -2631,10 +2631,10 @@ local function setup_keymap()
 		{ { "c", "<C-c>" }, M.delete },
 		{ { "v", "<C-v>" }, M.vsplit },
 		{ { "H" }, function()
-			local g = get_current_group(); if g then move_pane_to(1) end
+			local g = get_current_tab(); if g then move_pane_to(1) end
 		end },
 		{ { "L" }, function()
-			local g = get_current_group(); if g then move_pane_to(#g) end
+			local g = get_current_tab(); if g then move_pane_to(#g) end
 		end },
 		{ { "r", "<C-r>" }, function() rotate_panes(1) end },
 		{ { "R" },          function() rotate_panes(-1) end },
