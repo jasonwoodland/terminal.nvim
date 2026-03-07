@@ -15,6 +15,7 @@ M.config = {
 	float_zoom = true,
 	float_zoom_show_tabline = true,
 	float_zoom_hide_cmdline = false,
+	osc_notifications = true,
 	keys = {
 		toggle = "<C-S-/>",
 		normal_mode = "<C-;>",
@@ -1969,6 +1970,54 @@ local function setup_winbar_autocmds()
 	})
 end
 
+local function setup_osc_notifications()
+	if not M.config.osc_notifications then
+		return
+	end
+
+	local uv = vim.loop
+	local out_tty = uv.new_tty(1, true)
+
+	vim.api.nvim_create_autocmd("TermRequest", {
+		pattern = "*",
+		group = "Term",
+		callback = function(ev)
+			local seq = ev.data.sequence
+
+			if seq:sub(1, 4) ~= "\x1b]9;" and seq:sub(1, 5) ~= "\x1b]99;" and seq:sub(1, 6) ~= "\x1b]777;" then
+				return
+			end
+
+			-- Pass through to terminal
+			uv.write(out_tty, seq)
+
+			-- OSC 9;4 is progress reporting — pass through but don't notify
+			if seq:sub(1, 5) == "\x1b]9;4" then
+				return
+			end
+
+			-- Notify when not focused in a terminal buffer
+			local is_term_buf = vim.bo.buftype == "terminal"
+			if is_term_buf then
+				return
+			end
+
+			local title, body = seq:match("\x1b%]777;notify;([^;\007]+);([^\007]*)")
+			if not body then
+				body = seq:match("\x1b%]777;notify;([^\007]*)")
+			end
+			if not body then
+				body = seq:match("\x1b%]99?;([^\007]*)")
+			end
+			if body then
+				title = title or "Terminal notification"
+				vim.notify(title .. ": " .. body, vim.log.levels.INFO)
+			end
+			uv.write(out_tty, "\a")
+		end,
+	})
+end
+
 local function setup_keymap()
 	local keys = M.config.keys
 	if keys == false then
@@ -2409,6 +2458,7 @@ function M.setup(config)
 	setup_vars()
 	setup_autocmd()
 	setup_winbar_autocmds()
+	setup_osc_notifications()
 	setup_keymap()
 	setup_command()
 	setup_alias()
