@@ -50,10 +50,6 @@ local function get_term_height()
 	return M.config.height
 end
 
-local function get_winbar_height()
-	return M.config.winbar and 1 or 0
-end
-
 local function is_float_mode()
 	return M.config.float or (M.config.float_zoom and vim.t.term_zoom)
 end
@@ -1179,7 +1175,7 @@ local function open_group_windows(group, group_idx)
 		local stl_height = has_stl and 1 or 0
 		local col_offset = 0
 		local fillchar = vim.opt.fillchars:get().vert or "│"
-		for i, bufnr in ipairs(group) do
+		for i in ipairs(group) do
 			local has_left = (i > 1)
 			local has_right = (i < num_panes)
 			local border = "none"
@@ -1306,7 +1302,7 @@ local function open_group_windows(group, group_idx)
 
 	-- Raise active pane's z-index
 	if is_float_mode() and #wins > 1 then
-		for i, win in ipairs(wins) do
+		for _, win in ipairs(wins) do
 			if win_valid(win) then
 				local cfg = vim.api.nvim_win_get_config(win)
 				if cfg.relative and cfg.relative ~= "" then
