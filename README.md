@@ -20,7 +20,35 @@ Minimal plugin for unobtrusive terminal management in Neovim.
 - Confirm before deleting a terminal with a running process
 - Fully configurable keymaps
 
+## Requirements
+
+- Neovim >= 0.10
+
+## Installation
+
+Using [lazy.nvim](https://github.com/folke/lazy.nvim):
+
+```lua
+{
+  "jasonwoodland/terminal.nvim",
+  opts = {},
+}
+```
+
+Using [packer.nvim](https://github.com/wbthomason/packer.nvim):
+
+```lua
+use {
+  "jasonwoodland/terminal.nvim",
+  config = function()
+    require("terminal").setup()
+  end,
+}
+```
+
 ## Configuration
+
+Below is the default configuration:
 
 ```lua
 require("terminal").setup({
@@ -136,6 +164,18 @@ Press <kbd>&lt;C-S-w&gt;</kbd> followed by a sub-key (works in both Normal and T
 ### Normal mode `<C-w>` overrides
 
 When focused in a terminal pane window, `<C-w>` sub-keys are overridden to control panes instead of Vim windows. The same sub-keys from the wincmd table above apply. Outside of terminal pane windows, `<C-w>` behaves normally.
+
+## Commands
+
+| Command                  | Action                                          |
+| ------------------------ | ----------------------------------------------- |
+| `:TermSplit`             | Open a terminal in a horizontal split           |
+| `:TermVsplit`            | Open a terminal in a vertical split             |
+| `:TermTab [args]`        | Open a terminal in a new tab                    |
+| `:TermDelete`            | Delete the current terminal buffer              |
+| `:TermReset`             | Reset the terminal (open new, delete old)       |
+
+Short aliases are available: `:st`, `:vst`, `:tt`, `:td` (and `:tsplit`, `:tvsplit`, `:ttab`, `:tdelete`).
 
 ## Public API
 
