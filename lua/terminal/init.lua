@@ -59,6 +59,7 @@ local function is_float_mode()
 end
 
 local toggling = false
+local toggling_gen = 0
 local saved_cmdheight = nil
 local saved_ruler = nil
 local drag_state = nil
@@ -77,9 +78,13 @@ end
 
 local function set_toggling()
 	toggling = true
-	vim.schedule(function()
-		toggling = false
-	end)
+	toggling_gen = toggling_gen + 1
+	local gen = toggling_gen
+	vim.defer_fn(function()
+		if toggling_gen == gen then
+			toggling = false
+		end
+	end, 100)
 end
 
 local function is_term_open()
@@ -192,7 +197,8 @@ local function get_groups()
 	local order = get_term_order()
 
 	local valid_order = {}
-	for _, group in ipairs(order) do
+	local removed = {}
+	for gi, group in ipairs(order) do
 		local valid_group = {}
 		for _, buf in ipairs(group) do
 			if vim.fn.bufexists(buf) == 1 and vim.fn.getbufvar(buf, "&buftype") == "terminal" then
@@ -201,7 +207,24 @@ local function get_groups()
 		end
 		if #valid_group > 0 then
 			table.insert(valid_order, valid_group)
+		else
+			table.insert(removed, gi)
 		end
+	end
+
+	-- Remap activity keys when groups are removed by filtering
+	if #removed > 0 then
+		local old = vim.t.term_group_activity or {}
+		local new = {}
+		local offset = 0
+		for i = 1, #order do
+			if removed[offset + 1] == i then
+				offset = offset + 1
+			elseif old[tostring(i)] then
+				new[tostring(i - offset)] = true
+			end
+		end
+		vim.t.term_group_activity = new
 	end
 
 	vim.t.term_order = valid_order
@@ -221,6 +244,30 @@ local function find_buf_group(bufnr)
 		end
 	end
 	return nil, nil
+end
+
+local function swap_activity(idx1, idx2)
+	local activity = vim.t.term_group_activity or {}
+	local k1, k2 = tostring(idx1), tostring(idx2)
+	activity[k1], activity[k2] = activity[k2], activity[k1]
+	vim.t.term_group_activity = activity
+end
+
+local function shift_activity_after_remove(removed_idx, total_before)
+	local old = vim.t.term_group_activity or {}
+	local new = {}
+	for i = 1, total_before do
+		if i < removed_idx then
+			if old[tostring(i)] then
+				new[tostring(i)] = true
+			end
+		elseif i > removed_idx then
+			if old[tostring(i)] then
+				new[tostring(i - 1)] = true
+			end
+		end
+	end
+	vim.t.term_group_activity = new
 end
 
 local function add_term_to_order(bufnr, after_bufnr)
@@ -252,9 +299,11 @@ end
 
 local function remove_term_from_order(bufnr)
 	local order = get_term_order()
+	local total_before = #order
 
+	local removed_group_idx = nil
 	local new_order = {}
-	for _, group in ipairs(order) do
+	for gi, group in ipairs(order) do
 		local new_group = {}
 		for _, buf in ipairs(group) do
 			if buf ~= bufnr then
@@ -263,11 +312,17 @@ local function remove_term_from_order(bufnr)
 		end
 		if #new_group > 0 then
 			table.insert(new_order, new_group)
+		elseif not removed_group_idx then
+			removed_group_idx = gi
 		end
 	end
 
 	vim.t.term_order = new_order
 	vim.t.term_group_idx = clamp(vim.t.term_group_idx or 1, 1, math.max(#new_order, 1))
+
+	if removed_group_idx then
+		shift_activity_after_remove(removed_group_idx, total_before)
+	end
 end
 
 local function add_buf_to_group(bufnr, group_idx, after_pane_idx)
@@ -363,6 +418,11 @@ local function render_winbar_content()
 	local groups = get_groups()
 	local current_idx = vim.t.term_group_idx or 1
 
+	-- Always clear activity for the current group
+	local activity = vim.t.term_group_activity or {}
+	activity[tostring(current_idx)] = nil
+	vim.t.term_group_activity = activity
+
 	vim.api.nvim_buf_clear_namespace(winbar_bufnr, winbar_ns, 0, -1)
 	winbar_click_ranges = {}
 
@@ -371,7 +431,9 @@ local function render_winbar_content()
 
 	for i, group in ipairs(groups) do
 		local title = get_winbar_title(group)
-		local label = " " .. i .. ":" .. title .. " "
+		local group_activity = vim.t.term_group_activity or {}
+		local has_activity = i ~= current_idx and group_activity[tostring(i)] or false
+		local label = " " .. i .. ":" .. title .. (has_activity and "*" or "") .. " "
 		if #group > 1 then
 			label = label .. "[" .. #group .. "] "
 		end
@@ -1216,6 +1278,11 @@ local function open_group_windows(group, group_idx)
 	vim.t.term_bufnr = group[focus_idx] or group[1]
 	vim.t.term_group_idx = group_idx
 
+	-- Clear activity flag now that term_group_idx is set
+	local activity = vim.t.term_group_activity or {}
+	activity[tostring(group_idx)] = nil
+	vim.t.term_group_activity = activity
+
 	-- Raise active pane's z-index
 	if is_float_mode() and #wins > 1 then
 		for i, win in ipairs(wins) do
@@ -1469,6 +1536,8 @@ function M.move(direction)
 	set_group_state(current_idx, s2)
 	set_group_state(new_idx, s1)
 
+	swap_activity(current_idx, new_idx)
+
 	vim.t.term_group_idx = new_idx
 
 	update_winbar_overlay()
@@ -1506,8 +1575,11 @@ function M.move_to_tab(direction)
 
 	-- Remove group from current tab
 	local order = get_term_order()
+	local total_before = #order
 	table.remove(order, group_idx)
 	vim.t.term_order = order
+
+	shift_activity_after_remove(group_idx, total_before)
 
 	local new_idx2 = clamp(vim.t.term_group_idx or 1, 1, math.max(#order, 1))
 	vim.t.term_group_idx = new_idx2
@@ -1800,6 +1872,36 @@ local function setup_autocmd()
 			end
 			vim.b.term_mode = "t"
 			setup_term_mouse_mappings(bufnr)
+			vim.api.nvim_buf_attach(bufnr, false, {
+				on_lines = function(_, buf)
+					if toggling then
+						return
+					end
+					if not vim.api.nvim_buf_is_valid(buf) then
+						return true
+					end
+					-- Skip if buffer is displayed in a current terminal window
+					local wins = vim.t.term_winids or {}
+					for _, win in ipairs(wins) do
+						if win_valid(win) and vim.api.nvim_win_get_buf(win) == buf then
+							return
+						end
+					end
+					local gi = find_buf_group(buf)
+					if not gi or gi == (vim.t.term_group_idx or 1) then
+						return
+					end
+					local activity = vim.t.term_group_activity or {}
+					if activity[tostring(gi)] then
+						return
+					end
+					activity[tostring(gi)] = true
+					vim.t.term_group_activity = activity
+					vim.schedule(function()
+						update_winbar_overlay()
+					end)
+				end,
+			})
 		end,
 	})
 	vim.api.nvim_create_autocmd("ModeChanged", {
@@ -1887,6 +1989,15 @@ local function setup_autocmd()
 				if win == current_win then
 					vim.t.term_winid = current_win
 					vim.t.term_bufnr = vim.api.nvim_win_get_buf(current_win)
+
+					-- Clear activity for the current group
+					local current_group_idx = vim.t.term_group_idx or 1
+					local activity = vim.t.term_group_activity or {}
+					if activity[tostring(current_group_idx)] then
+						activity[tostring(current_group_idx)] = nil
+						vim.t.term_group_activity = activity
+						update_winbar_overlay()
+					end
 					break
 				end
 			end
