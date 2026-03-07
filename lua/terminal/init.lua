@@ -599,23 +599,6 @@ update_winbar_overlay = function()
 		vim.bo[winbar_bufnr].bufhidden = "hide"
 		vim.bo[winbar_bufnr].buftype = "nofile"
 
-		vim.api.nvim_buf_set_keymap(winbar_bufnr, "n", "<LeftMouse>", "", {
-			noremap = true,
-			callback = function()
-				local mouse = vim.fn.getmousepos()
-				local col = mouse.column - 1
-				for _, range in ipairs(winbar_click_ranges) do
-					if col >= range.start_col and col < range.end_col then
-						local term_wins = vim.t.term_winids or {}
-						if #term_wins > 0 and win_valid(term_wins[1]) then
-							vim.api.nvim_set_current_win(term_wins[1])
-						end
-						M.go_to(range.group_idx)
-						return
-					end
-				end
-			end,
-		})
 	end
 
 	render_winbar_content()
@@ -2018,10 +2001,39 @@ local function setup_autocmd()
 				end
 			end
 
-			-- Refocus terminal pane if winbar overlay is entered
+			-- Handle winbar clicks and refocus
 			if current_win == vim.t.term_winbar_winid then
+				-- Check if entered via mouse click on the winbar
+				local mouse = vim.fn.getmousepos()
+				if mouse.winid == vim.t.term_winbar_winid then
+					-- Save the mode of the terminal we came from before it gets
+					-- overwritten by the ModeChanged t:nt autocmd
+					local prev_win = vim.t.term_winid
+					local prev_mode = prev_win and win_valid(prev_win)
+						and vim.b[vim.api.nvim_win_get_buf(prev_win)].term_mode or "t"
+					local col = mouse.column - 1
+					for _, range in ipairs(winbar_click_ranges) do
+						if col >= range.start_col and col < range.end_col then
+							local term_wins2 = vim.t.term_winids or {}
+							if #term_wins2 > 0 and win_valid(term_wins2[1]) then
+								vim.api.nvim_set_current_win(term_wins2[1])
+							end
+							M.go_to(range.group_idx)
+							-- Restore terminal mode using the saved mode.
+							-- Also re-set term_mode to counteract the scheduled
+							-- ModeChanged t:nt handler that will overwrite it.
+							if vim.bo.buftype == "terminal" then
+								if prev_mode ~= "n" then
+									vim.cmd("startinsert")
+								end
+								vim.b.term_mode = prev_mode
+							end
+							return
+						end
+					end
+				end
+				-- Refocus terminal pane (keyboard navigation or click outside tabs)
 				vim.schedule(function()
-					-- Another handler may have already moved focus away
 					if vim.fn.win_getid() ~= vim.t.term_winbar_winid then
 						return
 					end
@@ -2029,8 +2041,8 @@ local function setup_autocmd()
 					if win_valid(target) then
 						vim.api.nvim_set_current_win(target)
 					else
-						local term_wins = vim.t.term_winids or {}
-						for _, win in ipairs(term_wins) do
+						local term_wins2 = vim.t.term_winids or {}
+						for _, win in ipairs(term_wins2) do
 							if win_valid(win) then
 								vim.api.nvim_set_current_win(win)
 								return
