@@ -1582,6 +1582,17 @@ function M.move_to_tab(direction)
 
 	shift_activity_after_remove(group_idx, total_before)
 
+	-- Add group to target tab before opening remaining groups, so
+	-- adopt_orphaned_terminals() (triggered by WinEnter) doesn't re-adopt
+	-- the moved buffers into the source tab.
+	local ok, target_order = pcall(vim.api.nvim_tabpage_get_var, target_tab, "term_order")
+	if not ok then
+		target_order = {}
+	end
+	target_order = migrate_term_order(target_order)
+	table.insert(target_order, group)
+	vim.api.nvim_tabpage_set_var(target_tab, "term_order", target_order)
+
 	local new_idx2 = clamp(vim.t.term_group_idx or 1, 1, math.max(#order, 1))
 	vim.t.term_group_idx = new_idx2
 
@@ -1594,15 +1605,6 @@ function M.move_to_tab(direction)
 		vim.t.term_winids = {}
 		vim.t.term_bufnr = nil
 	end
-
-	-- Add group to target tab
-	local ok, target_order = pcall(vim.api.nvim_tabpage_get_var, target_tab, "term_order")
-	if not ok then
-		target_order = {}
-	end
-	target_order = migrate_term_order(target_order)
-	table.insert(target_order, group)
-	vim.api.nvim_tabpage_set_var(target_tab, "term_order", target_order)
 
 	-- Switch to target tab
 	vim.api.nvim_set_current_tabpage(target_tab)
