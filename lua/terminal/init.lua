@@ -33,6 +33,7 @@ M.config = {
 		tab_prev = "<C-PageUp>",
 		move_to_tab_prev = "<C-M-PageUp>",
 		move_to_tab_next = "<C-M-PageDown>",
+		last_notification = "<C-S-a>",
 	},
 }
 
@@ -61,6 +62,8 @@ local toggling = false
 local saved_cmdheight = nil
 local saved_ruler = nil
 local drag_state = nil
+local out_tty = vim.loop.new_tty(1, true)
+local last_notification_bufnr = nil
 
 local function clamp(val, min, max)
 	if val < min then return min end
@@ -499,7 +502,7 @@ local function get_winbar_overlay_config()
 			height = 1,
 			style = "minimal",
 			border = "none",
-			zindex = 60,
+			zindex = 1,
 			focusable = true,
 		}
 	end
@@ -657,7 +660,10 @@ local function update_float_statuslines()
 		local stl_row = cfg.row + cfg.height
 		local idx
 		for j, w in ipairs(wins) do
-			if w == win then idx = j break end
+			if w == win then
+				idx = j
+				break
+			end
 		end
 		local stl_col = cfg.col + ((idx and idx > 1 and #wins > 1) and 1 or 0)
 		local hl = (win == current_win) and "Normal:StatusLine" or "Normal:StatusLineNC"
@@ -1550,6 +1556,84 @@ function M.move_to_tab(direction)
 	open_group_windows(target_groups[target_group_idx], target_group_idx)
 end
 
+function M.go_to_notification()
+	if not last_notification_bufnr or not vim.api.nvim_buf_is_valid(last_notification_bufnr) then
+		vim.notify("No recent notification", vim.log.levels.WARN)
+		return
+	end
+
+	local bufnr = last_notification_bufnr
+
+	-- Find which tab owns this buffer
+	local target_tab = nil
+	for _, tab in ipairs(vim.api.nvim_list_tabpages()) do
+		local ok, order = pcall(vim.api.nvim_tabpage_get_var, tab, "term_order")
+		if ok and order then
+			order = migrate_term_order(order)
+			for _, group in ipairs(order) do
+				for _, buf in ipairs(group) do
+					if buf == bufnr then
+						target_tab = tab
+						break
+					end
+				end
+				if target_tab then break end
+			end
+		end
+		if target_tab then break end
+	end
+
+	if not target_tab then
+		vim.notify("Notification terminal no longer exists", vim.log.levels.WARN)
+		last_notification_bufnr = nil
+		return
+	end
+
+	set_toggling()
+
+	-- Switch to the target tab if needed
+	if target_tab ~= vim.api.nvim_get_current_tabpage() then
+		vim.api.nvim_set_current_tabpage(target_tab)
+		setup_vars()
+	end
+
+	-- Open terminal if not already open
+	if not is_term_open() then
+		M.toggle({ open = true })
+	end
+
+	-- Find the group/pane index now (after groups are validated)
+	local group_idx, pane_idx = find_buf_group(bufnr)
+	if not group_idx then
+		return
+	end
+
+	local current_idx = vim.t.term_group_idx or 1
+	if group_idx ~= current_idx then
+		save_group_state()
+		close_pane_windows()
+
+		local st = get_group_state(group_idx)
+		st.focus = pane_idx
+		set_group_state(group_idx, st)
+
+		reopen_current_group(group_idx)
+	else
+		-- Already on the right group, just focus the pane
+		local wins = vim.t.term_winids or {}
+		if pane_idx and pane_idx <= #wins and win_valid(wins[pane_idx]) then
+			vim.api.nvim_set_current_win(wins[pane_idx])
+			local mode = vim.b[bufnr].term_mode
+			if mode == "t" or mode == nil then
+				vim.cmd("startinsert")
+			else
+				vim.cmd("stopinsert")
+			end
+			update_float_statuslines()
+		end
+	end
+end
+
 local function term_has_foreground_process(bufnr)
 	local job_id = vim.b[bufnr].terminal_job_id
 	if not job_id then
@@ -1958,7 +2042,7 @@ local function setup_winbar_autocmds()
 			local seq = ev.data.sequence
 
 			if seq:match("^\x1b%]0;") then
-				local title = seq:match("\x1b%]0;([^;\007]+)")
+				local title = seq:match("\x1b%]0;([^\007]+)")
 				if title and #title > 0 then
 					local buf = ev.buf
 					vim.b[buf].term_title = title
@@ -1975,9 +2059,6 @@ local function setup_osc_notifications()
 		return
 	end
 
-	local uv = vim.loop
-	local out_tty = uv.new_tty(1, true)
-
 	vim.api.nvim_create_autocmd("TermRequest", {
 		pattern = "*",
 		group = "Term",
@@ -1989,12 +2070,14 @@ local function setup_osc_notifications()
 			end
 
 			-- Pass through to terminal
-			uv.write(out_tty, seq)
+			vim.loop.write(out_tty, seq)
 
 			-- OSC 9;4 is progress reporting — pass through but don't notify
 			if seq:sub(1, 5) == "\x1b]9;4" then
 				return
 			end
+
+			last_notification_bufnr = ev.buf
 
 			-- Notify when not focused in a terminal buffer
 			local is_term_buf = vim.bo.buftype == "terminal"
@@ -2013,7 +2096,7 @@ local function setup_osc_notifications()
 				title = title or "Terminal notification"
 				vim.notify(title .. ": " .. body, vim.log.levels.INFO)
 			end
-			uv.write(out_tty, "\a")
+			vim.loop.write(out_tty, "\a")
 		end,
 	})
 end
@@ -2059,10 +2142,15 @@ local function setup_keymap()
 		M.move_to_tab(1)
 	end)
 
+	map({ "n", "t" }, keys.last_notification, M.go_to_notification, { noremap = true })
+
 	for i = 1, 9 do
-		vim.keymap.set({ "n", "t" }, "<C-S-" .. i .. ">", function()
-			M.go_to(i)
-		end, { noremap = true })
+		local key = "<C-S-" .. i .. ">"
+		if key ~= keys.last_notification then
+			vim.keymap.set({ "n", "t" }, key, function()
+				M.go_to(i)
+			end, { noremap = true })
+		end
 	end
 
 	local function switch_tab(direction)
@@ -2401,16 +2489,20 @@ local function setup_keymap()
 		{ { "w", "<C-w>" }, pane_cycle },
 		{ { "h", "<C-h>" }, function() pane_navigate(-1) end },
 		{ { "l", "<C-l>" }, function() pane_navigate(1) end },
-		{ { ">" }, function() resize_current_pane(vim.v.count1) end },
-		{ { "<lt>" }, function() resize_current_pane(-vim.v.count1) end },
-		{ { "=" }, equalize_panes },
+		{ { ">" },          function() resize_current_pane(vim.v.count1) end },
+		{ { "<lt>" },       function() resize_current_pane(-vim.v.count1) end },
+		{ { "=" },          equalize_panes },
 		{ { "p", "<C-p>" }, function() M.toggle({ open = false }) end },
 		{ { "c", "<C-c>" }, M.delete },
 		{ { "v", "<C-v>" }, M.vsplit },
-		{ { "H" }, function() local g = get_current_group(); if g then move_pane_to(1) end end },
-		{ { "L" }, function() local g = get_current_group(); if g then move_pane_to(#g) end end },
+		{ { "H" }, function()
+			local g = get_current_group(); if g then move_pane_to(1) end
+		end },
+		{ { "L" }, function()
+			local g = get_current_group(); if g then move_pane_to(#g) end
+		end },
 		{ { "r", "<C-r>" }, function() rotate_panes(1) end },
-		{ { "R" }, function() rotate_panes(-1) end },
+		{ { "R" },          function() rotate_panes(-1) end },
 	}
 
 	for _, entry in ipairs(cw_actions) do
