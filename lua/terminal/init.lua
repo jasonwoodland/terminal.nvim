@@ -2223,6 +2223,12 @@ local function setup_keymap()
 		if key == false then
 			return
 		end
+		if type(key) == "table" then
+			for _, k in ipairs(key) do
+				map(modes, k, action, opts)
+			end
+			return
+		end
 		vim.keymap.set(modes, key, action, opts or {})
 	end
 
