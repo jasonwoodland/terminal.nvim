@@ -1,22 +1,23 @@
 # terminal.nvim
 
-Minimal plugin for unobtrusive terminal management in Neovim.
+Unobtrusive terminal management in Neovim.
+
+<img width="1408" height="1000" alt="Screenshot 2026-03-08 at 12 01 18 am" src="https://github.com/user-attachments/assets/f765ba3b-9f74-4e26-b947-539b2b1b1c43" />
 
 ## Features
 
-- Drawer-style and floating window modes
-- Split panes within terminal groups
+- Multiple terminal tabs per Vim tab
+- Split panes within terminal tabs
+- Unobtrusive, idiomatic keymaps that work in both Terminal and Normal modes
+- Toggle fullscreen terminal
 - Clickable winbar with terminal tabs
-- Unobtrusive, idiomatic keymaps that work in Terminal and Normal modes
-- Multiple terminal groups per Vim tab
-- Fast group switching and rearranging
-- Move terminal groups between Vim tabs
-- Toggle zoom to fullscreen floating terminal
+- Fast tab/window switching, reordering and resizing without leaving Terminal mode
+- Drawer-style and floating window modes
 - Mouse-draggable pane borders in float mode
-- Preserve and restore terminal buffer mode when switching
+- Preserve and restore terminal buffer mode when switching focus
 - Insert the contents of registers while in Terminal mode
 - OSC notification passthrough and bell
-- Activity indicator for background terminal groups
+- Activity indicator for background terminal tabs
 - Confirm before deleting a terminal with a running process
 - Fully configurable keymaps
 
@@ -32,17 +33,6 @@ Using [lazy.nvim](https://github.com/folke/lazy.nvim):
 {
   "jasonwoodland/terminal.nvim",
   opts = {},
-}
-```
-
-Using [packer.nvim](https://github.com/wbthomason/packer.nvim):
-
-```lua
-use {
-  "jasonwoodland/terminal.nvim",
-  config = function()
-    require("terminal").setup()
-  end,
 }
 ```
 
@@ -166,6 +156,8 @@ Press <kbd>&lt;C-S-w&gt;</kbd> followed by a sub-key (works in both Normal and T
 When focused in a terminal pane window, `<C-w>` sub-keys are overridden to control panes instead of Vim windows. The same sub-keys from the wincmd table above apply. Outside of terminal pane windows, `<C-w>` behaves normally.
 
 ## Commands
+
+Convenience commands 
 
 | Command                  | Action                                          |
 | ------------------------ | ----------------------------------------------- |
