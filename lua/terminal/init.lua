@@ -598,7 +598,6 @@ update_winbar_overlay = function()
 		winbar_bufnr = vim.api.nvim_create_buf(false, true)
 		vim.bo[winbar_bufnr].bufhidden = "hide"
 		vim.bo[winbar_bufnr].buftype = "nofile"
-
 	end
 
 	render_winbar_content()
@@ -892,10 +891,25 @@ local function setup_term_mouse_mappings(bufnr)
 			noremap = true,
 			expr = true,
 			callback = function()
+				local mouse = vim.fn.getmousepos()
+
+				-- Handle winbar click without changing focus/mode
+				if mouse.winid == vim.t.term_winbar_winid then
+					local col = mouse.column - 1
+					for _, range in ipairs(winbar_click_ranges) do
+						if col >= range.start_col and col < range.end_col then
+							vim.schedule(function()
+								M.go_to(range.group_idx)
+							end)
+							break
+						end
+					end
+					return ""
+				end
+
 				if not is_float_mode() or not is_term_open() then
 					return vim.api.nvim_replace_termcodes("<LeftMouse>", true, true, true)
 				end
-				local mouse = vim.fn.getmousepos()
 				local screencol = mouse.screencol - 1
 				local wins = vim.t.term_winids or {}
 				for i = 1, #wins - 1 do
@@ -917,6 +931,9 @@ local function setup_term_mouse_mappings(bufnr)
 			noremap = true,
 			expr = true,
 			callback = function()
+				if vim.fn.getmousepos().winid == vim.t.term_winbar_winid then
+					return ""
+				end
 				if not drag_state then
 					return vim.api.nvim_replace_termcodes("<LeftDrag>", true, true, true)
 				end
@@ -948,10 +965,30 @@ local function setup_term_mouse_mappings(bufnr)
 			end,
 		})
 
+		for _, event in ipairs({
+			"<2-LeftMouse>", "<3-LeftMouse>", "<4-LeftMouse>",
+			"<2-LeftRelease>", "<3-LeftRelease>", "<4-LeftRelease>",
+			"<2-LeftDrag>", "<3-LeftDrag>", "<4-LeftDrag>",
+		}) do
+			vim.api.nvim_buf_set_keymap(bufnr, mode, event, "", {
+				noremap = true,
+				expr = true,
+				callback = function()
+					if vim.fn.getmousepos().winid == vim.t.term_winbar_winid then
+						return ""
+					end
+					return vim.api.nvim_replace_termcodes(event, true, true, true)
+				end,
+			})
+		end
+
 		vim.api.nvim_buf_set_keymap(bufnr, mode, "<LeftRelease>", "", {
 			noremap = true,
 			expr = true,
 			callback = function()
+				if vim.fn.getmousepos().winid == vim.t.term_winbar_winid then
+					return ""
+				end
 				if not drag_state then
 					return vim.api.nvim_replace_termcodes("<LeftRelease>", true, true, true)
 				end
@@ -2001,38 +2038,8 @@ local function setup_autocmd()
 				end
 			end
 
-			-- Handle winbar clicks and refocus
+			-- Refocus terminal pane if winbar overlay is entered
 			if current_win == vim.t.term_winbar_winid then
-				-- Check if entered via mouse click on the winbar
-				local mouse = vim.fn.getmousepos()
-				if mouse.winid == vim.t.term_winbar_winid then
-					-- Save the mode of the terminal we came from before it gets
-					-- overwritten by the ModeChanged t:nt autocmd
-					local prev_win = vim.t.term_winid
-					local prev_mode = prev_win and win_valid(prev_win)
-						and vim.b[vim.api.nvim_win_get_buf(prev_win)].term_mode or "t"
-					local col = mouse.column - 1
-					for _, range in ipairs(winbar_click_ranges) do
-						if col >= range.start_col and col < range.end_col then
-							local term_wins2 = vim.t.term_winids or {}
-							if #term_wins2 > 0 and win_valid(term_wins2[1]) then
-								vim.api.nvim_set_current_win(term_wins2[1])
-							end
-							M.go_to(range.group_idx)
-							-- Restore terminal mode using the saved mode.
-							-- Also re-set term_mode to counteract the scheduled
-							-- ModeChanged t:nt handler that will overwrite it.
-							if vim.bo.buftype == "terminal" then
-								if prev_mode ~= "n" then
-									vim.cmd("startinsert")
-								end
-								vim.b.term_mode = prev_mode
-							end
-							return
-						end
-					end
-				end
-				-- Refocus terminal pane (keyboard navigation or click outside tabs)
 				vim.schedule(function()
 					if vim.fn.win_getid() ~= vim.t.term_winbar_winid then
 						return
