@@ -599,10 +599,11 @@ update_winbar_overlay = function()
 		vim.bo[winbar_bufnr].bufhidden = "hide"
 		vim.bo[winbar_bufnr].buftype = "nofile"
 
-		vim.api.nvim_buf_set_keymap(winbar_bufnr, "n", "<LeftRelease>", "", {
+		vim.api.nvim_buf_set_keymap(winbar_bufnr, "n", "<LeftMouse>", "", {
 			noremap = true,
 			callback = function()
-				local col = vim.fn.col(".") - 1
+				local mouse = vim.fn.getmousepos()
+				local col = mouse.column - 1
 				for _, range in ipairs(winbar_click_ranges) do
 					if col >= range.start_col and col < range.end_col then
 						local term_wins = vim.t.term_winids or {}
