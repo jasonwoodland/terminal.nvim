@@ -119,9 +119,9 @@ These work anywhere in Normal and/or Terminal mode:
 |        |          | **Notifications**                                     |                                       |
 |   x    |    x     | <kbd>&lt;C-S-a&gt;</kbd>                              | Jump to last notification             |
 |        |          | **Panes**                                             |                                       |
-|        |    x     | <kbd>&lt;C-S-v&gt;</kbd>                              | Vertical split pane                   |
-|        |    x     | <kbd>&lt;C-S-h&gt;</kbd>                              | Focus pane left                       |
-|        |    x     | <kbd>&lt;C-S-l&gt;</kbd>                              | Focus pane right                      |
+|   x    |    x     | <kbd>&lt;C-S-v&gt;</kbd>                              | Vertical split pane                   |
+|   x    |    x     | <kbd>&lt;C-S-h&gt;</kbd>                              | Focus pane left                       |
+|   x    |    x     | <kbd>&lt;C-S-l&gt;</kbd>                              | Focus pane right                      |
 |        |          | **Registers**                                         |                                       |
 |        |    x     | <kbd>&lt;C-S-r&gt;&nbsp;{register}</kbd>              | Insert contents of a register         |
 |        |    x     | <kbd>&lt;C-S-r&gt;&nbsp;=</kbd>                       | Evaluate expression and insert result |

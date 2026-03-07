@@ -2384,9 +2384,9 @@ local function setup_keymap()
 		end
 	end
 
-	map("t", "<C-S-h>", function() pane_navigate(-1) end, { noremap = true })
-	map("t", "<C-S-l>", function() pane_navigate(1) end, { noremap = true })
-	map("t", "<C-S-v>", M.vsplit, { noremap = true })
+	map({ "n", "t" }, "<C-S-h>", function() pane_navigate(-1) end, { noremap = true })
+	map({ "n", "t" }, "<C-S-l>", function() pane_navigate(1) end, { noremap = true })
+	map({ "n", "t" }, "<C-S-v>", M.vsplit, { noremap = true })
 
 	local function resize_current_pane(delta)
 		local wins = vim.t.term_winids or {}
