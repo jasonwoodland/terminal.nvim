@@ -31,8 +31,10 @@ M.config = {
 		reset_height = "<C-S-=>",
 		vim_tab_next = "<C-PageDown>",
 		vim_tab_prev = "<C-PageUp>",
-		move_to_vim_tab_prev = "<C-M-PageUp>",
-		move_to_vim_tab_next = "<C-M-PageDown>",
+		vim_tab_move_prev = "<C-M-PageUp>",
+		vim_tab_move_next = "<C-M-PageDown>",
+		move_to_vim_tab_prev = "<C-S-M-PageUp>",
+		move_to_vim_tab_next = "<C-S-M-PageDown>",
 		last_notification = "<C-S-a>",
 	},
 }
@@ -2315,6 +2317,34 @@ local function setup_keymap()
 	end, { noremap = true })
 	map({ "n", "t" }, keys.vim_tab_next, function()
 		switch_vim_tab(1)
+	end, { noremap = true })
+
+	local function move_vim_tab(direction)
+		local current = vim.fn.tabpagenr()
+		local last = vim.fn.tabpagenr("$")
+		if last < 2 then
+			return
+		end
+		-- :tabmove N places the tab *after* tab N
+		local target
+		if direction == -1 then
+			target = current - 2
+		else
+			target = current + 1
+		end
+		if target < 0 then
+			target = last
+		elseif target > last then
+			target = 0
+		end
+		vim.cmd("tabmove " .. target)
+	end
+
+	map({ "n", "t" }, keys.vim_tab_move_prev, function()
+		move_vim_tab(-1)
+	end, { noremap = true })
+	map({ "n", "t" }, keys.vim_tab_move_next, function()
+		move_vim_tab(1)
 	end, { noremap = true })
 
 	if keys.paste_register ~= false then
