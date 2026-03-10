@@ -61,6 +61,7 @@ local toggling_gen = 0
 local saved_cmdheight = nil
 local saved_ruler = nil
 local drag_state = nil
+local tabline_click_mode = nil
 local out_tty = vim.loop.new_tty(1, true)
 local last_notification_bufnr = nil
 
@@ -891,6 +892,11 @@ local function setup_term_mouse_mappings(bufnr)
 			callback = function()
 				local mouse = vim.fn.getmousepos()
 
+				-- Track mode for tabline clicks so LeftRelease can restore it
+				if mouse.screenrow == 1 and vim.o.showtabline > 0 then
+					tabline_click_mode = vim.fn.mode()
+				end
+
 				-- Handle winbar click without changing focus/mode
 				if mouse.winid == vim.t.term_winbar_winid then
 					local col = mouse.column - 1
@@ -985,6 +991,16 @@ local function setup_term_mouse_mappings(bufnr)
 			expr = true,
 			callback = function()
 				if vim.fn.getmousepos().winid == vim.t.term_winbar_winid then
+					return ""
+				end
+				if tabline_click_mode then
+					local was_terminal = tabline_click_mode == "t"
+					tabline_click_mode = nil
+					if was_terminal and vim.bo.buftype == "terminal" and (vim.b.term_mode == "t" or vim.b.term_mode == nil) then
+						vim.schedule(function()
+							vim.cmd("startinsert")
+						end)
+					end
 					return ""
 				end
 				if not drag_state then
@@ -2107,6 +2123,11 @@ local function setup_autocmd()
 				adopt_orphaned_terminals()
 				update_float_win_config()
 				update_winbar_overlay()
+				if vim.bo.buftype == "terminal" then
+					if vim.b.term_mode == "t" or vim.b.term_mode == nil then
+						vim.cmd("startinsert")
+					end
+				end
 			end)
 		end,
 	})
