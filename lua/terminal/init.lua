@@ -62,6 +62,7 @@ local saved_cmdheight = nil
 local saved_ruler = nil
 local drag_state = nil
 local tabline_click_mode = nil
+local stl_click = false
 local out_tty = vim.loop.new_tty(1, true)
 local last_notification_bufnr = nil
 
@@ -102,6 +103,8 @@ local function is_term_related_window(win)
 		if w == win then return true end
 	end
 	if win == vim.t.term_winbar_winid then return true end
+	local ok, buf = pcall(vim.api.nvim_win_get_buf, win)
+	if ok and vim.b[buf].terminal_stl then return true end
 	return false
 end
 
@@ -637,7 +640,7 @@ end
 
 local stl_ns = vim.api.nvim_create_namespace("terminal_stl")
 
-local function render_stl_overlay(stl_buf, win, width)
+local function render_stl_overlay(stl_buf, win, width, pad_right)
 	local stl = vim.wo[win].statusline
 	if stl == "" then
 		stl = vim.o.statusline
@@ -655,8 +658,13 @@ local function render_stl_overlay(stl_buf, win, width)
 		return
 	end
 
+	local line = result.str
+	if pad_right then
+		line = line .. " "
+	end
+
 	vim.api.nvim_buf_clear_namespace(stl_buf, stl_ns, 0, -1)
-	vim.api.nvim_buf_set_lines(stl_buf, 0, -1, false, { result.str })
+	vim.api.nvim_buf_set_lines(stl_buf, 0, -1, false, { line })
 
 	for i, hl in ipairs(result.highlights) do
 		local end_pos = (result.highlights[i + 1] and result.highlights[i + 1].start) or #result.str
@@ -709,24 +717,27 @@ local function update_float_statuslines()
 				break
 			end
 		end
+		local has_right = idx and idx < #wins
 		local stl_col = cfg.col + ((idx and idx > 1 and #wins > 1) and 1 or 0)
+		local stl_width = width + (has_right and 1 or 0)
 		local hl = (win == current_win) and "Normal:StatusLine" or "Normal:StatusLineNC"
 
 		local stl_buf = vim.api.nvim_create_buf(false, true)
 		vim.bo[stl_buf].bufhidden = "wipe"
 		vim.bo[stl_buf].buftype = "nofile"
 		vim.b[stl_buf].terminal_stl = true
-		render_stl_overlay(stl_buf, win, width)
+		vim.b[stl_buf].terminal_stl_pane = win
+		render_stl_overlay(stl_buf, win, width, has_right)
 		local stl_win = vim.api.nvim_open_win(stl_buf, false, {
 			relative = "editor",
 			row = stl_row,
 			col = stl_col,
-			width = width,
+			width = stl_width,
 			height = 1,
 			style = "minimal",
 			border = "none",
 			zindex = 61,
-			focusable = false,
+			focusable = true,
 		})
 		vim.wo[stl_win].winhighlight = hl
 		vim.wo[stl_win].winblend = 0
@@ -884,6 +895,11 @@ local function get_sep_screen_col(sep_idx)
 	end
 end
 
+local function is_stl_window(winid)
+	local ok, buf = pcall(vim.api.nvim_win_get_buf, winid)
+	return ok and vim.b[buf].terminal_stl or false
+end
+
 local function setup_term_mouse_mappings(bufnr)
 	for _, mode in ipairs({ "n", "t" }) do
 		vim.api.nvim_buf_set_keymap(bufnr, mode, "<LeftMouse>", "", {
@@ -911,6 +927,47 @@ local function setup_term_mouse_mappings(bufnr)
 					return ""
 				end
 
+				-- Handle statusline overlay click without changing focus/mode
+				if is_stl_window(mouse.winid) then
+					local stl_buf = vim.api.nvim_win_get_buf(mouse.winid)
+					local stl_pane = vim.b[stl_buf].terminal_stl_pane
+					if stl_pane and win_valid(stl_pane) then
+						vim.schedule(function()
+							vim.api.nvim_set_current_win(stl_pane)
+							local buf = vim.api.nvim_win_get_buf(stl_pane)
+							local mode = vim.b[buf].term_mode
+							if mode == "t" or mode == nil then
+								vim.cmd("startinsert")
+							else
+								vim.cmd("stopinsert")
+							end
+							update_float_statuslines()
+						end)
+					end
+					return ""
+				end
+
+				-- Handle native statusline click to preserve terminal mode
+				if mouse.line == 0 and not is_float_mode() then
+					local wins = vim.t.term_winids or {}
+					for _, win in ipairs(wins) do
+						if mouse.winid == win and win_valid(win) then
+							stl_click = true
+							vim.schedule(function()
+								vim.api.nvim_set_current_win(win)
+								local buf = vim.api.nvim_win_get_buf(win)
+								local mode = vim.b[buf].term_mode
+								if mode == "t" or mode == nil then
+									vim.cmd("startinsert")
+								else
+									vim.cmd("stopinsert")
+								end
+							end)
+							return ""
+						end
+					end
+				end
+
 				if not is_float_mode() or not is_term_open() then
 					return vim.api.nvim_replace_termcodes("<LeftMouse>", true, true, true)
 				end
@@ -935,7 +992,8 @@ local function setup_term_mouse_mappings(bufnr)
 			noremap = true,
 			expr = true,
 			callback = function()
-				if vim.fn.getmousepos().winid == vim.t.term_winbar_winid then
+				local drag_mouse = vim.fn.getmousepos()
+				if drag_mouse.winid == vim.t.term_winbar_winid or is_stl_window(drag_mouse.winid) or stl_click then
 					return ""
 				end
 				if not drag_state then
@@ -978,7 +1036,8 @@ local function setup_term_mouse_mappings(bufnr)
 				noremap = true,
 				expr = true,
 				callback = function()
-					if vim.fn.getmousepos().winid == vim.t.term_winbar_winid then
+					local ev_mouse = vim.fn.getmousepos()
+					if ev_mouse.winid == vim.t.term_winbar_winid or is_stl_window(ev_mouse.winid) then
 						return ""
 					end
 					return vim.api.nvim_replace_termcodes(event, true, true, true)
@@ -990,7 +1049,12 @@ local function setup_term_mouse_mappings(bufnr)
 			noremap = true,
 			expr = true,
 			callback = function()
-				if vim.fn.getmousepos().winid == vim.t.term_winbar_winid then
+				local rel_mouse = vim.fn.getmousepos()
+				if rel_mouse.winid == vim.t.term_winbar_winid or is_stl_window(rel_mouse.winid) then
+					return ""
+				end
+				if stl_click then
+					stl_click = false
 					return ""
 				end
 				if tabline_click_mode then
@@ -1153,6 +1217,7 @@ local function open_tab_windows(tab, tab_idx)
 	local height = vim.t.term_height or get_term_height()
 
 	local has_stl = false
+	local focus_idx = clamp(state.focus or 1, 1, #tab)
 
 	if is_float_mode() then
 		local base_config = get_float_win_config()
@@ -1211,7 +1276,7 @@ local function open_tab_windows(tab, tab_idx)
 			config.height = base_config.height - stl_height
 			config.col = base_config.col + col_offset
 			config.border = border
-			config.zindex = 50
+			config.zindex = (i == focus_idx) and 51 or 50
 
 			-- Advance col_offset past this pane
 			if i == 1 then
@@ -1291,7 +1356,6 @@ local function open_tab_windows(tab, tab_idx)
 		end
 	end
 
-	local focus_idx = state.focus or 1
 	if state.views then
 		for i, win in ipairs(wins) do
 			if win_valid(win) and state.views[i] then
@@ -1317,19 +1381,6 @@ local function open_tab_windows(tab, tab_idx)
 	local activity = vim.t.term_tab_activity or {}
 	activity[tostring(tab_idx)] = nil
 	vim.t.term_tab_activity = activity
-
-	-- Raise active pane's z-index
-	if is_float_mode() and #wins > 1 then
-		for _, win in ipairs(wins) do
-			if win_valid(win) then
-				local cfg = vim.api.nvim_win_get_config(win)
-				if cfg.relative and cfg.relative ~= "" then
-					cfg.zindex = (win == vim.t.term_winid) and 51 or 50
-					vim.api.nvim_win_set_config(win, cfg)
-				end
-			end
-		end
-	end
 
 	local mode_to_restore = "t"
 	if state.modes and state.modes[focus_idx] then
@@ -2039,19 +2090,6 @@ local function setup_autocmd()
 				end
 			end
 
-			-- Raise active pane's z-index so its borders receive clicks
-			if is_float_mode() then
-				for _, w in ipairs(wins) do
-					if win_valid(w) then
-						local cfg = vim.api.nvim_win_get_config(w)
-						if cfg.relative and cfg.relative ~= "" then
-							cfg.zindex = (w == current_win) and 51 or 50
-							vim.api.nvim_win_set_config(w, cfg)
-						end
-					end
-				end
-			end
-
 			-- Refocus terminal pane if winbar overlay is entered
 			if current_win == vim.t.term_winbar_winid then
 				vim.schedule(function()
@@ -2072,6 +2110,26 @@ local function setup_autocmd()
 					end
 				end)
 			end
+
+			-- Refocus terminal pane if statusline overlay is entered
+			local stl_buf_ok, stl_buf = pcall(vim.api.nvim_win_get_buf, current_win)
+			if stl_buf_ok and vim.b[stl_buf].terminal_stl then
+				local stl_pane = vim.b[stl_buf].terminal_stl_pane
+				vim.schedule(function()
+					if stl_pane and win_valid(stl_pane) then
+						vim.api.nvim_set_current_win(stl_pane)
+						local buf = vim.api.nvim_win_get_buf(stl_pane)
+						local mode = vim.b[buf].term_mode
+						if mode == "t" or mode == nil then
+							vim.cmd("startinsert")
+						else
+							vim.cmd("stopinsert")
+						end
+						update_float_statuslines()
+					end
+				end)
+			end
+
 		end,
 	})
 	vim.api.nvim_create_autocmd("TabNew", {
