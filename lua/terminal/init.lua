@@ -1337,6 +1337,11 @@ local function open_tab_windows(tab, tab_idx)
 			vim.wo[win].scrolloff = 0
 			vim.wo[win].sidescrolloff = 0
 			vim.wo[win].winblend = 0
+			-- Set winbar before buffer swap so the window already has
+			-- the correct content height when the terminal is attached
+			if M.config.winbar then
+				vim.wo[win].winbar = " "
+			end
 		end
 	end
 
