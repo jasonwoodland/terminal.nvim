@@ -56,8 +56,6 @@ local function is_float_mode()
 	return M.config.float or (M.config.float_zoom and vim.t.term_zoom)
 end
 
-local toggling = false
-local toggling_gen = 0
 local saved_cmdheight = nil
 local saved_ruler = nil
 local drag_state = nil
@@ -77,12 +75,16 @@ local function win_valid(win)
 end
 
 local function set_toggling()
-	toggling = true
-	toggling_gen = toggling_gen + 1
-	local gen = toggling_gen
+	vim.t.term_toggling = true
+	local gen = (vim.t.term_toggling_gen or 0) + 1
+	vim.t.term_toggling_gen = gen
+	local tabnr = vim.api.nvim_get_current_tabpage()
 	vim.defer_fn(function()
-		if toggling_gen == gen then
-			toggling = false
+		if vim.api.nvim_tabpage_is_valid(tabnr) then
+			local ok, cur_gen = pcall(vim.api.nvim_tabpage_get_var, tabnr, "term_toggling_gen")
+			if ok and cur_gen == gen then
+				vim.api.nvim_tabpage_set_var(tabnr, "term_toggling", false)
+			end
 		end
 	end, 100)
 end
@@ -617,13 +619,13 @@ update_winbar_overlay = function()
 	else
 		winbar_winid = vim.api.nvim_open_win(winbar_bufnr, false, config)
 		vim.t.term_winbar_winid = winbar_winid
-		vim.wo[winbar_winid].winhighlight = "Normal:WinBar"
-		vim.wo[winbar_winid].winblend = 0
-		vim.wo[winbar_winid].cursorline = false
-		vim.wo[winbar_winid].number = false
-		vim.wo[winbar_winid].relativenumber = false
-		vim.wo[winbar_winid].signcolumn = "no"
 	end
+	vim.wo[winbar_winid].winhighlight = "Normal:WinBar"
+	vim.wo[winbar_winid].winblend = 0
+	vim.wo[winbar_winid].cursorline = false
+	vim.wo[winbar_winid].number = false
+	vim.wo[winbar_winid].relativenumber = false
+	vim.wo[winbar_winid].signcolumn = "no"
 end
 
 destroy_winbar_overlay = function()
@@ -1133,6 +1135,40 @@ local function open_window(win_config)
 	return win, scratch
 end
 
+-- Open a terminal in a temporary window so the PTY starts with correct
+-- dimensions instead of the tiny aucmd window used by nvim_buf_call.
+local function termopen_with_size(bufnr)
+	local width = 80
+	local height = math.floor(vim.o.lines * 0.5)
+
+	if is_float_mode() then
+		local cfg = get_float_win_config()
+		width = cfg.width
+		height = cfg.height
+		if M.config.winbar then
+			height = height - 1
+		end
+	else
+		local h = vim.t.term_height or get_term_height()
+		height = h
+		if M.config.winbar then
+			height = height - 1
+		end
+		width = vim.o.columns
+	end
+
+	local tmp_win = vim.api.nvim_open_win(bufnr, true, {
+		relative = "editor",
+		width = math.max(width, 1),
+		height = math.max(height, 1),
+		row = 0,
+		col = 0,
+		noautocmd = true,
+	})
+	vim.fn.termopen(vim.env.SHELL)
+	vim.api.nvim_win_close(tmp_win, true)
+end
+
 local function save_tab_state()
 	local _, tab_idx = get_current_tab()
 	if not tab_idx then
@@ -1170,7 +1206,14 @@ local function save_tab_state()
 	set_tab_state(tab_idx, state)
 end
 
+local closing_pane_windows = false
+
 local function close_pane_windows()
+	if closing_pane_windows then
+		return
+	end
+	closing_pane_windows = true
+
 	restore_cmdheight()
 	restore_ruler()
 	destroy_winbar_overlay()
@@ -1196,6 +1239,7 @@ local function close_pane_windows()
 
 	vim.t.term_winids = {}
 	vim.t.term_winid = nil
+	closing_pane_windows = false
 end
 
 local function open_tab_windows(tab, tab_idx)
@@ -1326,8 +1370,21 @@ local function open_tab_windows(tab, tab_idx)
 		end
 	end
 
+	-- Set winbar before buffer swap so the window already has
+	-- the correct content height when the terminal is attached.
+	-- Other window options are set after the swap because
+	-- nvim_win_set_buf -> get_winopts() overwrites w_onebuf_opt.
 	for _, win in ipairs(wins) do
+		if win_valid(win) and M.config.winbar then
+			vim.wo[win].winbar = " "
+		end
+	end
+
+	-- Set terminal buffers after layout is configured to avoid corrupting
+	-- the terminal display (e.g. when switching tabs)
+	for i, win in ipairs(wins) do
 		if win_valid(win) then
+			vim.api.nvim_win_set_buf(win, tab[i])
 			vim.wo[win].signcolumn = "no"
 			vim.wo[win].foldcolumn = "0"
 			vim.wo[win].number = false
@@ -1343,19 +1400,6 @@ local function open_tab_windows(tab, tab_idx)
 			vim.wo[win].statuscolumn = ""
 			vim.wo[win].fillchars = "eob: "
 			vim.wo[win].winhighlight = "EndOfBuffer:"
-			-- Set winbar before buffer swap so the window already has
-			-- the correct content height when the terminal is attached
-			if M.config.winbar then
-				vim.wo[win].winbar = " "
-			end
-		end
-	end
-
-	-- Set terminal buffers after layout is configured to avoid corrupting
-	-- the terminal display (e.g. when switching tabs)
-	for i, win in ipairs(wins) do
-		if win_valid(win) then
-			vim.api.nvim_win_set_buf(win, tab[i])
 			if M.config.winbar then
 				vim.wo[win].winbar = " "
 			end
@@ -1498,9 +1542,7 @@ function M.toggle(opts)
 			table.insert(order, { bufnr })
 			vim.t.term_order = order
 			vim.t.term_tab_idx = #order
-			vim.api.nvim_buf_call(bufnr, function()
-				vim.fn.termopen(vim.env.SHELL)
-			end)
+			termopen_with_size(bufnr)
 			reopen_current_tab()
 		end
 	end
@@ -1535,23 +1577,23 @@ function M.zoom()
 	end
 
 	-- Non-float, non-float_zoom: old height toggle behavior
+	local wins2 = vim.t.term_winids or {}
+	if #wins2 == 0 or not win_valid(wins2[1]) then
+		return
+	end
 	if vim.t.term_prev_height == nil then
 		vim.t.term_prev_height = vim.t.term_height
-		vim.cmd("resize")
-		local wins2 = vim.t.term_winids or {}
-		if #wins2 > 0 and win_valid(wins2[1]) then
-			vim.t.term_height = vim.api.nvim_win_get_height(wins2[1])
-		end
+		vim.api.nvim_win_call(wins2[1], function()
+			vim.cmd("resize")
+		end)
+		vim.t.term_height = vim.api.nvim_win_get_height(wins2[1])
 	else
 		vim.t.term_height = vim.t.term_prev_height
 		vim.t.term_prev_height = nil
 	end
-	local wins2 = vim.t.term_winids or {}
-	if #wins2 > 0 and win_valid(wins2[1]) then
-		vim.api.nvim_win_call(wins2[1], function()
-			vim.cmd("resize " .. vim.t.term_height)
-		end)
-	end
+	vim.api.nvim_win_call(wins2[1], function()
+		vim.cmd("resize " .. vim.t.term_height)
+	end)
 end
 
 function M.reset_height()
@@ -1891,9 +1933,7 @@ function M.new()
 	vim.t.term_order = order
 	vim.t.term_tab_idx = insert_idx
 
-	vim.api.nvim_buf_call(bufnr, function()
-		vim.fn.termopen(vim.env.SHELL)
-	end)
+	termopen_with_size(bufnr)
 
 	open_tab_windows({ bufnr }, insert_idx)
 end
@@ -1919,9 +1959,7 @@ function M.vsplit()
 	-- Add to tab after current pane, before termopen so TermOpen autocmd doesn't double-add
 	add_buf_to_tab(bufnr, tab_idx, current_pane_idx)
 
-	vim.api.nvim_buf_call(bufnr, function()
-		vim.fn.termopen(vim.env.SHELL)
-	end)
+	termopen_with_size(bufnr)
 
 	local insert_pos = (current_pane_idx or #tab) + 1
 	local st = get_tab_state(tab_idx)
@@ -1973,29 +2011,68 @@ local function setup_autocmd()
 			setup_term_mouse_mappings(bufnr)
 			vim.api.nvim_buf_attach(bufnr, false, {
 				on_lines = function(_, buf)
-					if toggling then
-						return
-					end
 					if not vim.api.nvim_buf_is_valid(buf) then
 						return true
 					end
-					-- Skip if buffer is displayed in a current terminal window
-					local wins = vim.t.term_winids or {}
-					for _, win in ipairs(wins) do
-						if win_valid(win) and vim.api.nvim_win_get_buf(win) == buf then
-							return
+					-- Find the vim tabpage that owns this buffer
+					local owner_tab = nil
+					for _, tp in ipairs(vim.api.nvim_list_tabpages()) do
+						local ok, order = pcall(vim.api.nvim_tabpage_get_var, tp, "term_order")
+						if ok and order then
+							for _, tab in ipairs(order) do
+								for _, b in ipairs(tab) do
+									if b == buf then
+										owner_tab = tp
+										break
+									end
+								end
+								if owner_tab then break end
+							end
 						end
+						if owner_tab then break end
 					end
-					local gi = find_buf_tab(buf)
-					if not gi or gi == (vim.t.term_tab_idx or 1) then
+					if not owner_tab then
 						return
 					end
-					local activity = vim.t.term_tab_activity or {}
+					local ok_tog, tab_toggling = pcall(vim.api.nvim_tabpage_get_var, owner_tab, "term_toggling")
+					if ok_tog and tab_toggling then
+						return
+					end
+					-- Skip if buffer is displayed in a current terminal window
+					local ok_wins, wins = pcall(vim.api.nvim_tabpage_get_var, owner_tab, "term_winids")
+					if ok_wins and wins then
+						for _, win in ipairs(wins) do
+							if win_valid(win) and vim.api.nvim_win_get_buf(win) == buf then
+								return
+							end
+						end
+					end
+					-- Find the tab index of this buffer within the owning tabpage
+					local ok_order, order = pcall(vim.api.nvim_tabpage_get_var, owner_tab, "term_order")
+					if not ok_order or not order then
+						return
+					end
+					local gi = nil
+					for i, tab in ipairs(migrate_term_order(order)) do
+						for _, b in ipairs(tab) do
+							if b == buf then
+								gi = i
+								break
+							end
+						end
+						if gi then break end
+					end
+					local ok_idx, tab_idx = pcall(vim.api.nvim_tabpage_get_var, owner_tab, "term_tab_idx")
+					if not gi or gi == (ok_idx and tab_idx or 1) then
+						return
+					end
+					local ok_act, activity = pcall(vim.api.nvim_tabpage_get_var, owner_tab, "term_tab_activity")
+					activity = (ok_act and activity) or {}
 					if activity[tostring(gi)] then
 						return
 					end
 					activity[tostring(gi)] = true
-					vim.t.term_tab_activity = activity
+					vim.api.nvim_tabpage_set_var(owner_tab, "term_tab_activity", activity)
 					vim.schedule(function()
 						update_winbar_overlay()
 					end)
@@ -2035,7 +2112,7 @@ local function setup_autocmd()
 		pattern = "*",
 		group = "Term",
 		callback = function()
-			if toggling then
+			if vim.t.term_toggling then
 				return
 			end
 			if vim.t.term_bufnr == nil then
@@ -2154,10 +2231,10 @@ local function setup_autocmd()
 		pattern = "*",
 		group = "Term",
 		callback = function()
-			if not toggling then
+			if not vim.t.term_toggling then
 				save_term_height()
 			end
-			if not toggling and is_float_mode() and is_term_related_window(vim.fn.win_getid()) then
+			if not vim.t.term_toggling and is_float_mode() and is_term_related_window(vim.fn.win_getid()) then
 				local tab = vim.api.nvim_get_current_tabpage()
 				vim.schedule(function()
 					if vim.api.nvim_get_current_tabpage() ~= tab then
@@ -2247,7 +2324,7 @@ local function setup_winbar_autocmds()
 		pattern = "*",
 		group = "Term",
 		callback = function()
-			if toggling then
+			if vim.t.term_toggling then
 				return
 			end
 			if vim.bo[0].buftype == "terminal" then
