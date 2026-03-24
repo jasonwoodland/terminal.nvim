@@ -1096,7 +1096,6 @@ local function get_float_win_config()
 			height = vim.o.lines - vim.o.cmdheight - tabline_height,
 			row = tabline_height,
 			col = 0,
-			style = "minimal",
 			border = "none",
 		}
 	end
@@ -1122,7 +1121,6 @@ local function get_float_win_config()
 		height = height,
 		row = row,
 		col = col,
-		style = "minimal",
 		border = float_config.border,
 		title = " Terminal ",
 		title_pos = "center",
@@ -1337,6 +1335,14 @@ local function open_tab_windows(tab, tab_idx)
 			vim.wo[win].scrolloff = 0
 			vim.wo[win].sidescrolloff = 0
 			vim.wo[win].winblend = 0
+			vim.wo[win].cursorline = false
+			vim.wo[win].cursorcolumn = false
+			vim.wo[win].spell = false
+			vim.wo[win].list = false
+			vim.wo[win].colorcolumn = ""
+			vim.wo[win].statuscolumn = ""
+			vim.wo[win].fillchars = "eob: "
+			vim.wo[win].winhighlight = "EndOfBuffer:"
 			-- Set winbar before buffer swap so the window already has
 			-- the correct content height when the terminal is attached
 			if M.config.winbar then
