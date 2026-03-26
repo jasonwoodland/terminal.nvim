@@ -497,7 +497,7 @@ function M.vsplit()
 	-- Add to tab after current pane, before termopen so TermOpen autocmd doesn't double-add
 	state.add_buf_to_tab(bufnr, tab_idx, current_pane_idx)
 
-	window.termopen_with_size(bufnr)
+	window.termopen_with_size(bufnr, #tab + 1)
 
 	local insert_pos = (current_pane_idx or #tab) + 1
 	local st = state.get_tab_state(tab_idx)

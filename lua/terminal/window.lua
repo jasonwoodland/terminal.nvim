@@ -60,13 +60,19 @@ end
 
 -- Open a terminal in a temporary window so the PTY starts with correct
 -- dimensions instead of the tiny aucmd window used by nvim_buf_call.
-function M.termopen_with_size(bufnr)
+-- num_panes: how many panes will share the row/float (for width calculation)
+function M.termopen_with_size(bufnr, num_panes)
+	num_panes = math.max(num_panes or 1, 1)
 	local width = 80
 	local height = math.floor(vim.o.lines * 0.5)
 
 	if config.is_float_mode() then
 		local cfg = M.get_float_win_config()
 		width = cfg.width
+		if num_panes > 1 then
+			-- Subtract separator columns, then divide evenly
+			width = math.floor((width - (num_panes - 1)) / num_panes)
+		end
 		height = cfg.height
 		if config.config.winbar then
 			height = height - 1
@@ -77,7 +83,7 @@ function M.termopen_with_size(bufnr)
 		if config.config.winbar then
 			height = height - 1
 		end
-		width = vim.o.columns
+		width = math.floor(vim.o.columns / num_panes)
 	end
 
 	local tmp_win = vim.api.nvim_open_win(bufnr, true, {
@@ -291,21 +297,25 @@ function M.open_tab_windows(tab, tab_idx)
 		end
 	end
 
-	-- Set winbar before buffer swap so the window already has
-	-- the correct content height when the terminal is attached.
-	-- Other window options are set after the swap because
-	-- nvim_win_set_buf -> get_winopts() overwrites w_onebuf_opt.
-	for _, win in ipairs(wins) do
-		if state.win_valid(win) and config.config.winbar then
-			vim.wo[win].winbar = " "
-		end
-	end
-
-	-- Set terminal buffers after layout is configured to avoid corrupting
-	-- the terminal display (e.g. when switching tabs)
+	-- Attach terminal buffers to the layout windows. Suppress autocmds to
+	-- prevent winbar.update() etc. from running between pane attachments.
+	local old_eventignore = vim.o.eventignore
+	vim.o.eventignore = "BufEnter,BufLeave,BufWinEnter"
 	for i, win in ipairs(wins) do
 		if state.win_valid(win) then
 			vim.api.nvim_win_set_buf(win, tab[i])
+		end
+	end
+	vim.o.eventignore = old_eventignore
+
+	-- Set ALL window options after buffer attachment. nvim_win_set_buf calls
+	-- get_winopts() which overwrites w_onebuf_opt from the buffer's WinInfo.
+	-- Setting winbar HERE (not before the swap) guarantees set_winbar_win is
+	-- called, which triggers win_set_inner_size -> terminal_check_size with
+	-- the correct signcolumn/number/foldcolumn already in place. This fixes
+	-- terminal sizing for ALL panes, not just the one that gets startinsert.
+	for i, win in ipairs(wins) do
+		if state.win_valid(win) then
 			vim.wo[win].signcolumn = "no"
 			vim.wo[win].foldcolumn = "0"
 			vim.wo[win].number = false
