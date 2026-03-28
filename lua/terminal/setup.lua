@@ -539,7 +539,7 @@ function M.setup_keymap(api)
 	if keys.paste_register ~= false then
 		vim.keymap.set("t", keys.paste_register, function()
 			local ok, char = pcall(vim.fn.getchar)
-			if not ok or char < 0 then
+			if not ok or type(char) ~= "number" or char < 0 then
 				return
 			end
 			local reg = vim.fn.nr2char(char)
