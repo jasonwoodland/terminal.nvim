@@ -12,7 +12,10 @@ local closing_pane_windows = false
 function M.get_float_win_config()
 	if vim.t.term_zoom then
 		local tabline_height = 0
-		if config.config.float_zoom_show_tabline and vim.o.showtabline == 2 or (vim.o.showtabline == 1 and #vim.api.nvim_list_tabpages() > 1) then
+		if
+			config.config.float_zoom_show_tabline and vim.o.showtabline == 2
+			or (vim.o.showtabline == 1 and #vim.api.nvim_list_tabpages() > 1)
+		then
 			tabline_height = 1
 		end
 		return {
@@ -114,16 +117,12 @@ function M.save_tab_state()
 	local st = {
 		widths = prev_state.widths,
 		focus = 1,
-		views = {},
 		modes = {},
 	}
 
 	local current_win = vim.fn.win_getid()
 	for i, win in ipairs(wins) do
 		if state.win_valid(win) then
-			st.views[i] = vim.api.nvim_win_call(win, function()
-				return vim.fn.winsaveview()
-			end)
 			local buf = vim.api.nvim_win_get_buf(win)
 			st.modes[i] = vim.b[buf].term_mode or "t"
 			if win == current_win then
@@ -208,8 +207,7 @@ function M.open_tab_windows(tab, tab_idx)
 			else
 				local allocated = 0
 				for i = 1, num_panes - 1 do
-					pane_widths[i] = math.max(3,
-						math.floor((st.widths[i] or 1) * content_available / sum))
+					pane_widths[i] = math.max(3, math.floor((st.widths[i] or 1) * content_available / sum))
 					allocated = allocated + pane_widths[i]
 				end
 				pane_widths[num_panes] = math.max(3, content_available - allocated)
@@ -233,9 +231,13 @@ function M.open_tab_windows(tab, tab_idx)
 			local border = "none"
 			if has_left or has_right then
 				border = {
-					"", "", "",
+					"",
+					"",
+					"",
 					has_right and { fillchar, "WinSeparator" } or "",
-					"", "", "",
+					"",
+					"",
+					"",
 					has_left and { fillchar, "WinSeparator" } or "",
 				}
 			end
@@ -243,6 +245,7 @@ function M.open_tab_windows(tab, tab_idx)
 			local win_cfg = vim.tbl_extend("force", {}, base_config)
 			win_cfg.width = pane_widths[i]
 			win_cfg.height = base_config.height - stl_height
+			win_cfg.row = base_config.row
 			win_cfg.col = base_config.col + col_offset
 			win_cfg.border = border
 			win_cfg.zindex = (i == focus_idx) and 51 or 50
@@ -297,24 +300,11 @@ function M.open_tab_windows(tab, tab_idx)
 		end
 	end
 
-	-- Attach terminal buffers to the layout windows. Suppress autocmds to
-	-- prevent winbar.update() etc. from running between pane attachments.
-	local old_eventignore = vim.o.eventignore
-	vim.o.eventignore = "BufEnter,BufLeave,BufWinEnter"
-	for i, win in ipairs(wins) do
-		if state.win_valid(win) then
-			vim.api.nvim_win_set_buf(win, tab[i])
-		end
-	end
-	vim.o.eventignore = old_eventignore
-
-	-- Set ALL window options after buffer attachment. nvim_win_set_buf calls
-	-- get_winopts() which overwrites w_onebuf_opt from the buffer's WinInfo.
-	-- Setting winbar HERE (not before the swap) guarantees set_winbar_win is
-	-- called, which triggers win_set_inner_size -> terminal_check_size with
-	-- the correct signcolumn/number/foldcolumn already in place. This fixes
-	-- terminal sizing for ALL panes, not just the one that gets startinsert.
-	for i, win in ipairs(wins) do
+	-- Set window options on the scratch windows BEFORE attaching terminal
+	-- buffers. nvim_win_set_buf calls get_winopts() which restores the
+	-- buffer's saved w_onebuf_opt. If those match what we set here, the
+	-- terminal sees no dimension change at attachment time.
+	for _, win in ipairs(wins) do
 		if state.win_valid(win) then
 			vim.wo[win].signcolumn = "no"
 			vim.wo[win].foldcolumn = "0"
@@ -336,19 +326,30 @@ function M.open_tab_windows(tab, tab_idx)
 			end
 		end
 	end
+
+	-- Attach terminal buffers. get_winopts() may overwrite some options
+	-- from the buffer's WinInfo, so re-set them afterward.
+	local old_eventignore = vim.o.eventignore
+	vim.o.eventignore = "BufEnter,BufLeave,BufWinEnter"
+	for i, win in ipairs(wins) do
+		if state.win_valid(win) then
+			vim.api.nvim_win_set_buf(win, tab[i])
+			vim.wo[win].signcolumn = "no"
+			vim.wo[win].foldcolumn = "0"
+			vim.wo[win].number = false
+			vim.wo[win].relativenumber = false
+			vim.wo[win].scrolloff = 0
+			vim.wo[win].sidescrolloff = 0
+			if config.config.winbar then
+				vim.wo[win].winbar = " "
+			end
+		end
+	end
+	vim.o.eventignore = old_eventignore
+
 	for _, scratch in ipairs(scratches) do
 		if vim.api.nvim_buf_is_valid(scratch) then
 			vim.api.nvim_buf_delete(scratch, { force = true })
-		end
-	end
-
-	if st.views then
-		for i, win in ipairs(wins) do
-			if state.win_valid(win) and st.views[i] then
-				vim.api.nvim_win_call(win, function()
-					vim.fn.winrestview(st.views[i])
-				end)
-			end
 		end
 	end
 
