@@ -185,6 +185,10 @@ function M.setup_autocmd(api)
 			local wins = vim.t.term_winids or {}
 			for _, win in ipairs(wins) do
 				if win == current_win then
+					local old_winid = vim.t.term_winid
+					if old_winid and old_winid ~= current_win then
+						vim.t.term_prev_pane_winid = old_winid
+					end
 					vim.t.term_winid = current_win
 					vim.t.term_bufnr = vim.api.nvim_win_get_buf(current_win)
 
@@ -630,6 +634,14 @@ function M.setup_keymap(api)
 	map({ "n", "t" }, "<C-S-h>", function() pane_navigate(-1) end, { noremap = true })
 	map({ "n", "t" }, "<C-S-l>", function() pane_navigate(1) end, { noremap = true })
 	map({ "n", "t" }, "<C-S-v>", api.vsplit, { noremap = true })
+	map({ "n", "t" }, "<C-S-p>", function()
+		local prev = vim.t.term_prev_pane_winid
+		if prev and state.win_valid(prev) then
+			vim.api.nvim_set_current_win(prev)
+			restore_term_mode()
+			statusline.update()
+		end
+	end, { noremap = true })
 
 	local function resize_current_pane(delta)
 		local wins = vim.t.term_winids or {}
@@ -807,7 +819,12 @@ function M.setup_keymap(api)
 					elseif c == "=" then
 						float_layout.equalize_panes()
 					elseif key_match(c, "p", "<C-S-p>") then
-						api.toggle({ open = false })
+						local prev = vim.t.term_prev_pane_winid
+						if prev and state.win_valid(prev) then
+							vim.api.nvim_set_current_win(prev)
+							restore_term_mode()
+							statusline.update()
+						end
 					elseif key_match(c, "c", "<C-S-c>") then
 						api.delete()
 					elseif key_match(c, "<CR>", "<C-S-CR>") and count > 1 then
@@ -846,7 +863,14 @@ function M.setup_keymap(api)
 		{ { ">" },          function() resize_current_pane(vim.v.count1) end },
 		{ { "<lt>" },       function() resize_current_pane(-vim.v.count1) end },
 		{ { "=" },          float_layout.equalize_panes },
-		{ { "p", "<C-p>" }, function() api.toggle({ open = false }) end },
+		{ { "p", "<C-p>" }, function()
+			local prev = vim.t.term_prev_pane_winid
+			if prev and state.win_valid(prev) then
+				vim.api.nvim_set_current_win(prev)
+				restore_term_mode()
+				statusline.update()
+			end
+		end },
 		{ { "c", "<C-c>" }, api.delete },
 		{ { "v", "<C-v>" }, api.vsplit },
 		{ { "H" }, function()

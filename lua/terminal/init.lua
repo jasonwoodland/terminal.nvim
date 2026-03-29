@@ -506,6 +506,11 @@ function M.vsplit()
 	state.set_tab_state(tab_idx, st)
 
 	window.reopen_current_tab(tab_idx)
+
+	local wins = vim.t.term_winids or {}
+	if current_pane_idx and wins[current_pane_idx] then
+		vim.t.term_prev_pane_winid = wins[current_pane_idx]
+	end
 end
 
 function M.next()
