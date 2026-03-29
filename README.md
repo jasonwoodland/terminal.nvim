@@ -70,9 +70,9 @@ require("terminal").setup({
   -- Default key map (set any key to false to disable, or set keys = false to disable all)
   keys = {
     toggle = "<C-S-Space>",
-    normal_mode = "<C-S-n>",
+    normal_mode = "<C-S-\\>",
     zoom = "<C-S-z>",
-    new = "<C-S-t>",
+    new = "<C-S-n>",
     wincmd = "<C-S-w>",
     delete = "<C-S-c>",
     prev = "<C-S-[>",
@@ -100,11 +100,11 @@ These work anywhere in Normal and/or Terminal mode:
 | :----: | :------: | ----------------------------------------------------- | ------------------------------------- |
 |        |          | **Toggle & zoom**                                     |                                       |
 |   x    |    x     | <kbd>&lt;C-S-Space&gt;</kbd>                          | Toggle terminal                       |
-|        |    x     | <kbd>&lt;C-S-n&gt;</kbd>                              | Go to Normal mode                     |
+|        |    x     | <kbd>&lt;C-S-\&gt;</kbd>                              | Go to Normal mode                     |
 |   x    |    x     | <kbd>&lt;C-S-z&gt;</kbd>                              | Toggle zoom                           |
 |   x    |    x     | <kbd>&lt;C-S-=&gt;</kbd>                              | Reset height to default               |
 |        |          | **Tabs**                                              |                                       |
-|   x    |    x     | <kbd>&lt;C-S-t&gt;</kbd>                              | New terminal tab                      |
+|   x    |    x     | <kbd>&lt;C-S-n&gt;</kbd>                              | New terminal tab                      |
 |   x    |    x     | <kbd>&lt;C-S-c&gt;</kbd>                              | Delete current terminal               |
 |   x    |    x     | <kbd>&lt;C-S-[&gt;</kbd>                              | Previous tab                          |
 |   x    |    x     | <kbd>&lt;C-S-]&gt;</kbd>                              | Next tab                              |
