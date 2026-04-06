@@ -347,6 +347,20 @@ function M.open_tab_windows(tab, tab_idx)
 	end
 	vim.o.eventignore = old_eventignore
 
+	-- Force correct PTY dimensions after all window options are finalized.
+	-- nvim_win_set_buf may report stale dimensions to the PTY before
+	-- winbar/signcolumn/etc. are re-applied.
+	if vim.t.term_zoom then
+		for i, win in ipairs(wins) do
+			if state.win_valid(win) then
+				local job_id = vim.b[tab[i]].terminal_job_id
+				if job_id then
+					pcall(vim.fn.jobresize, job_id, vim.api.nvim_win_get_width(win), vim.api.nvim_win_get_height(win))
+				end
+			end
+		end
+	end
+
 	for _, scratch in ipairs(scratches) do
 		if vim.api.nvim_buf_is_valid(scratch) then
 			vim.api.nvim_buf_delete(scratch, { force = true })
