@@ -278,6 +278,13 @@ function M.setup_autocmd(api)
 		if not config.is_float_mode() or not state.is_term_open() then
 			return
 		end
+		-- Skip rebuild when the app window is too small to fit the zoom
+		-- layout. Neovim auto-clamps existing floats to stay within the
+		-- screen bounds, so leaving them in place is safe; the next resize
+		-- back to a normal size will rebuild cleanly.
+		if not window.can_rebuild_float() then
+			return
+		end
 		window.rebuild_tab()
 	end
 

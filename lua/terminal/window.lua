@@ -61,6 +61,27 @@ local function open_window(win_config)
 	return win, scratch
 end
 
+-- Whether the current screen is large enough to host a float-mode rebuild.
+-- In float zoom mode the pane window needs at least 2 rows when winbar is
+-- enabled (1 for the native winbar slot, 1 for content) and 1 row for the
+-- statusline overlay. If the screen is smaller than that, skip the rebuild
+-- and let Neovim's auto-clamp keep the existing floats alive.
+function M.can_rebuild_float()
+	if not config.is_float_mode() then
+		return true
+	end
+	local cfg = M.get_float_win_config()
+	local min_pane_height = config.config.winbar and 2 or 1
+	local stl_height = vim.t.term_zoom and 1 or 0
+	if cfg.height - stl_height < min_pane_height then
+		return false
+	end
+	if cfg.width < 1 then
+		return false
+	end
+	return true
+end
+
 -- Open a terminal in a temporary window so the PTY starts with correct
 -- dimensions instead of the tiny aucmd window used by nvim_buf_call.
 -- num_panes: how many panes will share the row/float (for width calculation)
@@ -300,6 +321,14 @@ function M.open_tab_windows(tab, tab_idx)
 		end
 	end
 
+	-- Setting vim.wo[win].winbar requires the window to have >= 2 lines
+	-- (1 for winbar, 1 for content); otherwise Neovim raises E36 "Not enough
+	-- room". This matters when the user shrinks the app window to a very
+	-- small size in float zoom mode.
+	local function can_set_winbar(win)
+		return config.config.winbar and vim.api.nvim_win_get_height(win) >= 2
+	end
+
 	-- Set window options on the scratch windows BEFORE attaching terminal
 	-- buffers. nvim_win_set_buf calls get_winopts() which restores the
 	-- buffer's saved w_onebuf_opt. If those match what we set here, the
@@ -321,7 +350,7 @@ function M.open_tab_windows(tab, tab_idx)
 			vim.wo[win].statuscolumn = ""
 			vim.wo[win].fillchars = "eob: "
 			vim.wo[win].winhighlight = "EndOfBuffer:"
-			if config.config.winbar then
+			if can_set_winbar(win) then
 				vim.wo[win].winbar = " "
 			end
 		end
@@ -329,23 +358,32 @@ function M.open_tab_windows(tab, tab_idx)
 
 	-- Attach terminal buffers. get_winopts() may overwrite some options
 	-- from the buffer's WinInfo, so re-set them afterward.
+	--
+	-- Wrap in pcall so that if any operation raises (e.g. the app window is
+	-- too small), eventignore is always restored. Otherwise a stuck
+	-- eventignore silences Buf* events and makes Neovim appear frozen.
 	local old_eventignore = vim.o.eventignore
 	vim.o.eventignore = "BufEnter,BufLeave,BufWinEnter"
-	for i, win in ipairs(wins) do
-		if state.win_valid(win) then
-			vim.api.nvim_win_set_buf(win, tab[i])
-			vim.wo[win].signcolumn = "no"
-			vim.wo[win].foldcolumn = "0"
-			vim.wo[win].number = false
-			vim.wo[win].relativenumber = false
-			vim.wo[win].scrolloff = 0
-			vim.wo[win].sidescrolloff = 0
-			if config.config.winbar then
-				vim.wo[win].winbar = " "
+	local attach_ok, attach_err = pcall(function()
+		for i, win in ipairs(wins) do
+			if state.win_valid(win) then
+				vim.api.nvim_win_set_buf(win, tab[i])
+				vim.wo[win].signcolumn = "no"
+				vim.wo[win].foldcolumn = "0"
+				vim.wo[win].number = false
+				vim.wo[win].relativenumber = false
+				vim.wo[win].scrolloff = 0
+				vim.wo[win].sidescrolloff = 0
+				if can_set_winbar(win) then
+					vim.wo[win].winbar = " "
+				end
 			end
 		end
-	end
+	end)
 	vim.o.eventignore = old_eventignore
+	if not attach_ok then
+		error(attach_err)
+	end
 
 	-- Force correct PTY dimensions after all window options are finalized.
 	-- nvim_win_set_buf may report stale dimensions to the PTY before
