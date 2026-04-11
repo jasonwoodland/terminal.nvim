@@ -1,25 +1,25 @@
 # terminal.nvim
 
-Unobtrusive terminal management in Neovim.
+Use Neovim as your terminal multiplexer.
 
 <img width="1408" height="1000" alt="Screenshot 2026-03-08 at 12 01 18 am" src="https://github.com/user-attachments/assets/f765ba3b-9f74-4e26-b947-539b2b1b1c43" />
 
 ## Features
 
-- Multiple terminal tabs per Vim tab
-- Split panes within terminal tabs
-- Unobtrusive, idiomatic keymaps that work in both Terminal and Normal modes
-- Toggle fullscreen terminal
-- Clickable winbar with terminal tabs
-- Fast tab/window switching, reordering and resizing without leaving Terminal mode
-- Drawer-style and floating window modes
-- Mouse-draggable pane borders in float mode
-- Preserve and restore terminal buffer mode when switching focus
-- Insert the contents of registers while in Terminal mode
-- OSC notification passthrough and bell
-- Activity indicator for background terminal tabs
-- Confirm before deleting a terminal with a running process
-- Fully configurable keymaps
+- [x] Multiple terminal tabs per Vim tab
+- [x] Split panes within terminal tabs
+- [x] Unobtrusive, idiomatic keymaps that work in both Terminal and Normal modes
+- [x] Toggle fullscreen terminal
+- [x] Clickable winbar with terminal tabs
+- [x] Fast tab/window switching, reordering and resizing without leaving Terminal mode
+- [x] Drawer-style and floating window modes
+- [x] Mouse-draggable pane borders in float mode
+- [x] Preserve and restore terminal buffer mode when switching focus
+- [x] Insert the contents of registers while in Terminal mode
+- [x] OSC notification passthrough and bell
+- [x] Activity indicator for background terminal tabs
+- [x] Confirm before deleting a terminal with a running process
+- [x] Fully configurable keymaps
 
 ## Requirements
 
@@ -96,60 +96,225 @@ require("terminal").setup({
 
 These work anywhere in Normal and/or Terminal mode:
 
-| Normal | Terminal | Map                                                   | Action                                |
-| :----: | :------: | ----------------------------------------------------- | ------------------------------------- |
-|        |          | **Toggle & zoom**                                     |                                       |
-|   x    |    x     | <kbd>&lt;C-S-Space&gt;</kbd>                          | Toggle terminal                       |
-|        |    x     | <kbd>&lt;C-S-\&gt;</kbd>                              | Go to Normal mode                     |
-|   x    |    x     | <kbd>&lt;C-S-z&gt;</kbd>                              | Toggle zoom                           |
-|   x    |    x     | <kbd>&lt;C-S-=&gt;</kbd>                              | Reset height to default               |
-|        |          | **Tabs**                                              |                                       |
-|   x    |    x     | <kbd>&lt;C-S-n&gt;</kbd>                              | New terminal tab                      |
-|   x    |    x     | <kbd>&lt;C-S-c&gt;</kbd>                              | Delete current terminal               |
-|   x    |    x     | <kbd>&lt;C-S-[&gt;</kbd>                              | Previous tab                          |
-|   x    |    x     | <kbd>&lt;C-S-]&gt;</kbd>                              | Next tab                              |
-|   x    |    x     | <kbd>&lt;C-S-1&gt;</kbd> ... <kbd>&lt;C-S-9&gt;</kbd> | Go to tab by index                    |
-|   x    |    x     | <kbd>&lt;C-S-M-[&gt;</kbd>                            | Move tab left                         |
-|   x    |    x     | <kbd>&lt;C-S-M-]&gt;</kbd>                            | Move tab right                        |
-|        |          | **Vim tabs**                                          |                                       |
-|   x    |    x     | <kbd>&lt;C-PageUp&gt;</kbd>                           | Previous Vim tab                      |
-|   x    |    x     | <kbd>&lt;C-PageDown&gt;</kbd>                         | Next Vim tab                          |
-|   x    |    x     | <kbd>&lt;C-M-PageUp&gt;</kbd>                         | Move tab to previous Vim tab          |
-|   x    |    x     | <kbd>&lt;C-M-PageDown&gt;</kbd>                       | Move tab to next Vim tab              |
-|        |          | **Notifications**                                     |                                       |
-|   x    |    x     | <kbd>&lt;C-S-a&gt;</kbd>                              | Jump to last notification             |
-|        |          | **Panes**                                             |                                       |
-|   x    |    x     | <kbd>&lt;C-S-v&gt;</kbd>                              | Vertical split pane                   |
-|   x    |    x     | <kbd>&lt;C-S-h&gt;</kbd>                              | Focus pane left                       |
-|   x    |    x     | <kbd>&lt;C-S-l&gt;</kbd>                              | Focus pane right                      |
-|        |          | **Registers**                                         |                                       |
-|        |    x     | <kbd>&lt;C-S-r&gt;&nbsp;{register}</kbd>              | Insert contents of a register         |
-|        |    x     | <kbd>&lt;C-S-r&gt;&nbsp;=</kbd>                       | Evaluate expression and insert result |
+<table>
+  <thead>
+    <tr>
+      <th align="center">Normal</th>
+      <th align="center">Terminal</th>
+      <th>Map</th>
+      <th>Action</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><th colspan="4" align="left">Toggle & zoom</th></tr>
+    <tr>
+      <td align="center">✓</td>
+      <td align="center">✓</td>
+      <td><kbd>&lt;C-S-Space&gt;</kbd></td>
+      <td>Toggle terminal</td>
+    </tr>
+    <tr>
+      <td align="center"></td>
+      <td align="center">✓</td>
+      <td><kbd>&lt;C-S-\&gt;</kbd></td>
+      <td>Go to Normal mode</td>
+    </tr>
+    <tr>
+      <td align="center">✓</td>
+      <td align="center">✓</td>
+      <td><kbd>&lt;C-S-z&gt;</kbd></td>
+      <td>Toggle zoom</td>
+    </tr>
+    <tr>
+      <td align="center">✓</td>
+      <td align="center">✓</td>
+      <td><kbd>&lt;C-S-=&gt;</kbd></td>
+      <td>Reset height to default</td>
+    </tr>
+    <tr><th colspan="4" align="left">Tabs</th></tr>
+    <tr>
+      <td align="center">✓</td>
+      <td align="center">✓</td>
+      <td><kbd>&lt;C-S-n&gt;</kbd></td>
+      <td>Open a new terminal tab</td>
+    </tr>
+    <tr>
+      <td align="center">✓</td>
+      <td align="center">✓</td>
+      <td><kbd>&lt;C-S-c&gt;</kbd></td>
+      <td>Close the current terminal</td>
+    </tr>
+    <tr>
+      <td align="center">✓</td>
+      <td align="center">✓</td>
+      <td><kbd>&lt;C-S-[&gt;</kbd></td>
+      <td>Go to the next tab</td>
+    </tr>
+    <tr>
+      <td align="center">✓</td>
+      <td align="center">✓</td>
+      <td><kbd>&lt;C-S-]&gt;</kbd></td>
+      <td>Go to the previous tab</td>
+    </tr>
+    <tr>
+      <td align="center">✓</td>
+      <td align="center">✓</td>
+      <td><kbd>&lt;C-S-1&gt;</kbd> &hellip; <kbd>&lt;C-S-9&gt;</kbd></td>
+      <td>Go to tab by index</td>
+    </tr>
+    <tr>
+      <td align="center">✓</td>
+      <td align="center">✓</td>
+      <td><kbd>&lt;C-S-M-[&gt;</kbd></td>
+      <td>Move the current tab left</td>
+    </tr>
+    <tr>
+      <td align="center">✓</td>
+      <td align="center">✓</td>
+      <td><kbd>&lt;C-S-M-]&gt;</kbd></td>
+      <td>Move the current tab right</td>
+    </tr>
+    <tr><th colspan="4" align="left">Vim tabs</th></tr>
+    <tr>
+      <td align="center">✓</td>
+      <td align="center">✓</td>
+      <td><kbd>&lt;C-PageUp&gt;</kbd></td>
+      <td>Go to the previous Vim tab page</td>
+    </tr>
+    <tr>
+      <td align="center">✓</td>
+      <td align="center">✓</td>
+      <td><kbd>&lt;C-PageDown&gt;</kbd></td>
+      <td>Go to the next Vim tab page</td>
+    </tr>
+    <tr>
+      <td align="center">✓</td>
+      <td align="center">✓</td>
+      <td><kbd>&lt;C-M-PageUp&gt;</kbd></td>
+      <td>Move the current tab to previous Vim tab page</td>
+    </tr>
+    <tr>
+      <td align="center">✓</td>
+      <td align="center">✓</td>
+      <td><kbd>&lt;C-M-PageDown&gt;</kbd></td>
+      <td>Move the current tab to next Vim tab page</td>
+    </tr>
+    <tr><th colspan="4" align="left">Notifications</th></tr>
+    <tr>
+      <td align="center">✓</td>
+      <td align="center">✓</td>
+      <td><kbd>&lt;C-S-a&gt;</kbd></td>
+      <td>Jump to last notification</td>
+    </tr>
+    <tr><th colspan="4" align="left">Panes</th></tr>
+    <tr>
+      <td align="center">✓</td>
+      <td align="center">✓</td>
+      <td><kbd>&lt;C-S-v&gt;</kbd></td>
+      <td>Split current window vertically in two</td>
+    </tr>
+    <tr>
+      <td align="center">✓</td>
+      <td align="center">✓</td>
+      <td><kbd>&lt;C-S-h&gt;</kbd></td>
+      <td>Move cursor one window left of the current one</td>
+    </tr>
+    <tr>
+      <td align="center">✓</td>
+      <td align="center">✓</td>
+      <td><kbd>&lt;C-S-l&gt;</kbd></td>
+      <td>Move cursor one window right of the current one</td>
+    </tr>
+    <tr><th colspan="4" align="left">Registers</th></tr>
+    <tr>
+      <td align="center"></td>
+      <td align="center">✓</td>
+      <td><kbd>&lt;C-S-r&gt;&nbsp;{register}</kbd></td>
+      <td>Insert the contents of a register</td>
+    </tr>
+    <tr>
+      <td align="center"></td>
+      <td align="center">✓</td>
+      <td><kbd>&lt;C-S-r&gt;&nbsp;=</kbd></td>
+      <td>Enter an expression and the results are inserted</td>
+    </tr>
+  </tbody>
+</table>
 
 ### Wincmd keymaps
 
 Press <kbd>&lt;C-S-w&gt;</kbd> followed by a sub-key (works in both Normal and Terminal mode):
 
-| Sub-key                      | Action                            |
-| ---------------------------- | --------------------------------- |
-| **Navigation**               |                                   |
-| <kbd>w</kbd>                 | Cycle to next pane                |
-| <kbd>h</kbd>                 | Focus pane left                   |
-| <kbd>l</kbd>                 | Focus pane right                  |
-| <kbd>p</kbd>                 | Close terminal (toggle off)       |
-| **Pane management**          |                                   |
-| <kbd>v</kbd>                 | Vertical split pane               |
-| <kbd>c</kbd>                 | Delete current terminal           |
-| **Resize**                   |                                   |
-| <kbd>></kbd>                 | Grow pane width (accepts count)   |
-| <kbd><</kbd>                 | Shrink pane width (accepts count) |
-| <kbd>=</kbd>                 | Equalize pane widths              |
-| <kbd>{count}&lt;CR&gt;</kbd> | Set terminal height to {count}    |
-| **Move & rotate**            |                                   |
-| <kbd>H</kbd>                 | Move pane to far left             |
-| <kbd>L</kbd>                 | Move pane to far right            |
-| <kbd>r</kbd>                 | Rotate panes forward              |
-| <kbd>R</kbd>                 | Rotate panes backward             |
+<table>
+  <thead>
+    <tr>
+      <th>Sub-key</th>
+      <th>Action</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><th colspan="2" align="left">Navigation</th></tr>
+    <tr>
+      <td><kbd>w</kbd></td>
+      <td>Cycle to next pane</td>
+    </tr>
+    <tr>
+      <td><kbd>h</kbd></td>
+      <td>Focus pane left</td>
+    </tr>
+    <tr>
+      <td><kbd>l</kbd></td>
+      <td>Focus pane right</td>
+    </tr>
+    <tr>
+      <td><kbd>p</kbd></td>
+      <td>Close terminal (toggle off)</td>
+    </tr>
+    <tr><th colspan="2" align="left">Pane management</th></tr>
+    <tr>
+      <td><kbd>v</kbd></td>
+      <td>Vertical split pane</td>
+    </tr>
+    <tr>
+      <td><kbd>c</kbd></td>
+      <td>Delete current terminal</td>
+    </tr>
+    <tr><th colspan="2" align="left">Resize</th></tr>
+    <tr>
+      <td><kbd>&gt;</kbd></td>
+      <td>Grow pane width (accepts count)</td>
+    </tr>
+    <tr>
+      <td><kbd>&lt;</kbd></td>
+      <td>Shrink pane width (accepts count)</td>
+    </tr>
+    <tr>
+      <td><kbd>=</kbd></td>
+      <td>Equalize pane widths</td>
+    </tr>
+    <tr>
+      <td><kbd>{count}&lt;CR&gt;</kbd></td>
+      <td>Set terminal height to {count}</td>
+    </tr>
+    <tr><th colspan="2" align="left">Move & rotate</th></tr>
+    <tr>
+      <td><kbd>H</kbd></td>
+      <td>Move pane to far left</td>
+    </tr>
+    <tr>
+      <td><kbd>L</kbd></td>
+      <td>Move pane to far right</td>
+    </tr>
+    <tr>
+      <td><kbd>r</kbd></td>
+      <td>Rotate panes forward</td>
+    </tr>
+    <tr>
+      <td><kbd>R</kbd></td>
+      <td>Rotate panes backward</td>
+    </tr>
+  </tbody>
+</table>
 
 ### Normal mode `<C-w>` overrides
 
@@ -157,17 +322,44 @@ When focused in a terminal pane window, `<C-w>` sub-keys are overridden to contr
 
 ## Commands
 
-Convenience commands 
+Basic convenience commands for manipulating standard terminal buffers
 
-| Command                  | Action                                          |
-| ------------------------ | ----------------------------------------------- |
-| `:TermSplit`             | Open a terminal in a horizontal split           |
-| `:TermVsplit`            | Open a terminal in a vertical split             |
-| `:TermTab [args]`        | Open a terminal in a new tab                    |
-| `:TermDelete`            | Delete the current terminal buffer              |
-| `:TermReset`             | Reset the terminal (open new, delete old)       |
-
-Short aliases are available: `:st`, `:vst`, `:tt`, `:td` (and `:tsplit`, `:tvsplit`, `:ttab`, `:tdelete`).
+<table>
+  <thead>
+    <tr>
+      <th>Command</th>
+      <th>Aliases</th>
+      <th>Action</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>:TermSplit</code></td>
+      <td><code>:st</code>, <code>:tsplit</code></td>
+      <td>Open a terminal in a horizontal split</td>
+    </tr>
+    <tr>
+      <td><code>:TermVsplit</code></td>
+      <td><code>:vst</code>, <code>:tvsplit</code></td>
+      <td>Open a terminal in a vertical split</td>
+    </tr>
+    <tr>
+      <td><code>:TermTab [args]</code></td>
+      <td><code>:tt</code>, <code>:ttab</code></td>
+      <td>Open a terminal in a new tab</td>
+    </tr>
+    <tr>
+      <td><code>:TermDelete</code></td>
+      <td><code>:td</code>, <code>:tdelete</code></td>
+      <td>Delete the current terminal buffer</td>
+    </tr>
+    <tr>
+      <td><code>:TermReset</code></td>
+      <td></td>
+      <td>Reset the terminal (open new, delete old)</td>
+    </tr>
+  </tbody>
+</table>
 
 ## Public API
 
@@ -176,21 +368,21 @@ All functions are available on the module table for use in custom keymaps:
 ```lua
 local terminal = require("terminal")
 
-terminal.toggle()              -- Toggle terminal window
-terminal.toggle({ open = true })  -- Only open
-terminal.toggle({ open = false }) -- Only close
-terminal.zoom()                -- Toggle zoom
-terminal.reset_height()        -- Reset terminal height to default
-terminal.new()                     -- Create new terminal tab
-terminal.delete()                  -- Delete current terminal
-terminal.vsplit()                  -- Split current tab with a new pane
-terminal.next()                    -- Switch to next tab
-terminal.prev()                    -- Switch to previous tab
-terminal.switch(delta, clamp)      -- Switch by delta (wraps by default, clamp=true to stop at ends)
-terminal.go_to(index)              -- Go to tab by index (1-based)
-terminal.move(direction)           -- Move current tab (-1 = left, 1 = right)
+terminal.toggle()                   -- Toggle terminal window
+terminal.toggle({ open = true })    -- Only open
+terminal.toggle({ open = false })   -- Only close
+terminal.zoom()                     -- Toggle zoom
+terminal.reset_height()             -- Reset terminal height to default
+terminal.new()                      -- Create new terminal tab
+terminal.delete()                   -- Delete current terminal
+terminal.vsplit()                   -- Split current tab with a new pane
+terminal.next()                     -- Switch to next tab
+terminal.prev()                     -- Switch to previous tab
+terminal.switch(delta, clamp)       -- Switch by delta (wraps by default, clamp=true to stop at ends)
+terminal.go_to(index)               -- Go to tab by index (1-based)
+terminal.move(direction)            -- Move current tab (-1 = left, 1 = right)
 terminal.move_to_vim_tab(direction) -- Move current tab to adjacent Vim tab (-1 = prev, 1 = next)
-terminal.go_to_notification()  -- Jump to terminal with last OSC notification
+terminal.go_to_notification()       -- Jump to terminal with last OSC notification
 ```
 
 ## Inserting registers
