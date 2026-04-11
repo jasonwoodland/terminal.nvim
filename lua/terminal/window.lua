@@ -455,6 +455,10 @@ function M.rebuild_tab(target_idx)
 end
 
 function M.switch_to_tab(target_idx)
+	local current_idx = vim.t.term_tab_idx
+	if current_idx and current_idx ~= target_idx then
+		vim.t.term_prev_tab_idx = current_idx
+	end
 	state.set_toggling()
 	M.rebuild_tab(target_idx)
 end

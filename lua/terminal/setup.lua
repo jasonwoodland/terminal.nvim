@@ -641,13 +641,30 @@ function M.setup_keymap(api)
 	map({ "n", "t" }, "<C-S-h>", function() pane_navigate(-1) end, { noremap = true })
 	map({ "n", "t" }, "<C-S-l>", function() pane_navigate(1) end, { noremap = true })
 	map({ "n", "t" }, "<C-S-v>", api.vsplit, { noremap = true })
-	map({ "n", "t" }, "<C-S-p>", function()
+	map({ "n", "t" }, keys.last_pane, function()
 		local prev = vim.t.term_prev_pane_winid
 		if prev and state.win_valid(prev) then
 			vim.api.nvim_set_current_win(prev)
 			restore_term_mode()
 			statusline.update()
 		end
+	end, { noremap = true })
+	map({ "n", "t" }, keys.last_tab, function()
+		local prev_idx = vim.t.term_prev_tab_idx
+		if not prev_idx then
+			return
+		end
+		local tabs = state.get_tabs()
+		if prev_idx < 1 or prev_idx > #tabs then
+			return
+		end
+		if prev_idx == (vim.t.term_tab_idx or 1) then
+			return
+		end
+		if not state.is_term_open() then
+			return
+		end
+		window.switch_to_tab(prev_idx)
 	end, { noremap = true })
 
 	local function resize_current_pane(delta)

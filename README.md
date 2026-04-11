@@ -77,6 +77,8 @@ require("terminal").setup({
     delete = "<C-S-c>",
     prev = "<C-S-[>",
     next = "<C-S-]>",
+    last_tab = "<C-S-o>",
+    last_pane = "<C-S-p>",
     move_prev = "<C-S-M-[>",
     move_next = "<C-S-M-]>",
     paste_register = "<C-S-r>",
@@ -174,6 +176,12 @@ These work anywhere in Normal and/or Terminal mode:
       <td><kbd>&lt;C-S-M-]&gt;</kbd></td>
       <td>Move the current tab right</td>
     </tr>
+    <tr>
+      <td align="center">✓</td>
+      <td align="center">✓</td>
+      <td><kbd>&lt;C-S-o&gt;</kbd></td>
+      <td>Jump to last-visited tab</td>
+    </tr>
     <tr><th colspan="4" align="left">Vim tabs</th></tr>
     <tr>
       <td align="center">✓</td>
@@ -224,6 +232,12 @@ These work anywhere in Normal and/or Terminal mode:
       <td align="center">✓</td>
       <td><kbd>&lt;C-S-l&gt;</kbd></td>
       <td>Move cursor one window right of the current one</td>
+    </tr>
+    <tr>
+      <td align="center">✓</td>
+      <td align="center">✓</td>
+      <td><kbd>&lt;C-S-p&gt;</kbd></td>
+      <td>Jump to last-visited pane</td>
     </tr>
     <tr><th colspan="4" align="left">Registers</th></tr>
     <tr>
