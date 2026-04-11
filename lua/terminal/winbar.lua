@@ -9,6 +9,8 @@ local winbar_bufnr = nil
 local winbar_ns = vim.api.nvim_create_namespace("terminal_winbar")
 local winbar_click_ranges = {}
 
+vim.api.nvim_set_hl(0, "TerminalWinBarNoSearch", {})
+
 function M.get_click_ranges()
 	return winbar_click_ranges
 end
@@ -215,7 +217,8 @@ function M.update()
 		winbar_winid = vim.api.nvim_open_win(winbar_bufnr, false, cfg)
 		vim.t.term_winbar_winid = winbar_winid
 	end
-	vim.wo[winbar_winid].winhighlight = "Normal:WinBar"
+	vim.wo[winbar_winid].winhighlight =
+		"Normal:WinBar,Search:TerminalWinBarNoSearch,IncSearch:TerminalWinBarNoSearch,CurSearch:TerminalWinBarNoSearch"
 	vim.wo[winbar_winid].winblend = 0
 	vim.wo[winbar_winid].cursorline = false
 	vim.wo[winbar_winid].number = false
