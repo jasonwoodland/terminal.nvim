@@ -521,6 +521,19 @@ function M.prev()
 	M.switch(-1)
 end
 
+function M.send(text)
+	local winid = vim.t.term_winid
+	if not winid or winid == 0 then
+		return
+	end
+	local bufnr = vim.api.nvim_win_get_buf(winid)
+	local job = vim.b[bufnr].terminal_job_id
+	if not job then
+		return
+	end
+	vim.api.nvim_chan_send(job, text)
+end
+
 function M.setup(user_config)
 	config.setup(user_config)
 	M.config = config.config

@@ -397,6 +397,7 @@ terminal.go_to(index)               -- Go to tab by index (1-based)
 terminal.move(direction)            -- Move current tab (-1 = left, 1 = right)
 terminal.move_to_vim_tab(direction) -- Move current tab to adjacent Vim tab (-1 = prev, 1 = next)
 terminal.go_to_notification()       -- Jump to terminal with last OSC notification
+terminal.send(text)                 -- Send text to the current terminal
 ```
 
 ## Inserting registers
