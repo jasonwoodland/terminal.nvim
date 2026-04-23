@@ -374,6 +374,7 @@ function M.setup_winbar_autocmds()
 
 			if seq:match("^\x1b%]0;") then
 				local title = seq:match("\x1b%]0;([^\007]+)")
+				if title then title = title:match("^%s*(.-)%s*$") end
 				if title and #title > 0 then
 					local buf = ev.buf
 					vim.b[buf].term_title = title
