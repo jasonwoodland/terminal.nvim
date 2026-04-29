@@ -3,7 +3,7 @@ local job = require("terminal.job")
 local M = {}
 
 local function reload_fugitive_buffers()
-	vim.cmd("call FugitiveDidChange()")
+	vim.fn["FugitiveDidChange"]()
 end
 
 function M.run(cmd)

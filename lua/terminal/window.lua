@@ -141,7 +141,7 @@ function M.save_tab_state()
 		modes = {},
 	}
 
-	local current_win = vim.fn.win_getid()
+	local current_win = vim.api.nvim_get_current_win()
 	for i, win in ipairs(wins) do
 		if state.win_valid(win) then
 			local buf = vim.api.nvim_win_get_buf(win)
@@ -173,7 +173,7 @@ function M.close_pane_windows()
 			if cfg.relative and cfg.relative ~= "" then
 				vim.api.nvim_win_close(win, true)
 			else
-				if vim.fn.win_getid() == win then
+				if vim.api.nvim_get_current_win() == win then
 					vim.cmd("wincmd p")
 				end
 				local winnr = vim.fn.win_id2win(win)
@@ -288,7 +288,7 @@ function M.open_tab_windows(tab, tab_idx)
 			win = -1,
 			height = height,
 		})
-		vim.cmd("set wfh")
+		vim.wo[first_win].winfixheight = true
 		table.insert(wins, first_win)
 		table.insert(scratches, first_scratch)
 

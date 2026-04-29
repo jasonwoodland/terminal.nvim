@@ -25,7 +25,7 @@ function M.setup_autocmd(api)
 			vim.opt_local.scrolloff = 0
 			vim.opt_local.sidescrolloff = 0
 			vim.opt_local.winblend = 0
-			local bufnr = vim.fn.bufnr()
+		local bufnr = vim.api.nvim_get_current_buf()
 			if not state.find_buf_tab(bufnr) then
 				state.add_term_to_order(bufnr)
 			end
@@ -39,8 +39,8 @@ function M.setup_autocmd(api)
 					-- Find the vim tabpage that owns this buffer
 					local owner_tab = nil
 					for _, tp in ipairs(vim.api.nvim_list_tabpages()) do
-						local ok, order = pcall(vim.api.nvim_tabpage_get_var, tp, "term_order")
-						if ok and order then
+						local order = vim.t[tp].term_order
+						if order then
 							for _, tab in ipairs(order) do
 								for _, b in ipairs(tab) do
 									if b == buf then
@@ -56,13 +56,12 @@ function M.setup_autocmd(api)
 					if not owner_tab then
 						return
 					end
-					local ok_tog, tab_toggling = pcall(vim.api.nvim_tabpage_get_var, owner_tab, "term_toggling")
-					if ok_tog and tab_toggling then
+					if vim.t[owner_tab].term_toggling then
 						return
 					end
 					-- Skip if buffer is displayed in a current terminal window
-					local ok_wins, wins = pcall(vim.api.nvim_tabpage_get_var, owner_tab, "term_winids")
-					if ok_wins and wins then
+					local wins = vim.t[owner_tab].term_winids
+					if wins then
 						for _, win in ipairs(wins) do
 							if state.win_valid(win) and vim.api.nvim_win_get_buf(win) == buf then
 								return
@@ -70,8 +69,8 @@ function M.setup_autocmd(api)
 						end
 					end
 					-- Find the tab index of this buffer within the owning tabpage
-					local ok_order, order = pcall(vim.api.nvim_tabpage_get_var, owner_tab, "term_order")
-					if not ok_order or not order then
+					local order = vim.t[owner_tab].term_order
+					if not order then
 						return
 					end
 					local gi = nil
@@ -84,17 +83,16 @@ function M.setup_autocmd(api)
 						end
 						if gi then break end
 					end
-					local ok_idx, tab_idx = pcall(vim.api.nvim_tabpage_get_var, owner_tab, "term_tab_idx")
-					if not gi or gi == (ok_idx and tab_idx or 1) then
+					local tab_idx = vim.t[owner_tab].term_tab_idx
+					if not gi or gi == (tab_idx or 1) then
 						return
 					end
-					local ok_act, activity = pcall(vim.api.nvim_tabpage_get_var, owner_tab, "term_tab_activity")
-					activity = (ok_act and activity) or {}
+					local activity = vim.t[owner_tab].term_tab_activity or {}
 					if activity[tostring(gi)] then
 						return
 					end
 					activity[tostring(gi)] = true
-					vim.api.nvim_tabpage_set_var(owner_tab, "term_tab_activity", activity)
+					vim.t[owner_tab].term_tab_activity = activity
 					vim.schedule(function()
 						winbar.update()
 					end)
@@ -115,13 +113,13 @@ function M.setup_autocmd(api)
 		pattern = { "t:nt", "t:n" },
 		group = "Term",
 		callback = function()
-			local bufnr = vim.fn.bufnr()
-			local winid = vim.fn.win_getid()
+			local bufnr = vim.api.nvim_get_current_buf()
+			local winid = vim.api.nvim_get_current_win()
 			vim.schedule(function()
 				if not vim.api.nvim_buf_is_valid(bufnr) then
 					return
 				end
-				if vim.fn.win_getid() ~= winid then
+				if vim.api.nvim_get_current_win() ~= winid then
 					return
 				end
 				if vim.bo[bufnr].buftype == "terminal" then
@@ -181,7 +179,7 @@ function M.setup_autocmd(api)
 			state.adopt_orphaned_terminals()
 
 			-- Track focus within pane windows
-			local current_win = vim.fn.win_getid()
+			local current_win = vim.api.nvim_get_current_win()
 			local wins = vim.t.term_winids or {}
 			for _, win in ipairs(wins) do
 				if win == current_win then
@@ -207,7 +205,7 @@ function M.setup_autocmd(api)
 			-- Refocus terminal pane if winbar overlay is entered
 			if current_win == vim.t.term_winbar_winid then
 				vim.schedule(function()
-					if vim.fn.win_getid() ~= vim.t.term_winbar_winid then
+					if vim.api.nvim_get_current_win() ~= vim.t.term_winbar_winid then
 						return
 					end
 					local target = vim.t.term_winid
@@ -260,13 +258,13 @@ function M.setup_autocmd(api)
 			if not vim.t.term_toggling then
 				state.save_term_height()
 			end
-			if not vim.t.term_toggling and config.is_float_mode() and state.is_term_related_window(vim.fn.win_getid()) then
+			if not vim.t.term_toggling and config.is_float_mode() and state.is_term_related_window(vim.api.nvim_get_current_win()) then
 				local tab = vim.api.nvim_get_current_tabpage()
 				vim.schedule(function()
 					if vim.api.nvim_get_current_tabpage() ~= tab then
 						return
 					end
-					if not state.is_term_related_window(vim.fn.win_getid()) then
+					if not state.is_term_related_window(vim.api.nvim_get_current_win()) then
 						api.toggle({ open = false })
 					end
 				end)
@@ -492,7 +490,7 @@ function M.setup_keymap(api)
 	end
 
 	local function switch_vim_tab(direction)
-		local src_mode = vim.fn.mode()
+		local src_mode = vim.api.nvim_get_mode().mode
 		if vim.bo.buftype == "terminal" then
 			vim.b.term_mode = src_mode
 		end
@@ -601,7 +599,7 @@ function M.setup_keymap(api)
 
 	local function pane_navigate(delta)
 		local wins = vim.t.term_winids or {}
-		local current = vim.fn.win_getid()
+		local current = vim.api.nvim_get_current_win()
 		for i, win in ipairs(wins) do
 			if win == current then
 				local target = i + delta
@@ -625,7 +623,7 @@ function M.setup_keymap(api)
 		if #wins < 2 then
 			return
 		end
-		local current = vim.fn.win_getid()
+		local current = vim.api.nvim_get_current_win()
 		for i, win in ipairs(wins) do
 			if win == current then
 				local target = (i % #wins) + 1
@@ -670,7 +668,7 @@ function M.setup_keymap(api)
 
 	local function resize_current_pane(delta)
 		local wins = vim.t.term_winids or {}
-		local current = vim.fn.win_getid()
+		local current = vim.api.nvim_get_current_win()
 
 		if not config.is_float_mode() then
 			if delta > 0 then
@@ -712,7 +710,7 @@ function M.setup_keymap(api)
 			return
 		end
 
-		local bufnr = vim.fn.bufnr()
+		local bufnr = vim.api.nvim_get_current_buf()
 		local _, pane_idx = state.find_buf_tab(bufnr)
 		if not pane_idx then
 			return
@@ -747,7 +745,7 @@ function M.setup_keymap(api)
 			return
 		end
 
-		local bufnr = vim.fn.bufnr()
+		local bufnr = vim.api.nvim_get_current_buf()
 		local _, pane_idx = state.find_buf_tab(bufnr)
 		if not pane_idx then
 			return
@@ -857,7 +855,7 @@ function M.setup_keymap(api)
 						local wins = vim.t.term_winids or {}
 						if not config.is_float_mode() and #wins > 0 and state.win_valid(wins[1]) then
 							vim.api.nvim_win_call(wins[1], function()
-								vim.cmd("resize " .. count)
+								vim.api.nvim_win_set_height(0, count)
 							end)
 						end
 					end

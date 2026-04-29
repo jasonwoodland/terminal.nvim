@@ -57,13 +57,13 @@ function M.toggle(opts)
 		window.save_tab_state()
 		if state.win_valid(vim.t.term_winid) then
 			vim.t.term_bufnr = vim.api.nvim_win_get_buf(vim.t.term_winid)
-			vim.t.term_mode = vim.fn.mode()
+			vim.t.term_mode = vim.api.nvim_get_mode().mode
 			vim.b[vim.t.term_bufnr].term_view = vim.fn.winsaveview()
 		end
 		window.close_pane_windows()
 	else
 		-- Open
-		vim.t.prev_winid = vim.fn.win_getid()
+		vim.t.prev_winid = vim.api.nvim_get_current_win()
 
 		local tab, tab_idx = state.get_current_tab()
 
@@ -129,7 +129,7 @@ function M.zoom()
 		vim.t.term_prev_height = nil
 	end
 	vim.api.nvim_win_call(wins2[1], function()
-		vim.cmd("resize " .. vim.t.term_height)
+		vim.api.nvim_win_set_height(0, vim.t.term_height)
 	end)
 end
 
@@ -141,7 +141,7 @@ function M.reset_height()
 	local wins = vim.t.term_winids or {}
 	if #wins > 0 and state.win_valid(wins[1]) then
 		vim.api.nvim_win_call(wins[1], function()
-			vim.cmd("resize " .. vim.t.term_height)
+			vim.api.nvim_win_set_height(0, vim.t.term_height)
 		end)
 	end
 end
@@ -260,13 +260,13 @@ function M.move_to_vim_tab(direction)
 	-- Add tab to target tab before opening remaining tabs, so
 	-- adopt_orphaned_terminals() (triggered by WinEnter) doesn't re-adopt
 	-- the moved buffers into the source tab.
-	local ok, target_order = pcall(vim.api.nvim_tabpage_get_var, target_tab, "term_order")
-	if not ok then
+	local target_order = vim.t[target_tab].term_order
+	if not target_order then
 		target_order = {}
 	end
 	target_order = state.migrate_term_order(target_order)
 	table.insert(target_order, tab)
-	vim.api.nvim_tabpage_set_var(target_tab, "term_order", target_order)
+	vim.t[target_tab].term_order = target_order
 
 	local new_idx2 = state.clamp(vim.t.term_tab_idx or 1, 1, math.max(#order, 1))
 	vim.t.term_tab_idx = new_idx2
@@ -405,7 +405,7 @@ function M.delete()
 		return
 	end
 
-	local bufnr = vim.fn.bufnr()
+	local bufnr = vim.api.nvim_get_current_buf()
 
 	if term_has_foreground_process(bufnr) then
 		if vim.fn.confirm("Terminal has a running process. Close anyway?", "&Yes\n&No", 2) ~= 1 then
@@ -486,7 +486,7 @@ function M.vsplit()
 	end
 
 	-- Find current pane index before closing windows
-	local current_bufnr = vim.fn.bufnr()
+	local current_bufnr = vim.api.nvim_get_current_buf()
 	local _, current_pane_idx = state.find_buf_tab(current_bufnr)
 
 	window.save_tab_state()

@@ -157,16 +157,13 @@ end
 
 function M.setup_mouse_mappings(bufnr, api)
 	for _, mode in ipairs({ "n", "t" }) do
-		vim.api.nvim_buf_set_keymap(bufnr, mode, "<LeftMouse>", "", {
-			noremap = true,
-			expr = true,
-			callback = function()
-				local mouse = vim.fn.getmousepos()
+		vim.keymap.set(mode, "<LeftMouse>", function()
+			local mouse = vim.fn.getmousepos()
 
-				-- Track mode for tabline clicks so LeftRelease can restore it
-				if mouse.screenrow == 1 and vim.o.showtabline > 0 then
-					tabline_click_mode = vim.fn.mode()
-				end
+			-- Track mode for tabline clicks so LeftRelease can restore it
+			if mouse.screenrow == 1 and vim.o.showtabline > 0 then
+				tabline_click_mode = vim.api.nvim_get_mode().mode
+			end
 
 				-- Handle winbar click without changing focus/mode
 				if mouse.winid == vim.t.term_winbar_winid then
@@ -240,13 +237,9 @@ function M.setup_mouse_mappings(bufnr, api)
 					end
 				end
 				return vim.api.nvim_replace_termcodes("<LeftMouse>", true, true, true)
-			end,
-		})
+			end, { buffer = bufnr, expr = true, noremap = true })
 
-		vim.api.nvim_buf_set_keymap(bufnr, mode, "<LeftDrag>", "", {
-			noremap = true,
-			expr = true,
-			callback = function()
+		vim.keymap.set(mode, "<LeftDrag>", function()
 				local drag_mouse = vim.fn.getmousepos()
 				if drag_mouse.winid == vim.t.term_winbar_winid or statusline.is_stl_window(drag_mouse.winid) or stl_click then
 					return ""
@@ -279,31 +272,23 @@ function M.setup_mouse_mappings(bufnr, api)
 					M.apply_float_pane_layout(new_widths)
 				end)
 				return ""
-			end,
-		})
+			end, { buffer = bufnr, expr = true, noremap = true })
 
 		for _, event in ipairs({
 			"<2-LeftMouse>", "<3-LeftMouse>", "<4-LeftMouse>",
 			"<2-LeftRelease>", "<3-LeftRelease>", "<4-LeftRelease>",
 			"<2-LeftDrag>", "<3-LeftDrag>", "<4-LeftDrag>",
 		}) do
-			vim.api.nvim_buf_set_keymap(bufnr, mode, event, "", {
-				noremap = true,
-				expr = true,
-				callback = function()
-					local ev_mouse = vim.fn.getmousepos()
-					if ev_mouse.winid == vim.t.term_winbar_winid or statusline.is_stl_window(ev_mouse.winid) then
-						return ""
-					end
-					return vim.api.nvim_replace_termcodes(event, true, true, true)
-				end,
-			})
+			vim.keymap.set(mode, event, function()
+				local ev_mouse = vim.fn.getmousepos()
+				if ev_mouse.winid == vim.t.term_winbar_winid or statusline.is_stl_window(ev_mouse.winid) then
+					return ""
+				end
+				return vim.api.nvim_replace_termcodes(event, true, true, true)
+			end, { buffer = bufnr, expr = true, noremap = true })
 		end
 
-		vim.api.nvim_buf_set_keymap(bufnr, mode, "<LeftRelease>", "", {
-			noremap = true,
-			expr = true,
-			callback = function()
+		vim.keymap.set(mode, "<LeftRelease>", function()
 				local rel_mouse = vim.fn.getmousepos()
 				if rel_mouse.winid == vim.t.term_winbar_winid or statusline.is_stl_window(rel_mouse.winid) then
 					return ""
@@ -330,8 +315,7 @@ function M.setup_mouse_mappings(bufnr, api)
 				end)
 				drag_state = nil
 				return ""
-			end,
-		})
+			end, { buffer = bufnr, expr = true, noremap = true })
 	end
 end
 

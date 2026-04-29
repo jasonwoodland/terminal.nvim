@@ -96,7 +96,7 @@ function M.restore_ruler()
 end
 
 function M.save_term_height()
-	if vim.fn.exists("t:term_bufnr") ~= 0 and vim.t.term_prev_height == nil and not vim.t.term_zoom then
+	if vim.t.term_bufnr ~= nil and vim.t.term_prev_height == nil and not vim.t.term_zoom then
 		local wins = vim.t.term_winids or {}
 		if #wins > 0 and M.win_valid(wins[1]) then
 			local height = vim.api.nvim_win_get_height(wins[1])
@@ -104,9 +104,14 @@ function M.save_term_height()
 				vim.t.term_height = height
 			end
 		elseif vim.t.term_bufnr then
-			local height = vim.fn.winheight(vim.fn.bufwinnr(vim.t.term_bufnr))
-			if height > 0 then
-				vim.t.term_height = height
+			for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+				if vim.api.nvim_win_get_buf(win) == vim.t.term_bufnr then
+					local height = vim.api.nvim_win_get_height(win)
+					if height > 0 then
+						vim.t.term_height = height
+					end
+					break
+				end
 			end
 		end
 	end
@@ -114,7 +119,7 @@ end
 
 function M.is_in_term_window()
 	local wins = vim.t.term_winids or {}
-	local current = vim.fn.win_getid()
+	local current = vim.api.nvim_get_current_win()
 	for _, win in ipairs(wins) do
 		if win == current then
 			return true
@@ -160,7 +165,7 @@ function M.get_tabs()
 	for gi, tab in ipairs(order) do
 		local valid_tab = {}
 		for _, buf in ipairs(tab) do
-			if vim.fn.bufexists(buf) == 1 and vim.fn.getbufvar(buf, "&buftype") == "terminal" then
+			if vim.api.nvim_buf_is_valid(buf) and vim.bo[buf].buftype == "terminal" then
 				table.insert(valid_tab, buf)
 			end
 		end
@@ -316,8 +321,8 @@ end
 function M.adopt_orphaned_terminals()
 	local owned = {}
 	for _, tab in ipairs(vim.api.nvim_list_tabpages()) do
-		local ok, order = pcall(vim.api.nvim_tabpage_get_var, tab, "term_order")
-		if ok and order then
+		local order = vim.t[tab].term_order
+		if order then
 			order = M.migrate_term_order(order)
 			for _, grp in ipairs(order) do
 				for _, buf in ipairs(grp) do

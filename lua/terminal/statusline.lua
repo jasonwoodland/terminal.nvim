@@ -35,7 +35,10 @@ local function render_stl_overlay(stl_buf, win, width, pad_right)
 	for i, hl in ipairs(result.highlights) do
 		local end_pos = (result.highlights[i + 1] and result.highlights[i + 1].start) or #result.str
 		if hl.group and hl.group ~= "" then
-			vim.api.nvim_buf_add_highlight(stl_buf, stl_ns, hl.group, 0, hl.start, end_pos)
+			vim.api.nvim_buf_set_extmark(stl_buf, stl_ns, 0, hl.start, {
+		hl_group = hl.group,
+		end_col = end_pos,
+	})
 		end
 	end
 end
@@ -67,7 +70,7 @@ function M.update()
 
 	M.close()
 
-	local current_win = vim.fn.win_getid()
+	local current_win = vim.api.nvim_get_current_win()
 
 	for _, win in ipairs(wins) do
 		if not state.win_valid(win) then

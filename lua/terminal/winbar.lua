@@ -64,7 +64,10 @@ local function render_winbar_content()
 
 	for _, range in ipairs(winbar_click_ranges) do
 		local hl = range.tab_idx == current_idx and "WinBarActive" or "WinBar"
-		vim.api.nvim_buf_add_highlight(winbar_bufnr, winbar_ns, hl, 0, range.start_col, range.end_col)
+		vim.api.nvim_buf_set_extmark(winbar_bufnr, winbar_ns, 0, range.start_col, {
+		hl_group = hl,
+		end_col = range.end_col,
+	})
 	end
 end
 
