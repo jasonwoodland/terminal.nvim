@@ -24,6 +24,7 @@ M.config = {
 		move_prev = "<C-S-M-[>",
 		move_next = "<C-S-M-]>",
 		paste_register = "<C-S-r>",
+		digraph = "<C-S-k>",
 		reset_height = "<C-S-=>",
 		vim_tab_next = "<C-PageDown>",
 		vim_tab_prev = "<C-PageUp>",
