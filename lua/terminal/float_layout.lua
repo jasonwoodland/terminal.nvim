@@ -221,7 +221,7 @@ function M.setup_mouse_mappings(bufnr, api)
 				end
 
 				if not config.is_float_mode() or not state.is_term_open() then
-					return vim.api.nvim_replace_termcodes("<LeftMouse>", true, true, true)
+					return "<LeftMouse>"
 				end
 				local screencol = mouse.screencol - 1
 				local wins = vim.t.term_winids or {}
@@ -236,7 +236,7 @@ function M.setup_mouse_mappings(bufnr, api)
 						return ""
 					end
 				end
-				return vim.api.nvim_replace_termcodes("<LeftMouse>", true, true, true)
+				return "<LeftMouse>"
 			end, { buffer = bufnr, expr = true, noremap = true })
 
 		vim.keymap.set(mode, "<LeftDrag>", function()
@@ -245,7 +245,7 @@ function M.setup_mouse_mappings(bufnr, api)
 					return ""
 				end
 				if not drag_state then
-					return vim.api.nvim_replace_termcodes("<LeftDrag>", true, true, true)
+					return "<LeftDrag>"
 				end
 				local mouse = vim.fn.getmousepos()
 				local mouse_col = mouse.screencol - 1
@@ -284,7 +284,7 @@ function M.setup_mouse_mappings(bufnr, api)
 				if ev_mouse.winid == vim.t.term_winbar_winid or statusline.is_stl_window(ev_mouse.winid) then
 					return ""
 				end
-				return vim.api.nvim_replace_termcodes(event, true, true, true)
+				return event
 			end, { buffer = bufnr, expr = true, noremap = true })
 		end
 
@@ -308,7 +308,7 @@ function M.setup_mouse_mappings(bufnr, api)
 					return ""
 				end
 				if not drag_state then
-					return vim.api.nvim_replace_termcodes("<LeftRelease>", true, true, true)
+					return "<LeftRelease>"
 				end
 				vim.schedule(function()
 					M.save_pane_widths()
