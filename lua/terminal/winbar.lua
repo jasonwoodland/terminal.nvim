@@ -155,7 +155,7 @@ local function get_winbar_overlay_config()
 			height = 1,
 			style = "minimal",
 			border = "none",
-			zindex = 60,
+			zindex = 40,
 			focusable = true,
 		}
 	else

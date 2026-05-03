@@ -269,7 +269,7 @@ function M.open_tab_windows(tab, tab_idx)
 			win_cfg.row = base_config.row
 			win_cfg.col = base_config.col + col_offset
 			win_cfg.border = border
-			win_cfg.zindex = (i == focus_idx) and 51 or 50
+			win_cfg.zindex = (i == focus_idx) and 31 or 30
 
 			-- Advance col_offset past this pane
 			if i == 1 then

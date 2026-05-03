@@ -110,7 +110,7 @@ function M.update()
 			height = 1,
 			style = "minimal",
 			border = "none",
-			zindex = 61,
+			zindex = 41,
 			focusable = true,
 		})
 		vim.wo[stl_win].winhighlight = hl

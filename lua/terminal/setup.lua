@@ -244,6 +244,57 @@ function M.setup_autocmd(api)
 
 		end,
 	})
+	-- Plugins like Telescope return focus to the previous window (the
+	-- term pane) and run :edit, which loads the file buffer into the
+	-- pane. Detect this and re-route: restore the terminal buffer in
+	-- the pane, and open the foreign buffer in a real window.
+	vim.api.nvim_create_autocmd("BufWinEnter", {
+		pattern = "*",
+		group = "Term",
+		callback = function(ev)
+			local buf = ev.buf
+			if not vim.api.nvim_buf_is_valid(buf) then return end
+			if vim.bo[buf].buftype == "terminal" then return end
+
+			local win = vim.api.nvim_get_current_win()
+			local wins = vim.t.term_winids or {}
+			local pane_idx
+			for i, w in ipairs(wins) do
+				if w == win then pane_idx = i; break end
+			end
+			if not pane_idx then return end
+
+			local tab = state.get_current_tab()
+			if not tab or not tab[pane_idx] then return end
+			local term_buf = tab[pane_idx]
+
+			local function find_target()
+				local prev = vim.t.prev_winid
+				if state.win_valid(prev) and not state.is_term_related_window(prev) then
+					local ok, cfg = pcall(vim.api.nvim_win_get_config, prev)
+					if ok and cfg.relative == "" then return prev end
+				end
+				for _, w in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+					if state.win_valid(w) and not state.is_term_related_window(w) then
+						local ok, cfg = pcall(vim.api.nvim_win_get_config, w)
+						if ok and cfg.relative == "" then return w end
+					end
+				end
+				return nil
+			end
+			local target = find_target()
+
+			vim.schedule(function()
+				if state.win_valid(win) and vim.api.nvim_buf_is_valid(term_buf) then
+					pcall(vim.api.nvim_win_set_buf, win, term_buf)
+				end
+				if target and vim.api.nvim_buf_is_valid(buf) then
+					pcall(vim.api.nvim_win_set_buf, target, buf)
+					pcall(vim.api.nvim_set_current_win, target)
+				end
+			end)
+		end,
+	})
 	vim.api.nvim_create_autocmd("TabNew", {
 		pattern = "*",
 		group = "Term",
@@ -264,8 +315,13 @@ function M.setup_autocmd(api)
 					if vim.api.nvim_get_current_tabpage() ~= tab then
 						return
 					end
-					if not state.is_term_related_window(vim.api.nvim_get_current_win()) then
-						api.toggle({ open = false })
+					local cur_win = vim.api.nvim_get_current_win()
+					if not state.is_term_related_window(cur_win) then
+						local ok, cfg = pcall(vim.api.nvim_win_get_config, cur_win)
+						local is_float = ok and cfg.relative ~= ""
+						if not (vim.t.term_zoom and is_float) then
+							api.toggle({ open = false })
+						end
 					end
 				end)
 			end
