@@ -88,7 +88,7 @@ end
 function M.zoom()
 	state.set_toggling()
 
-	if config.config.float then
+	if config.is_float_config_enabled() then
 		vim.t.term_zoom = not vim.t.term_zoom
 		window.rebuild_tab()
 		return
@@ -133,8 +133,28 @@ function M.zoom()
 	end)
 end
 
+function M.float_toggle()
+	if vim.t.term_zoom then
+		return
+	end
+	state.set_toggling()
+
+	local cur = config.config.float
+	if type(cur) == "table" then
+		cur.enabled = not config.is_float_config_enabled()
+	else
+		config.config.float = not cur
+	end
+
+	vim.t.term_prev_height = nil
+
+	if state.is_term_open() then
+		window.rebuild_tab()
+	end
+end
+
 function M.reset_height()
-	if vim.t.term_prev_height ~= nil or vim.t.term_zoom then
+	if vim.t.term_prev_height ~= nil or vim.t.term_zoom or config.is_float_mode() then
 		return
 	end
 	vim.t.term_height = config.get_term_height()

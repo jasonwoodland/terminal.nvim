@@ -60,7 +60,15 @@ the full default configuration: >lua
     require("terminal").setup({
       height = 0.5,
       winbar = true,
-      float = false,
+      float = {
+	enabled = false,
+	border  = false,
+	overlay = {
+	  enabled  = true,
+	  winblend = 75,
+	  hl       = "TerminalOverlay",
+	},
+      },
       float_zoom = true,
       float_zoom_show_tabline = true,
       float_zoom_hide_cmdline = false,
@@ -69,6 +77,7 @@ the full default configuration: >lua
 	toggle			= "<C-S-Space>",
 	normal_mode		= "<C-S-\\>",
 	zoom			= "<C-S-z>",
+	float_toggle		= "<C-S-f>",
 	new			= "<C-S-n>",
 	wincmd			= "<C-S-w>",
 	delete			= "<C-S-c>",
@@ -104,19 +113,32 @@ winbar ~
 
 						*terminal.nvim-opt-float*
 float ~
-	Floating window mode. When `false` (the default) terminals are shown
-	as a bottom drawer. Set to `true` to use the default float layout, or
-	provide a table to customise it: >lua
+	Floating window mode. Set to `false` to disable entirely (drawer
+	mode), `true` to enable with default layout, or provide a table to
+	customise. The default is a table with `enabled = false`, so the float
+	layout is preconfigured but starts in drawer mode; toggle to float
+	with |terminal.float_toggle()| (mapped to `<C-S-f>` by default): >lua
 
 	    float = {
+	      enabled  = false,
 	      padding  = { x = 24, y = 4 },
-	      border   = "rounded",
+	      border   = false,
 	      winblend = 0,
-	      overlay  = false,
+	      overlay  = {
+		enabled  = true,
+		winblend = 75,
+		hl       = "TerminalOverlay",
+	      },
 	    }
 <
-	`padding` is the gap from the editor edges in columns/rows; `border`
-	is any value accepted by |nvim_open_win()|.
+	`enabled` controls whether float mode is active. When `false`, the
+	terminal opens as a drawer; |terminal.float_toggle()| flips this at
+	runtime while preserving the rest of the table.
+
+	`padding` is the gap from the editor edges in columns/rows.
+
+	`border` is any value accepted by |nvim_open_win()|, or `false` for
+	no border. Default: `false`.
 
 	`winblend` sets the pseudo-transparency (|'winblend'|) of the floating
 	terminal panes and winbar (0 = opaque, 100 = transparent). Default `0`.
@@ -126,10 +148,12 @@ float ~
 	or a table to customise: >lua
 
 	    overlay = {
-	      winblend = 60,           -- 0-100, lower = more dimming
+	      enabled  = true,
+	      winblend = 75,           -- 0-100, lower = more dimming
 	      hl       = "TerminalOverlay",
 	    }
 <
+	When passed as a table, the overlay is on unless `enabled = false`.
 	The `TerminalOverlay` highlight group defaults to a black background
 	and can be overridden with |nvim_set_hl()|.
 
@@ -227,6 +251,13 @@ Toggle and Zoom					*terminal.nvim-map-toggle*
 			terminal tab fills the editor area; otherwise the
 			drawer expands/contracts to its previous size.
 			Calls |terminal.zoom()|.
+
+						*terminal.nvim-<C-S-f>*
+<C-S-f>		 Toggle between float and drawer mode. Flips the
+			`enabled` flag on |terminal.nvim-opt-float| (or the
+			boolean form of the option) and rebuilds the current
+			tab. Has no effect while a float zoom is active.
+			Calls |terminal.float_toggle()|.
 
 						*terminal.nvim-<C-S-=>*
 <C-S-=>		 Reset the drawer height back to the value of
@@ -421,6 +452,13 @@ terminal.toggle([{opts}])
 terminal.zoom()
 	Toggle the zoom state of the current terminal tab. Behaviour depends
 	on |terminal.nvim-opt-float| and |terminal.nvim-opt-float_zoom|.
+
+						*terminal.float_toggle()*
+terminal.float_toggle()
+	Toggle between float and drawer mode. Flips the `enabled` flag on
+	|terminal.nvim-opt-float| (or the boolean form of the option) and
+	rebuilds the current tab so the new layout takes effect immediately.
+	No-op while a float zoom is active.
 
 						*terminal.reset_height()*
 terminal.reset_height()

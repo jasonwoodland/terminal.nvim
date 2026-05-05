@@ -67,16 +67,18 @@ function M.get_float_win_config()
 
 	local float_config = {
 		padding = { x = 24, y = 4 },
-		border = "rounded",
+		border = false,
 	}
 
 	if type(config.config.float) == "table" then
 		float_config = vim.tbl_extend("force", float_config, config.config.float)
 	end
 
+	local has_border = float_config.border and float_config.border ~= "none"
+	local border = has_border and float_config.border or "none"
 	local col = float_config.padding.x
 	local row = float_config.padding.y
-	local border_width = float_config.border == "none" and 0 or 2
+	local border_width = has_border and 2 or 0
 	local width = math.floor(vim.o.columns - float_config.padding.x * 2 - border_width)
 	local height = math.floor(vim.o.lines - float_config.padding.y * 2 - border_width - 2)
 
@@ -86,7 +88,7 @@ function M.get_float_win_config()
 		height = height,
 		row = row,
 		col = col,
-		border = float_config.border,
+		border = border,
 		title = " Terminal ",
 		title_pos = "center",
 	}

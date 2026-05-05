@@ -5,7 +5,15 @@ local M = {}
 M.config = {
 	height = 0.5,
 	winbar = true,
-	float = false,
+	float = {
+		enabled = false,
+		border = false,
+		overlay = {
+			enabled = true,
+			winblend = 75,
+			hl = "TerminalOverlay",
+		},
+	},
 	float_zoom = true,
 	float_zoom_show_tabline = true,
 	float_zoom_hide_cmdline = false,
@@ -14,6 +22,7 @@ M.config = {
 		toggle = "<C-S-Space>",
 		normal_mode = "<C-S-\\>",
 		zoom = "<C-S-z>",
+		float_toggle = "<C-S-f>",
 		new = "<C-S-n>",
 		wincmd = "<C-S-w>",
 		delete = "<C-S-c>",
@@ -43,14 +52,25 @@ function M.get_term_height()
 	return M.config.height
 end
 
+-- True when the float config is set and not opted out via `enabled = false`.
+-- Lets users define `float = { enabled = false, padding = ... }` so the config
+-- is preset for `float_toggle` without starting in float mode.
+function M.is_float_config_enabled()
+	local f = M.config.float
+	if type(f) == "table" then
+		return f.enabled ~= false
+	end
+	return not not f
+end
+
 function M.is_float_mode()
-	return M.config.float or (M.config.float_zoom and vim.t.term_zoom)
+	return M.is_float_config_enabled() or (M.config.float_zoom and vim.t.term_zoom)
 end
 
 -- True when float mode is active and not zoomed (winblend/overlay only apply
 -- here; in zoom we want a fully opaque, full-screen terminal).
 function M.is_plain_float_mode()
-	return M.config.float and not vim.t.term_zoom
+	return M.is_float_config_enabled() and not vim.t.term_zoom
 end
 
 local function float_table()
@@ -73,14 +93,17 @@ function M.get_float_overlay()
 		return nil
 	end
 	local overlay = float_table().overlay
-	if not overlay then
+	if overlay == false or overlay == nil then
 		return nil
 	end
-	local defaults = { winblend = 60, hl = "TerminalOverlay" }
+	local defaults = { winblend = 75, hl = "TerminalOverlay" }
 	if overlay == true then
 		return defaults
 	end
 	if type(overlay) == "table" then
+		if overlay.enabled == false then
+			return nil
+		end
 		return vim.tbl_extend("force", defaults, overlay)
 	end
 	return nil
@@ -88,9 +111,13 @@ end
 
 function M.setup(user_config)
 	local default_keys = M.config.keys
+	local default_float = M.config.float
 	M.config = vim.tbl_extend("force", M.config, user_config or {})
 	if M.config.keys ~= false then
 		M.config.keys = vim.tbl_extend("force", default_keys, M.config.keys or {})
+	end
+	if type(M.config.float) == "table" and type(default_float) == "table" then
+		M.config.float = vim.tbl_deep_extend("force", default_float, M.config.float)
 	end
 end
 

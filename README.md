@@ -48,15 +48,19 @@ require("terminal").setup({
   -- Show terminal tabs in winbar
   winbar = true,
 
-  -- Floating window mode disabled by default
-  float = false,
-  -- float = {
-  --   padding = { x = 24, y = 4 },  -- Padding from screen edges (columns, rows)
-  --   border = "rounded",           -- Border style (see :help nvim_open_win)
-  --   winblend = 0,                 -- Pseudo-transparency for the float (0-100)
-  --   overlay = false,              -- Dimming backdrop behind the float.
-  --                                 -- true for defaults, or { winblend = 60, hl = "TerminalOverlay" }
-  -- },
+  -- Floating window mode. Set `enabled = true` (or use the float toggle keymap)
+  -- to switch from drawer to float. The other fields define the float layout.
+  float = {
+    enabled = false,                -- Start in drawer mode; toggle with <C-S-f>
+    padding = { x = 24, y = 4 },    -- Padding from screen edges (columns, rows)
+    border = false,                 -- Border style (see :help nvim_open_win), or false for none
+    winblend = 0,                   -- Pseudo-transparency for the float (0-100)
+    overlay = {                     -- Dimming backdrop behind the float
+      enabled = true,
+      winblend = 75,
+      hl = "TerminalOverlay",
+    },
+  },
 
   -- Set to true for a fullscreen floating zoom, false to set drawer window height to highest possible
   float_zoom = true,
@@ -75,6 +79,7 @@ require("terminal").setup({
     toggle = "<C-S-Space>",
     normal_mode = "<C-S-\\>",
     zoom = "<C-S-z>",
+    float_toggle = "<C-S-f>",
     new = "<C-S-n>",
     wincmd = "<C-S-w>",
     delete = "<C-S-c>",
@@ -129,6 +134,12 @@ These work anywhere in Normal and/or Terminal mode:
       <td align="center">✓</td>
       <td><kbd>&lt;C-S-z&gt;</kbd></td>
       <td>Toggle zoom</td>
+    </tr>
+    <tr>
+      <td align="center">✓</td>
+      <td align="center">✓</td>
+      <td><kbd>&lt;C-S-f&gt;</kbd></td>
+      <td>Toggle float / drawer</td>
     </tr>
     <tr>
       <td align="center">✓</td>
@@ -389,6 +400,7 @@ terminal.toggle()                   -- Toggle terminal window
 terminal.toggle({ open = true })    -- Only open
 terminal.toggle({ open = false })   -- Only close
 terminal.zoom()                     -- Toggle zoom
+terminal.float_toggle()             -- Toggle between float and drawer mode
 terminal.reset_height()             -- Reset terminal height to default
 terminal.new()                      -- Create new terminal tab
 terminal.delete()                   -- Delete current terminal

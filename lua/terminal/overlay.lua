@@ -7,7 +7,18 @@ local state = require("terminal.state")
 
 local overlay_bufnr = nil
 
-vim.api.nvim_set_hl(0, "TerminalOverlay", { bg = "#000000", default = true })
+local function ensure_default_hl()
+	local existing = vim.api.nvim_get_hl(0, { name = "TerminalOverlay", link = false })
+	if not existing or not (existing.bg or existing.fg or existing.ctermbg) then
+		vim.api.nvim_set_hl(0, "TerminalOverlay", { bg = "#000000" })
+	end
+end
+
+ensure_default_hl()
+vim.api.nvim_create_autocmd("ColorScheme", {
+	group = vim.api.nvim_create_augroup("TerminalOverlayHl", { clear = true }),
+	callback = ensure_default_hl,
+})
 
 local function tabline_height()
 	if vim.o.showtabline == 2 then
@@ -40,6 +51,8 @@ function M.update()
 		M.destroy()
 		return
 	end
+
+	ensure_default_hl()
 
 	if not overlay_bufnr or not vim.api.nvim_buf_is_valid(overlay_bufnr) then
 		overlay_bufnr = vim.api.nvim_create_buf(false, true)
