@@ -6,8 +6,45 @@ local config = require("terminal.config")
 local state = require("terminal.state")
 local winbar = require("terminal.winbar")
 local statusline = require("terminal.statusline")
+local overlay = require("terminal.overlay")
 
 local closing_pane_windows = false
+
+local string_borders = {
+	rounded = { "╭", "─", "╮", "│", "╯", "─", "╰", "│" },
+	single  = { "┌", "─", "┐", "│", "┘", "─", "└", "│" },
+	double  = { "╔", "═", "╗", "║", "╝", "═", "╚", "║" },
+	solid   = { " ", " ", " ", " ", " ", " ", " ", " " },
+	none    = { "", "", "", "", "", "", "", "" },
+	shadow  = { "", "", "", "", "", "", "", "" },
+}
+
+local function resolve_border(b)
+	if type(b) == "string" then
+		return string_borders[b] or string_borders.none
+	end
+	if type(b) == "table" then
+		return b
+	end
+	return string_borders.none
+end
+
+-- Build an 8-element border for a pane in a multi-pane row, combining the
+-- configured outer border with vertical separators between adjacent panes.
+local function build_pane_border(base_border, has_left, has_right, fillchar)
+	local outer = resolve_border(base_border)
+	local sep = { fillchar, "WinSeparator" }
+	return {
+		(not has_left) and outer[1] or "",
+		outer[2],
+		(not has_right) and outer[3] or "",
+		has_right and sep or outer[4],
+		(not has_right) and outer[5] or "",
+		outer[6],
+		(not has_left) and outer[7] or "",
+		has_left and sep or outer[8],
+	}
+end
 
 function M.get_float_win_config()
 	if vim.t.term_zoom then
@@ -165,6 +202,7 @@ function M.close_pane_windows()
 	state.restore_ruler()
 	winbar.destroy()
 	statusline.close()
+	overlay.destroy()
 
 	local wins = vim.t.term_winids or {}
 	for _, win in ipairs(wins) do
@@ -209,6 +247,7 @@ function M.open_tab_windows(tab, tab_idx)
 	local focus_idx = state.clamp(st.focus or 1, 1, #tab)
 
 	if config.is_float_mode() then
+		overlay.update()
 		local base_config = M.get_float_win_config()
 		local num_panes = #tab
 		local total_width = base_config.width
@@ -249,18 +288,11 @@ function M.open_tab_windows(tab, tab_idx)
 		for i in ipairs(tab) do
 			local has_left = (i > 1)
 			local has_right = (i < num_panes)
-			local border = "none"
+			local border
 			if has_left or has_right then
-				border = {
-					"",
-					"",
-					"",
-					has_right and { fillchar, "WinSeparator" } or "",
-					"",
-					"",
-					"",
-					has_left and { fillchar, "WinSeparator" } or "",
-				}
+				border = build_pane_border(base_config.border, has_left, has_right, fillchar)
+			else
+				border = base_config.border
 			end
 
 			local win_cfg = vim.tbl_extend("force", {}, base_config)
@@ -270,6 +302,10 @@ function M.open_tab_windows(tab, tab_idx)
 			win_cfg.col = base_config.col + col_offset
 			win_cfg.border = border
 			win_cfg.zindex = (i == focus_idx) and 31 or 30
+			if num_panes > 1 then
+				win_cfg.title = nil
+				win_cfg.title_pos = nil
+			end
 
 			-- Advance col_offset past this pane
 			if i == 1 then
@@ -333,6 +369,7 @@ function M.open_tab_windows(tab, tab_idx)
 	-- buffers. nvim_win_set_buf calls get_winopts() which restores the
 	-- buffer's saved w_onebuf_opt. If those match what we set here, the
 	-- terminal sees no dimension change at attachment time.
+	local float_winblend = config.get_float_winblend()
 	for _, win in ipairs(wins) do
 		if state.win_valid(win) then
 			vim.wo[win].signcolumn = "no"
@@ -341,7 +378,7 @@ function M.open_tab_windows(tab, tab_idx)
 			vim.wo[win].relativenumber = false
 			vim.wo[win].scrolloff = 0
 			vim.wo[win].sidescrolloff = 0
-			vim.wo[win].winblend = 0
+			vim.wo[win].winblend = float_winblend
 			vim.wo[win].cursorline = false
 			vim.wo[win].cursorcolumn = false
 			vim.wo[win].spell = false
@@ -374,6 +411,7 @@ function M.open_tab_windows(tab, tab_idx)
 				vim.wo[win].relativenumber = false
 				vim.wo[win].scrolloff = 0
 				vim.wo[win].sidescrolloff = 0
+				vim.wo[win].winblend = float_winblend
 				if can_set_winbar(win) then
 					vim.wo[win].winbar = " "
 				end

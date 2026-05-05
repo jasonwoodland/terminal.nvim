@@ -47,6 +47,45 @@ function M.is_float_mode()
 	return M.config.float or (M.config.float_zoom and vim.t.term_zoom)
 end
 
+-- True when float mode is active and not zoomed (winblend/overlay only apply
+-- here; in zoom we want a fully opaque, full-screen terminal).
+function M.is_plain_float_mode()
+	return M.config.float and not vim.t.term_zoom
+end
+
+local function float_table()
+	if type(M.config.float) == "table" then
+		return M.config.float
+	end
+	return {}
+end
+
+function M.get_float_winblend()
+	if not M.is_plain_float_mode() then
+		return 0
+	end
+	local v = float_table().winblend
+	return type(v) == "number" and v or 0
+end
+
+function M.get_float_overlay()
+	if not M.is_plain_float_mode() then
+		return nil
+	end
+	local overlay = float_table().overlay
+	if not overlay then
+		return nil
+	end
+	local defaults = { winblend = 60, hl = "TerminalOverlay" }
+	if overlay == true then
+		return defaults
+	end
+	if type(overlay) == "table" then
+		return vim.tbl_extend("force", defaults, overlay)
+	end
+	return nil
+end
+
 function M.setup(user_config)
 	local default_keys = M.config.keys
 	M.config = vim.tbl_extend("force", M.config, user_config or {})

@@ -109,6 +109,23 @@ function M.get_term_windows()
 	return wins
 end
 
+local function has_top_border(border)
+	if border == nil or border == "none" or border == "shadow" then
+		return false
+	end
+	if type(border) == "table" then
+		local top = border[2]
+		if top == nil or top == "" then
+			return false
+		end
+		if type(top) == "table" and (top[1] == nil or top[1] == "") then
+			return false
+		end
+		return true
+	end
+	return true
+end
+
 local function get_winbar_overlay_config()
 	local wins = vim.t.term_winids or {}
 	if #wins == 0 then
@@ -147,6 +164,14 @@ local function get_winbar_overlay_config()
 	end
 
 	if config.is_float_mode() then
+		-- nvim_win_get_position returns the outer (border) top-left for
+		-- bordered floats. Shift inside the border so the winbar sits at
+		-- the content's first row instead of overlapping the border.
+		local first_cfg = vim.api.nvim_win_get_config(first_win)
+		if has_top_border(first_cfg.border) then
+			row = row + 1
+			col = col + 1
+		end
 		return {
 			relative = "editor",
 			row = row,
@@ -222,7 +247,7 @@ function M.update()
 	end
 	vim.wo[winbar_winid].winhighlight =
 		"Normal:WinBar,Search:TerminalWinBarNoSearch,IncSearch:TerminalWinBarNoSearch,CurSearch:TerminalWinBarNoSearch"
-	vim.wo[winbar_winid].winblend = 0
+	vim.wo[winbar_winid].winblend = config.get_float_winblend()
 	vim.wo[winbar_winid].cursorline = false
 	vim.wo[winbar_winid].number = false
 	vim.wo[winbar_winid].relativenumber = false

@@ -109,12 +109,32 @@ float ~
 	provide a table to customise it: >lua
 
 	    float = {
-	      padding = { x = 24, y = 4 },
-	      border  = "rounded",
+	      padding  = { x = 24, y = 4 },
+	      border   = "rounded",
+	      winblend = 0,
+	      overlay  = false,
 	    }
 <
 	`padding` is the gap from the editor edges in columns/rows; `border`
 	is any value accepted by |nvim_open_win()|.
+
+	`winblend` sets the pseudo-transparency (|'winblend'|) of the floating
+	terminal panes and winbar (0 = opaque, 100 = transparent). Default `0`.
+
+	`overlay` toggles a dimming backdrop drawn behind the float to obscure
+	the underlying buffers. Set to `true` for defaults, `false` to disable,
+	or a table to customise: >lua
+
+	    overlay = {
+	      winblend = 60,           -- 0-100, lower = more dimming
+	      hl       = "TerminalOverlay",
+	    }
+<
+	The `TerminalOverlay` highlight group defaults to a black background
+	and can be overridden with |nvim_set_hl()|.
+
+	`winblend` and `overlay` only apply when the float is in its normal
+	(non-zoomed) state; float zoom remains opaque and full-screen.
 
 						*terminal.nvim-opt-float_zoom*
 float_zoom ~

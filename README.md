@@ -53,6 +53,9 @@ require("terminal").setup({
   -- float = {
   --   padding = { x = 24, y = 4 },  -- Padding from screen edges (columns, rows)
   --   border = "rounded",           -- Border style (see :help nvim_open_win)
+  --   winblend = 0,                 -- Pseudo-transparency for the float (0-100)
+  --   overlay = false,              -- Dimming backdrop behind the float.
+  --                                 -- true for defaults, or { winblend = 60, hl = "TerminalOverlay" }
   -- },
 
   -- Set to true for a fullscreen floating zoom, false to set drawer window height to highest possible
