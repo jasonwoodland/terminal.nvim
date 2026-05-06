@@ -134,10 +134,12 @@ function M.zoom()
 end
 
 function M.float_toggle()
-	if vim.t.term_zoom then
-		return
-	end
 	state.set_toggling()
+
+	-- Zoom is a layered overlay on top of float/drawer and looks the same in
+	-- either base mode, so toggling float while zoomed would be invisible.
+	-- Lift the overlay first so the keystroke produces visible feedback.
+	vim.t.term_zoom = nil
 
 	local cur = config.config.float
 	if type(cur) == "table" then
