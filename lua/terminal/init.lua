@@ -88,17 +88,21 @@ end
 function M.zoom()
 	state.set_toggling()
 
+	if not state.is_term_open() then
+		if config.is_float_config_enabled() or config.config.float_zoom then
+			vim.t.term_zoom = true
+		end
+		M.toggle({ open = true })
+		return
+	end
+
 	if config.is_float_config_enabled() then
-		vim.t.term_zoom = not vim.t.term_zoom
+		vim.t.term_zoom = (not vim.t.term_zoom) and true or nil
 		window.rebuild_tab()
 		return
 	end
 
 	if config.config.float_zoom then
-		if not state.is_term_open() then
-			return
-		end
-
 		window.save_tab_state()
 
 		if not vim.t.term_zoom then
@@ -140,28 +144,24 @@ function M.float_toggle()
 	-- either base mode, so toggling float while zoomed would be invisible.
 	-- Lift the overlay and force float on so the keystroke produces visible
 	-- feedback regardless of which base mode the zoom was sitting on top of.
-	local was_zoomed = vim.t.term_zoom ~= nil
+	-- Same reasoning when closed: open in float mode rather than silently
+	-- flipping a config the user can't see.
+	local force_on = (not state.is_term_open()) or (vim.t.term_zoom ~= nil)
+	local target = force_on or (not config.is_float_config_enabled())
+
 	vim.t.term_zoom = nil
-
-	local cur = config.config.float
-	if type(cur) == "table" then
-		if was_zoomed then
-			cur.enabled = true
-		else
-			cur.enabled = not config.is_float_config_enabled()
-		end
-	else
-		if was_zoomed then
-			config.config.float = true
-		else
-			config.config.float = not cur
-		end
-	end
-
 	vim.t.term_prev_height = nil
+
+	if type(config.config.float) == "table" then
+		config.config.float.enabled = target
+	else
+		config.config.float = target
+	end
 
 	if state.is_term_open() then
 		window.rebuild_tab()
+	else
+		M.toggle({ open = true })
 	end
 end
 
