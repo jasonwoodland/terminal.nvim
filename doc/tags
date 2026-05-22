@@ -1,6 +1,7 @@
 terminal-nvim.txt	terminal-nvim.txt	/*terminal-nvim.txt*
 terminal.config	terminal-nvim.txt	/*terminal.config*
 terminal.delete()	terminal-nvim.txt	/*terminal.delete()*
+terminal.float_toggle()	terminal-nvim.txt	/*terminal.float_toggle()*
 terminal.go_to()	terminal-nvim.txt	/*terminal.go_to()*
 terminal.go_to_notification()	terminal-nvim.txt	/*terminal.go_to_notification()*
 terminal.move()	terminal-nvim.txt	/*terminal.move()*
@@ -28,6 +29,7 @@ terminal.nvim-<C-S-\>	terminal-nvim.txt	/*terminal.nvim-<C-S-\\>*
 terminal.nvim-<C-S-]>	terminal-nvim.txt	/*terminal.nvim-<C-S-]>*
 terminal.nvim-<C-S-a>	terminal-nvim.txt	/*terminal.nvim-<C-S-a>*
 terminal.nvim-<C-S-c>	terminal-nvim.txt	/*terminal.nvim-<C-S-c>*
+terminal.nvim-<C-S-f>	terminal-nvim.txt	/*terminal.nvim-<C-S-f>*
 terminal.nvim-<C-S-h>	terminal-nvim.txt	/*terminal.nvim-<C-S-h>*
 terminal.nvim-<C-S-k>	terminal-nvim.txt	/*terminal.nvim-<C-S-k>*
 terminal.nvim-<C-S-l>	terminal-nvim.txt	/*terminal.nvim-<C-S-l>*

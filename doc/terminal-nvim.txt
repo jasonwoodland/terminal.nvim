@@ -12,17 +12,18 @@ Contents					*terminal.nvim-contents*
     4. Configuration ....................... |terminal.nvim-configuration|
     5. Commands ............................ |terminal.nvim-commands|
     6. Mappings ............................ |terminal.nvim-mappings|
-	Toggle and zoom .................... |terminal.nvim-map-toggle|
+	Toggle and Zoom .................... |terminal.nvim-map-toggle|
 	Tabs ............................... |terminal.nvim-map-tabs|
-	Vim tabs ........................... |terminal.nvim-map-vim-tabs|
+	Vim Tabs ........................... |terminal.nvim-map-vim-tabs|
 	Panes .............................. |terminal.nvim-map-panes|
 	Notifications ...................... |terminal.nvim-map-notifications|
 	Registers .......................... |terminal.nvim-map-registers|
 	Digraphs ........................... |terminal.nvim-map-digraph|
-	Wincmd prefix ...................... |terminal.nvim-wincmd|
-	<C-w> overrides .................... |terminal.nvim-cw-override|
+	Window Commands .................... |terminal.nvim-wincmd|
+	<C-w> Overrides .................... |terminal.nvim-cw-override|
     7. Functions ........................... |terminal.nvim-functions|
-    8. About ............................... |terminal.nvim-about|
+    8. Appendix ............................ |terminal.nvim-appendix|
+    9. About ............................... |terminal.nvim-about|
 
 ==============================================================================
 1. Introduction					*terminal.nvim-intro*
@@ -48,7 +49,7 @@ Using lazy.nvim: >lua
       opts = {},
     }
 <
-The plugin is activated by calling |terminal.setup()|. When using |lazy.nvim|,
+The plugin is activated by calling |terminal.setup()|. When using `lazy.nvim`,
 providing an `opts` table (even an empty one) is sufficient.
 
 ==============================================================================
@@ -103,12 +104,12 @@ the full default configuration: >lua
 						*terminal.nvim-opt-height*
 height ~
 	Terminal drawer height. An integer is treated as an absolute number of
-	lines; a float between 0 and 1 is treated as a fraction of |&lines|.
+	lines; a float between 0 and 1 is treated as a fraction of 'lines'.
 	Default: `0.5` (half the screen).
 
 						*terminal.nvim-opt-winbar*
 winbar ~
-	When true, draws a clickable terminal-tab strip in the |winbar| area
+	When true, draws a clickable terminal-tab strip in the 'winbar' area
 	of the topmost terminal pane. Default: `true`.
 
 						*terminal.nvim-opt-float*
@@ -168,7 +169,7 @@ float_zoom ~
 
 				*terminal.nvim-opt-float_zoom_show_tabline*
 float_zoom_show_tabline ~
-	Whether to keep the |tabline| visible while a float zoom is active.
+	Whether to keep the 'tabline' visible while a float zoom is active.
 	Default: `true`.
 
 				*terminal.nvim-opt-float_zoom_hide_cmdline*
@@ -310,10 +311,10 @@ terminal mode, so switching back into a terminal pane resumes Terminal mode
 automatically.
 
 						*terminal.nvim-<C-PageUp>*
-<C-PageUp>	      Go to the previous Vim tab page (|tabprevious|).
+<C-PageUp>	      Go to the previous Vim tab page (|:tabprevious|).
 
 						*terminal.nvim-<C-PageDown>*
-<C-PageDown>	    Go to the next Vim tab page (|tabnext|).
+<C-PageDown>	    Go to the next Vim tab page (|:tabnext|).
 
 						*terminal.nvim-<C-M-PageUp>*
 <C-M-PageUp>	    Move the current Vim tab page one position to the
