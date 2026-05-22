@@ -317,6 +317,7 @@ function M.move_to_vim_tab(direction)
 	end
 
 	-- Switch to target tab
+	state.record_current_term_mode()
 	vim.api.nvim_set_current_tabpage(target_tab)
 	state.setup_vars()
 
@@ -379,6 +380,7 @@ function M.go_to_notification()
 
 	-- Switch to the target tab if needed
 	if target_tab ~= vim.api.nvim_get_current_tabpage() then
+		state.record_current_term_mode()
 		vim.api.nvim_set_current_tabpage(target_tab)
 		state.setup_vars()
 	end
@@ -408,6 +410,7 @@ function M.go_to_notification()
 		-- Already on the right tab, just focus the pane
 		local wins = vim.t.term_winids or {}
 		if pane_idx and pane_idx <= #wins and state.win_valid(wins[pane_idx]) then
+			state.record_current_term_mode()
 			vim.api.nvim_set_current_win(wins[pane_idx])
 			local mode = vim.b[bufnr].term_mode
 			if mode == "t" or mode == nil then

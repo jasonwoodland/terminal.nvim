@@ -155,6 +155,26 @@ local function get_sep_screen_col(sep_idx)
 	end
 end
 
+local function restore_term_mode(winid, mode)
+	if not state.win_valid(winid) then
+		return
+	end
+
+	local ok, bufnr = pcall(vim.api.nvim_win_get_buf, winid)
+	if not ok or not vim.api.nvim_buf_is_valid(bufnr) or vim.bo[bufnr].buftype ~= "terminal" then
+		return
+	end
+
+	local restore_mode = mode or vim.b[bufnr].term_mode
+	if restore_mode == "t" or restore_mode == nil then
+		vim.b[bufnr].term_mode = "t"
+		vim.cmd("startinsert")
+	else
+		vim.b[bufnr].term_mode = "n"
+		vim.cmd("stopinsert")
+	end
+end
+
 function M.setup_mouse_mappings(bufnr, api)
 	for _, mode in ipairs({ "n", "t" }) do
 		vim.keymap.set(mode, "<LeftMouse>", function()
@@ -184,15 +204,11 @@ function M.setup_mouse_mappings(bufnr, api)
 					local stl_buf = vim.api.nvim_win_get_buf(mouse.winid)
 					local stl_pane = vim.b[stl_buf].terminal_stl_pane
 					if stl_pane and state.win_valid(stl_pane) then
+						local m = vim.b[vim.api.nvim_win_get_buf(stl_pane)].term_mode
+						state.record_current_term_mode()
 						vim.schedule(function()
 							vim.api.nvim_set_current_win(stl_pane)
-							local buf = vim.api.nvim_win_get_buf(stl_pane)
-							local m = vim.b[buf].term_mode
-							if m == "t" or m == nil then
-								vim.cmd("startinsert")
-							else
-								vim.cmd("stopinsert")
-							end
+							restore_term_mode(stl_pane, m)
 							statusline.update()
 						end)
 					end
@@ -205,15 +221,11 @@ function M.setup_mouse_mappings(bufnr, api)
 					for _, win in ipairs(wins) do
 						if mouse.winid == win and state.win_valid(win) then
 							stl_click = true
+							local m = vim.b[vim.api.nvim_win_get_buf(win)].term_mode
+							state.record_current_term_mode()
 							vim.schedule(function()
 								vim.api.nvim_set_current_win(win)
-								local buf = vim.api.nvim_win_get_buf(win)
-								local m = vim.b[buf].term_mode
-								if m == "t" or m == nil then
-									vim.cmd("startinsert")
-								else
-									vim.cmd("stopinsert")
-								end
+								restore_term_mode(win, m)
 							end)
 							return ""
 						end

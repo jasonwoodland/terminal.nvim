@@ -7,7 +7,6 @@ local config = require("terminal.config")
 local saved_cmdheight = nil
 local saved_ruler = nil
 local last_notification_bufnr = nil
-local _orphan_check_needed = false
 
 function M.clamp(val, min, max)
 	if val < min then return min end
@@ -127,6 +126,17 @@ function M.is_in_term_window()
 		end
 	end
 	return false
+end
+
+function M.record_current_term_mode()
+	local bufnr = vim.api.nvim_get_current_buf()
+	if not vim.api.nvim_buf_is_valid(bufnr) or vim.bo[bufnr].buftype ~= "terminal" then
+		return nil
+	end
+
+	local mode = vim.api.nvim_get_mode().mode == "t" and "t" or "n"
+	vim.b[bufnr].term_mode = mode
+	return mode
 end
 
 -------------------------------------------------------------------------------
@@ -375,16 +385,6 @@ end
 
 function M.set_last_notification_bufnr(bufnr)
 	last_notification_bufnr = bufnr
-end
-
-function M.set_orphan_check_needed()
-	_orphan_check_needed = true
-end
-
-function M.take_orphan_check()
-	local v = _orphan_check_needed
-	_orphan_check_needed = false
-	return v
 end
 
 return M

@@ -199,10 +199,7 @@ local function get_winbar_overlay_config()
 	end
 end
 
-local _update_timer = nil
-
 local function _do_update()
-	_update_timer = nil
 	if not config.config.winbar then
 		M.destroy()
 		return
@@ -259,12 +256,7 @@ local function _do_update()
 end
 
 function M.update()
-	if _update_timer then
-		vim.fn.timer_stop(_update_timer)
-	end
-	_update_timer = vim.fn.timer_start(15, function()
-		_do_update()
-	end)
+	_do_update()
 end
 
 function M.destroy()

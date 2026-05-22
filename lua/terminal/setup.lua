@@ -12,6 +12,91 @@ local utils = require("terminal.utils")
 
 local out_tty = vim.loop.new_tty(1, true)
 
+local function get_term_refocus_target()
+	local target = vim.t.term_winid
+	if state.win_valid(target) then
+		return target
+	end
+
+	for _, win in ipairs(vim.t.term_winids or {}) do
+		if state.win_valid(win) then
+			return win
+		end
+	end
+
+	return nil
+end
+
+local function get_window_term_mode(winid)
+	if not state.win_valid(winid) then
+		return nil
+	end
+
+	local ok, bufnr = pcall(vim.api.nvim_win_get_buf, winid)
+	if not ok or not vim.api.nvim_buf_is_valid(bufnr) or vim.bo[bufnr].buftype ~= "terminal" then
+		return nil
+	end
+
+	return vim.b[bufnr].term_mode
+end
+
+local function restore_window_term_mode(winid, mode)
+	if not state.win_valid(winid) then
+		return
+	end
+
+	local ok, bufnr = pcall(vim.api.nvim_win_get_buf, winid)
+	if not ok or not vim.api.nvim_buf_is_valid(bufnr) or vim.bo[bufnr].buftype ~= "terminal" then
+		return
+	end
+
+	local restore_mode = mode or vim.b[bufnr].term_mode
+	if restore_mode == "t" or restore_mode == nil then
+		vim.b[bufnr].term_mode = "t"
+		vim.schedule(function()
+			if not state.win_valid(winid) or vim.api.nvim_get_current_win() ~= winid then
+				return
+			end
+
+			local ok_current, current_buf = pcall(vim.api.nvim_win_get_buf, winid)
+			if ok_current and current_buf == bufnr then
+				vim.cmd("startinsert")
+			end
+		end)
+	else
+		vim.b[bufnr].term_mode = "n"
+		vim.cmd("stopinsert")
+	end
+end
+
+local function refocus_term_overlay(overlay_win, target_win, target_mode, after)
+	if not state.win_valid(target_win) then
+		return
+	end
+
+	vim.t.term_overlay_refocus = true
+	vim.schedule(function()
+		if vim.api.nvim_get_current_win() ~= overlay_win then
+			vim.schedule(function()
+				vim.t.term_overlay_refocus = false
+			end)
+			return
+		end
+
+		if state.win_valid(target_win) then
+			vim.api.nvim_set_current_win(target_win)
+			restore_window_term_mode(target_win, target_mode)
+			if after then
+				after()
+			end
+		end
+
+		vim.schedule(function()
+			vim.t.term_overlay_refocus = false
+		end)
+	end)
+end
+
 function M.setup_autocmd(api)
 	vim.api.nvim_create_augroup("Term", {})
 	pcall(vim.api.nvim_clear_autocmds, { group = "nvim.terminal", event = "TermClose" })
@@ -34,7 +119,6 @@ function M.setup_autocmd(api)
 			end
 			vim.b.term_mode = "t"
 			vim.b[bufnr].term_owner_tab = vim.api.nvim_get_current_tabpage()
-			state.set_orphan_check_needed()
 			float_layout.setup_mouse_mappings(bufnr, api)
 
 			local is_winbar_visible = config.should_show_winbar(#state.get_tabs())
@@ -118,6 +202,9 @@ function M.setup_autocmd(api)
 			local bufnr = vim.api.nvim_get_current_buf()
 			local winid = vim.api.nvim_get_current_win()
 			vim.schedule(function()
+				if vim.t.term_overlay_refocus then
+					return
+				end
 				if not vim.api.nvim_buf_is_valid(bufnr) then
 					return
 				end
@@ -206,41 +293,18 @@ function M.setup_autocmd(api)
 
 			-- Refocus terminal pane if winbar overlay is entered
 			if current_win == vim.t.term_winbar_winid then
-				vim.schedule(function()
-					if vim.api.nvim_get_current_win() ~= vim.t.term_winbar_winid then
-						return
-					end
-					local target = vim.t.term_winid
-					if state.win_valid(target) then
-						vim.api.nvim_set_current_win(target)
-					else
-						local term_wins2 = vim.t.term_winids or {}
-						for _, win in ipairs(term_wins2) do
-							if state.win_valid(win) then
-								vim.api.nvim_set_current_win(win)
-								return
-							end
-						end
-					end
-				end)
+				local target = get_term_refocus_target()
+				local target_mode = get_window_term_mode(target)
+				refocus_term_overlay(current_win, target, target_mode)
 			end
 
 			-- Refocus terminal pane if statusline overlay is entered
 			local stl_buf_ok, stl_buf = pcall(vim.api.nvim_win_get_buf, current_win)
 			if stl_buf_ok and vim.b[stl_buf].terminal_stl then
 				local stl_pane = vim.b[stl_buf].terminal_stl_pane
-				vim.schedule(function()
-					if stl_pane and state.win_valid(stl_pane) then
-						vim.api.nvim_set_current_win(stl_pane)
-						local buf = vim.api.nvim_win_get_buf(stl_pane)
-						local mode = vim.b[buf].term_mode
-						if mode == "t" or mode == nil then
-							vim.cmd("startinsert")
-						else
-							vim.cmd("stopinsert")
-						end
-						statusline.update()
-					end
+				local target_mode = get_window_term_mode(stl_pane)
+				refocus_term_overlay(current_win, stl_pane, target_mode, function()
+					statusline.update()
 				end)
 			end
 
@@ -552,10 +616,7 @@ function M.setup_keymap(api)
 	end
 
 	local function switch_vim_tab(direction)
-		local src_mode = vim.api.nvim_get_mode().mode
-		if vim.bo.buftype == "terminal" then
-			vim.b.term_mode = src_mode
-		end
+		local src_mode = state.record_current_term_mode()
 		if src_mode == "t" then
 			vim.cmd("stopinsert")
 		end
@@ -776,6 +837,7 @@ function M.setup_keymap(api)
 			if win == current then
 				local target = i + delta
 				if target >= 1 and target <= #wins and state.win_valid(wins[target]) then
+					state.record_current_term_mode()
 					vim.api.nvim_set_current_win(wins[target])
 					restore_term_mode()
 					statusline.update()
@@ -785,6 +847,7 @@ function M.setup_keymap(api)
 		end
 		-- Fallback to native wincmd in split mode
 		if not config.is_float_mode() then
+			state.record_current_term_mode()
 			vim.cmd("wincmd " .. (delta < 0 and "h" or "l"))
 			restore_term_mode()
 		end
@@ -800,6 +863,7 @@ function M.setup_keymap(api)
 			if win == current then
 				local target = (i % #wins) + 1
 				if state.win_valid(wins[target]) then
+					state.record_current_term_mode()
 					vim.api.nvim_set_current_win(wins[target])
 					restore_term_mode()
 					statusline.update()
@@ -815,6 +879,7 @@ function M.setup_keymap(api)
 	map({ "n", "t" }, keys.last_pane, function()
 		local prev = vim.t.term_prev_pane_winid
 		if prev and state.win_valid(prev) then
+			state.record_current_term_mode()
 			vim.api.nvim_set_current_win(prev)
 			restore_term_mode()
 			statusline.update()
@@ -1016,6 +1081,7 @@ function M.setup_keymap(api)
 					elseif key_match(c, "p", "<C-S-p>") then
 						local prev = vim.t.term_prev_pane_winid
 						if prev and state.win_valid(prev) then
+							state.record_current_term_mode()
 							vim.api.nvim_set_current_win(prev)
 							restore_term_mode()
 							statusline.update()
@@ -1061,6 +1127,7 @@ function M.setup_keymap(api)
 		{ { "p", "<C-p>" }, function()
 			local prev = vim.t.term_prev_pane_winid
 			if prev and state.win_valid(prev) then
+				state.record_current_term_mode()
 				vim.api.nvim_set_current_win(prev)
 				restore_term_mode()
 				statusline.update()
