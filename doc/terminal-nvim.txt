@@ -524,7 +524,20 @@ terminal.config
 	own risk.
 
 ==============================================================================
-8. About						*terminal.nvim-about*
+8. Appendix					*terminal.nvim-appendix*
+
+STARTING AS A FULLSCREEN TERMINAL MULTIPLEXER ~
+
+If your workflow starts from the shell, you can launch Neovim directly into a
+fullscreen terminal.nvim session: >sh
+
+    nvim +"lua require('terminal').toggle()" +"lua require('terminal').zoom()"
+<
+This opens terminal.nvim immediately and then zooms it to fill the editor
+area.
+
+==============================================================================
+9. About						*terminal.nvim-about*
 
 Maintained by Jason Woodland. Source code, issue tracker and the latest
 release live on GitHub:

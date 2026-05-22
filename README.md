@@ -426,3 +426,13 @@ While in Terminal mode, you can press `<C-S-r> "` to insert the contents of the 
 - `=`: the expression register: you are prompted to enter an expression (see `:help expression`)
 
 See `:help registers` for more information.
+
+## Appendix: Starting as a fullscreen terminal multiplexer
+
+If your workflow starts from the shell, you can launch Neovim directly into a fullscreen terminal.nvim session:
+
+```sh
+nvim +"lua require('terminal').toggle()" +"lua require('terminal').zoom()"
+```
+
+This opens terminal.nvim immediately and then zooms it to fill the editor area.

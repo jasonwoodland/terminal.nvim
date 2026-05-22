@@ -41,6 +41,7 @@ terminal.nvim-<C-S-r>=	terminal-nvim.txt	/*terminal.nvim-<C-S-r>=*
 terminal.nvim-<C-S-v>	terminal-nvim.txt	/*terminal.nvim-<C-S-v>*
 terminal.nvim-<C-S-z>	terminal-nvim.txt	/*terminal.nvim-<C-S-z>*
 terminal.nvim-about	terminal-nvim.txt	/*terminal.nvim-about*
+terminal.nvim-appendix	terminal-nvim.txt	/*terminal.nvim-appendix*
 terminal.nvim-commands	terminal-nvim.txt	/*terminal.nvim-commands*
 terminal.nvim-configuration	terminal-nvim.txt	/*terminal.nvim-configuration*
 terminal.nvim-contents	terminal-nvim.txt	/*terminal.nvim-contents*
