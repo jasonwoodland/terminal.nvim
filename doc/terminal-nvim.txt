@@ -61,6 +61,7 @@ the full default configuration: >lua
     require("terminal").setup({
       height = 0.5,
       winbar = true,
+      show_winbar_when_single_tab = false,
       float = {
 	enabled = false,
 	border  = false,
@@ -109,8 +110,16 @@ height ~
 
 						*terminal.nvim-opt-winbar*
 winbar ~
-	When true, draws a clickable terminal-tab strip in the 'winbar' area
-	of the topmost terminal pane. Default: `true`.
+	When true, enables a clickable terminal-tab strip in the 'winbar' area
+	of the topmost terminal pane. By default it is drawn only when there are
+	two or more terminal tabs; see |terminal.nvim-opt-show_winbar_when_single_tab|.
+	Default: `true`.
+
+			*terminal.nvim-opt-show_winbar_when_single_tab*
+show_winbar_when_single_tab ~
+	When true, shows the terminal-tab winbar even while the current Vim tab
+	has only one terminal tab. By default the winbar appears only when there
+	are two or more terminal tabs. Requires `winbar = true`. Default: `false`.
 
 						*terminal.nvim-opt-float*
 float ~

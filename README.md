@@ -45,8 +45,11 @@ require("terminal").setup({
   -- Terminal drawer height. Integer for lines, float for percentage (e.g. 0.5 for 50% height)
   height = 0.5,
 
-  -- Show terminal tabs in winbar
+  -- Enable terminal tabs in winbar (shown for 2+ terminal tabs by default)
   winbar = true,
+
+  -- Show winbar even when there is only one terminal tab (requires winbar = true)
+  show_winbar_when_single_tab = false,
 
   -- Floating window mode. Set `enabled = true` (or use the float toggle keymap)
   -- to switch from drawer to float. The other fields define the float layout.

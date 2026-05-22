@@ -25,35 +25,37 @@ function M.setup_autocmd(api)
 			vim.opt_local.scrolloff = 0
 			vim.opt_local.sidescrolloff = 0
 			vim.opt_local.winblend = 0
-		local bufnr = vim.api.nvim_get_current_buf()
-			if not state.find_buf_tab(bufnr) then
+
+			local bufnr = vim.api.nvim_get_current_buf()
+			local was_winbar_visible = config.should_show_winbar(#state.get_tabs())
+			local known_tab = state.find_buf_tab(bufnr)
+			if not known_tab then
 				state.add_term_to_order(bufnr)
 			end
 			vim.b.term_mode = "t"
+			vim.b[bufnr].term_owner_tab = vim.api.nvim_get_current_tabpage()
+			state.set_orphan_check_needed()
 			float_layout.setup_mouse_mappings(bufnr, api)
+
+			local is_winbar_visible = config.should_show_winbar(#state.get_tabs())
+			if was_winbar_visible ~= is_winbar_visible and state.is_term_open() and not vim.t.term_toggling then
+				vim.schedule(function()
+					if state.is_term_open() then
+						window.rebuild_tab()
+					else
+						winbar.update()
+					end
+				end)
+			end
+
 			vim.api.nvim_buf_attach(bufnr, false, {
 				on_lines = function(_, buf)
 					if not vim.api.nvim_buf_is_valid(buf) then
 						return true
 					end
-					-- Find the vim tabpage that owns this buffer
-					local owner_tab = nil
-					for _, tp in ipairs(vim.api.nvim_list_tabpages()) do
-						local order = vim.t[tp].term_order
-						if order then
-							for _, tab in ipairs(order) do
-								for _, b in ipairs(tab) do
-									if b == buf then
-										owner_tab = tp
-										break
-									end
-								end
-								if owner_tab then break end
-							end
-						end
-						if owner_tab then break end
-					end
-					if not owner_tab then
+					-- O(1) owner lookup via buffer variable set on TermOpen
+					local owner_tab = vim.b[buf].term_owner_tab
+					if not owner_tab or not vim.api.nvim_tabpage_is_valid(owner_tab) then
 						return
 					end
 					if vim.t[owner_tab].term_toggling then
@@ -378,6 +380,7 @@ function M.setup_autocmd(api)
 		group = "Term",
 		callback = function(ev)
 			local bufnr = ev.buf
+			local was_winbar_visible = config.should_show_winbar(#state.get_tabs())
 			local tab_idx_closed = state.find_buf_tab(bufnr)
 
 			local current_tab_idx = vim.t.term_tab_idx or 1
@@ -386,13 +389,15 @@ function M.setup_autocmd(api)
 			local is_displayed = is_in_active_tab and state.is_term_open()
 
 			state.remove_term_from_order(bufnr)
+			local is_winbar_visible = config.should_show_winbar(#state.get_tabs())
+			local winbar_visibility_changed = was_winbar_visible ~= is_winbar_visible
 
 			vim.schedule(function()
 				if vim.api.nvim_buf_is_valid(bufnr) then
 					vim.api.nvim_buf_delete(bufnr, { force = true })
 				end
 
-				if is_displayed then
+				if is_displayed or (winbar_visibility_changed and state.is_term_open()) then
 					window.rebuild_tab()
 				else
 					winbar.update()

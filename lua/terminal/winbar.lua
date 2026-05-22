@@ -199,13 +199,17 @@ local function get_winbar_overlay_config()
 	end
 end
 
-function M.update()
+local _update_timer = nil
+
+local function _do_update()
+	_update_timer = nil
 	if not config.config.winbar then
+		M.destroy()
 		return
 	end
 
 	local tabs = state.get_tabs()
-	if #tabs == 0 then
+	if #tabs == 0 or not config.should_show_winbar(#tabs) then
 		M.destroy()
 		return
 	end
@@ -254,7 +258,17 @@ function M.update()
 	vim.wo[winbar_winid].signcolumn = "no"
 end
 
+function M.update()
+	if _update_timer then
+		vim.fn.timer_stop(_update_timer)
+	end
+	_update_timer = vim.fn.timer_start(15, function()
+		_do_update()
+	end)
+end
+
 function M.destroy()
+	winbar_click_ranges = {}
 	local winbar_winid = vim.t.term_winbar_winid
 	if winbar_winid and vim.api.nvim_win_is_valid(winbar_winid) then
 		vim.api.nvim_win_close(winbar_winid, true)

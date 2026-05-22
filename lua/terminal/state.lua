@@ -7,6 +7,7 @@ local config = require("terminal.config")
 local saved_cmdheight = nil
 local saved_ruler = nil
 local last_notification_bufnr = nil
+local _orphan_check_needed = false
 
 function M.clamp(val, min, max)
 	if val < min then return min end
@@ -15,7 +16,7 @@ function M.clamp(val, min, max)
 end
 
 function M.win_valid(win)
-	return win and vim.fn.win_id2win(win) > 0
+	return win ~= nil and vim.api.nvim_win_is_valid(win)
 end
 
 function M.set_toggling()
@@ -189,11 +190,13 @@ function M.get_tabs()
 			end
 		end
 		vim.t.term_tab_activity = new
+		vim.t.term_order = valid_order
 	end
 
-	vim.t.term_order = valid_order
-
-	vim.t.term_tab_idx = M.clamp(vim.t.term_tab_idx or 1, 1, math.max(#valid_order, 1))
+	local new_idx = M.clamp(vim.t.term_tab_idx or 1, 1, math.max(#valid_order, 1))
+	if (vim.t.term_tab_idx or 1) ~= new_idx then
+		vim.t.term_tab_idx = new_idx
+	end
 
 	return valid_order
 end
@@ -372,6 +375,16 @@ end
 
 function M.set_last_notification_bufnr(bufnr)
 	last_notification_bufnr = bufnr
+end
+
+function M.set_orphan_check_needed()
+	_orphan_check_needed = true
+end
+
+function M.take_orphan_check()
+	local v = _orphan_check_needed
+	_orphan_check_needed = false
+	return v
 end
 
 return M

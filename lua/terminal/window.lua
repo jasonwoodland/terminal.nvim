@@ -101,16 +101,17 @@ local function open_window(win_config)
 end
 
 -- Whether the current screen is large enough to host a float-mode rebuild.
--- In float zoom mode the pane window needs at least 2 rows when winbar is
--- enabled (1 for the native winbar slot, 1 for content) and 1 row for the
--- statusline overlay. If the screen is smaller than that, skip the rebuild
--- and let Neovim's auto-clamp keep the existing floats alive.
+-- In float zoom mode the pane window needs one content row plus any visible
+-- native winbar slot, and 1 row for the statusline overlay. If the screen is
+-- smaller than that, skip the rebuild and let Neovim's auto-clamp keep the
+-- existing floats alive.
 function M.can_rebuild_float()
 	if not config.is_float_mode() then
 		return true
 	end
 	local cfg = M.get_float_win_config()
-	local min_pane_height = config.config.winbar and 2 or 1
+	local tab_count = #state.get_tabs()
+	local min_pane_height = config.get_winbar_height(tab_count) + 1
 	local stl_height = vim.t.term_zoom and 1 or 0
 	if cfg.height - stl_height < min_pane_height then
 		return false
@@ -124,10 +125,12 @@ end
 -- Open a terminal in a temporary window so the PTY starts with correct
 -- dimensions instead of the tiny aucmd window used by nvim_buf_call.
 -- num_panes: how many panes will share the row/float (for width calculation)
-function M.termopen_with_size(bufnr, num_panes)
+-- tab_count: how many terminal tabs will exist once this terminal opens
+function M.termopen_with_size(bufnr, num_panes, tab_count)
 	num_panes = math.max(num_panes or 1, 1)
 	local width = 80
 	local height = math.floor(vim.o.lines * 0.5)
+	local winbar_height = config.get_winbar_height(tab_count)
 
 	if config.is_float_mode() then
 		local cfg = M.get_float_win_config()
@@ -136,16 +139,10 @@ function M.termopen_with_size(bufnr, num_panes)
 			-- Subtract separator columns, then divide evenly
 			width = math.floor((width - (num_panes - 1)) / num_panes)
 		end
-		height = cfg.height
-		if config.config.winbar then
-			height = height - 1
-		end
+		height = cfg.height - winbar_height
 	else
 		local h = vim.t.term_height or config.get_term_height()
-		height = h
-		if config.config.winbar then
-			height = height - 1
-		end
+		height = h - winbar_height
 		width = math.floor(vim.o.columns / num_panes)
 	end
 
@@ -240,6 +237,8 @@ function M.open_tab_windows(tab, tab_idx)
 	end
 
 	local st = state.get_tab_state(tab_idx)
+	local tab_count = #state.get_tabs()
+	local show_winbar = config.should_show_winbar(tab_count)
 
 	local wins = {}
 	local scratches = {}
@@ -364,7 +363,15 @@ function M.open_tab_windows(tab, tab_idx)
 	-- room". This matters when the user shrinks the app window to a very
 	-- small size in float zoom mode.
 	local function can_set_winbar(win)
-		return config.config.winbar and vim.api.nvim_win_get_height(win) >= 2
+		return show_winbar and vim.api.nvim_win_get_height(win) >= 2
+	end
+
+	local function apply_winbar(win)
+		if can_set_winbar(win) then
+			vim.wo[win].winbar = " "
+		else
+			vim.wo[win].winbar = ""
+		end
 	end
 
 	-- Set window options on the scratch windows BEFORE attaching terminal
@@ -389,9 +396,7 @@ function M.open_tab_windows(tab, tab_idx)
 			vim.wo[win].statuscolumn = ""
 			vim.wo[win].fillchars = "eob: "
 			vim.wo[win].winhighlight = "EndOfBuffer:"
-			if can_set_winbar(win) then
-				vim.wo[win].winbar = " "
-			end
+			apply_winbar(win)
 		end
 	end
 
@@ -414,9 +419,7 @@ function M.open_tab_windows(tab, tab_idx)
 				vim.wo[win].scrolloff = 0
 				vim.wo[win].sidescrolloff = 0
 				vim.wo[win].winblend = float_winblend
-				if can_set_winbar(win) then
-					vim.wo[win].winbar = " "
-				end
+				apply_winbar(win)
 			end
 		end
 	end)
@@ -433,7 +436,11 @@ function M.open_tab_windows(tab, tab_idx)
 			if state.win_valid(win) then
 				local job_id = vim.b[tab[i]].terminal_job_id
 				if job_id then
-					pcall(vim.fn.jobresize, job_id, vim.api.nvim_win_get_width(win), vim.api.nvim_win_get_height(win))
+					local rows = vim.api.nvim_win_get_height(win)
+					if can_set_winbar(win) then
+						rows = rows - 1
+					end
+					pcall(vim.fn.jobresize, job_id, vim.api.nvim_win_get_width(win), math.max(rows, 1))
 				end
 			end
 		end

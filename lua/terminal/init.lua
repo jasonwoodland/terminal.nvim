@@ -79,7 +79,7 @@ function M.toggle(opts)
 			table.insert(order, { bufnr })
 			vim.t.term_order = order
 			vim.t.term_tab_idx = #order
-			window.termopen_with_size(bufnr)
+			window.termopen_with_size(bufnr, nil, #order)
 			window.reopen_current_tab()
 		end
 	end
@@ -299,6 +299,9 @@ function M.move_to_vim_tab(direction)
 	target_order = state.migrate_term_order(target_order)
 	table.insert(target_order, tab)
 	vim.t[target_tab].term_order = target_order
+	for _, buf in ipairs(tab) do
+		vim.b[buf].term_owner_tab = target_tab
+	end
 
 	local new_idx2 = state.clamp(vim.t.term_tab_idx or 1, 1, math.max(#order, 1))
 	vim.t.term_tab_idx = new_idx2
@@ -503,7 +506,7 @@ function M.new()
 	vim.t.term_order = order
 	vim.t.term_tab_idx = insert_idx
 
-	window.termopen_with_size(bufnr)
+	window.termopen_with_size(bufnr, nil, #order)
 
 	window.open_tab_windows({ bufnr }, insert_idx)
 end
@@ -529,7 +532,7 @@ function M.vsplit()
 	-- Add to tab after current pane, before termopen so TermOpen autocmd doesn't double-add
 	state.add_buf_to_tab(bufnr, tab_idx, current_pane_idx)
 
-	window.termopen_with_size(bufnr, #tab + 1)
+	window.termopen_with_size(bufnr, #tab + 1, #state.get_term_order())
 
 	local insert_pos = (current_pane_idx or #tab) + 1
 	local st = state.get_tab_state(tab_idx)

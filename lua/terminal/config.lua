@@ -5,6 +5,7 @@ local M = {}
 M.config = {
 	height = 0.5,
 	winbar = true,
+	show_winbar_when_single_tab = false,
 	float = {
 		enabled = false,
 		border = false,
@@ -50,6 +51,23 @@ function M.get_term_height()
 		return math.floor(vim.o.lines * M.config.height)
 	end
 	return M.config.height
+end
+
+function M.should_show_winbar(tab_count)
+	if not M.config.winbar then
+		return false
+	end
+	if tab_count ~= nil and tab_count <= 0 then
+		return false
+	end
+	if tab_count ~= nil and tab_count <= 1 then
+		return M.config.show_winbar_when_single_tab
+	end
+	return true
+end
+
+function M.get_winbar_height(tab_count)
+	return M.should_show_winbar(tab_count) and 1 or 0
 end
 
 -- True when the float config is set and not opted out via `enabled = false`.
