@@ -823,14 +823,28 @@ function M.setup_keymap(api)
 
 	-- <C-S-w> prefix: terminal window management
 	local function restore_term_mode()
-		if vim.b.term_mode == "t" or vim.b.term_mode == nil then
+		if vim.bo.buftype ~= "terminal" then
+			vim.cmd("stopinsert")
+		elseif vim.b.term_mode == "t" or vim.b.term_mode == nil then
 			vim.cmd("startinsert")
 		else
 			vim.cmd("stopinsert")
 		end
 	end
 
-	local function pane_navigate(delta)
+	local function native_wincmd(cmd, count)
+		state.record_current_term_mode()
+		vim.cmd((count or "") .. "wincmd " .. cmd)
+		restore_term_mode()
+		statusline.update()
+	end
+
+	local function pane_navigate(delta, count)
+		if not config.is_float_mode() then
+			native_wincmd(delta < 0 and "h" or "l", count)
+			return
+		end
+
 		local wins = vim.t.term_winids or {}
 		local current = vim.api.nvim_get_current_win()
 		for i, win in ipairs(wins) do
@@ -845,15 +859,14 @@ function M.setup_keymap(api)
 				return
 			end
 		end
-		-- Fallback to native wincmd in split mode
-		if not config.is_float_mode() then
-			state.record_current_term_mode()
-			vim.cmd("wincmd " .. (delta < 0 and "h" or "l"))
-			restore_term_mode()
-		end
 	end
 
-	local function pane_cycle()
+	local function pane_cycle(count)
+		if not config.is_float_mode() then
+			native_wincmd("w", count)
+			return
+		end
+
 		local wins = vim.t.term_winids or {}
 		if #wins < 2 then
 			return
@@ -1051,13 +1064,17 @@ function M.setup_keymap(api)
 					end
 
 					if key_match(c, "w", "<C-S-w>") then
-						pane_cycle()
+						pane_cycle(count > 1 and count or nil)
 					elseif key_match(c, "v", "<C-S-v>") then
 						api.vsplit()
 					elseif key_match(c, "h", "<C-S-h>") then
-						pane_navigate(-1)
+						pane_navigate(-1, count)
+					elseif key_match(c, "j", "<NL>", "<S-NL>", "<C-j>", "<C-S-j>") then
+						if not config.is_float_mode() then native_wincmd("j", count) end
+					elseif key_match(c, "k", "<C-k>", "<C-S-k>") then
+						if not config.is_float_mode() then native_wincmd("k", count) end
 					elseif key_match(c, "l", "<C-S-l>") then
-						pane_navigate(1)
+						pane_navigate(1, count)
 					elseif c == ">" then
 						resize_current_pane(count)
 					elseif c == "<" then
@@ -1079,12 +1096,16 @@ function M.setup_keymap(api)
 					elseif c == "=" then
 						float_layout.equalize_panes()
 					elseif key_match(c, "p", "<C-S-p>") then
-						local prev = vim.t.term_prev_pane_winid
-						if prev and state.win_valid(prev) then
-							state.record_current_term_mode()
-							vim.api.nvim_set_current_win(prev)
-							restore_term_mode()
-							statusline.update()
+						if not config.is_float_mode() then
+							native_wincmd("p")
+						else
+							local prev = vim.t.term_prev_pane_winid
+							if prev and state.win_valid(prev) then
+								state.record_current_term_mode()
+								vim.api.nvim_set_current_win(prev)
+								restore_term_mode()
+								statusline.update()
+							end
 						end
 					elseif key_match(c, "c", "<C-S-c>") then
 						api.delete()
@@ -1118,13 +1139,19 @@ function M.setup_keymap(api)
 	end
 
 	local cw_actions = {
-		{ { "w", "<C-w>" }, pane_cycle },
-		{ { "h", "<C-h>" }, function() pane_navigate(-1) end },
-		{ { "l", "<C-l>" }, function() pane_navigate(1) end },
+		{ { "w", "<C-w>" }, function() pane_cycle(vim.v.count > 0 and vim.v.count or nil) end },
+		{ { "h", "<C-h>" }, function() pane_navigate(-1, vim.v.count1) end },
+		{ { "j", "<C-j>" }, function() if not config.is_float_mode() then native_wincmd("j", vim.v.count1) end end },
+		{ { "k", "<C-k>" }, function() if not config.is_float_mode() then native_wincmd("k", vim.v.count1) end end },
+		{ { "l", "<C-l>" }, function() pane_navigate(1, vim.v.count1) end },
 		{ { ">" },          function() resize_current_pane(vim.v.count1) end },
 		{ { "<lt>" },       function() resize_current_pane(-vim.v.count1) end },
 		{ { "=" },          float_layout.equalize_panes },
 		{ { "p", "<C-p>" }, function()
+			if not config.is_float_mode() then
+				native_wincmd("p")
+				return
+			end
 			local prev = vim.t.term_prev_pane_winid
 			if prev and state.win_valid(prev) then
 				state.record_current_term_mode()

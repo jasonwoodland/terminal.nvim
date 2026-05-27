@@ -402,10 +402,12 @@ optional |count| where indicated.
 
 NAVIGATION ~
 
-    w	   Cycle to the next pane.
-    h	   Focus the pane to the left.
-    l	   Focus the pane to the right.
-    p	   Jump to the last-visited pane.
+    w	   Cycle to the next window.
+    h	   Focus the window to the left.
+    j	   Focus the window below.
+    k	   Focus the window above.
+    l	   Focus the window to the right.
+    p	   Jump to the previous window.
 
 PANE MANAGEMENT ~
 
@@ -429,12 +431,14 @@ MOVE AND ROTATE ~
 ------------------------------------------------------------------------------
 <C-w> Overrides					*terminal.nvim-cw-override*
 
-When the cursor is in a terminal pane in Normal mode, the standard |CTRL-W|
-sub-commands are intercepted so they operate on terminal panes instead of
-arbitrary Vim windows. The same sub-keys documented in |terminal.nvim-wincmd|
-(`h`, `l`, `w`, `p`, `v`, `c`, `>`, `<`, `=`, `H`, `L`, `r`, `R`) apply.
+When the cursor is in a terminal pane in Normal mode, terminal.nvim handles
+selected |CTRL-W| sub-commands using the same sub-keys documented in
+|terminal.nvim-wincmd|. Navigation commands (`h`, `j`, `k`, `l`, `w`, and `p`)
+work like normal Vim window commands, including moving between terminal and
+non-terminal windows when the terminal is open as a drawer.
 
-Outside a terminal pane the original |CTRL-W| behaviour is preserved.
+Outside a terminal pane the original |CTRL-W| behaviour is preserved. The
+`<C-S-w>` prefix is available in Normal and Terminal mode.
 
 ==============================================================================
 7. Functions					*terminal.nvim-functions*
