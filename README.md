@@ -74,6 +74,9 @@ require("terminal").setup({
   -- Hide cmdline when float zoom is active
   float_zoom_hide_cmdline = false,
 
+  -- Rename terminal buffers to their OSC terminal title, adding " (2)" etc. for duplicates
+  set_buffer_name = true,
+
   -- OSC notification passthrough
   osc_notifications = true,
 

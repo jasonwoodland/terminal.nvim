@@ -12,6 +12,8 @@ local utils = require("terminal.utils")
 
 local out_tty = vim.loop.new_tty(1, true)
 
+local clear_buffer_name_from_title
+
 local function get_term_refocus_target()
 	local target = vim.t.term_winid
 	if state.win_valid(target) then
@@ -453,6 +455,7 @@ function M.setup_autocmd(api)
 			local is_displayed = is_in_active_tab and state.is_term_open()
 
 			state.remove_term_from_order(bufnr)
+			clear_buffer_name_from_title(bufnr)
 			local is_winbar_visible = config.should_show_winbar(#state.get_tabs())
 			local winbar_visibility_changed = was_winbar_visible ~= is_winbar_visible
 
@@ -471,23 +474,94 @@ function M.setup_autocmd(api)
 	})
 end
 
-function M.setup_winbar_autocmds()
-	if not config.config.winbar then
+local function clear_stale_buffer_name(buf)
+	local name = vim.api.nvim_buf_get_name(buf)
+	if vim.b[buf].term_buffer_name and not state.find_buf_tab(buf) then
+		pcall(vim.api.nvim_buf_set_name, buf, "")
+		vim.b[buf].term_buffer_name = nil
+		vim.b[buf].term_buffer_name_title = nil
+		return true
+	end
+	if
+		name ~= ""
+		and vim.bo[buf].buftype == ""
+		and not vim.bo[buf].buflisted
+		and not vim.bo[buf].modified
+		and vim.fn.bufwinid(buf) == -1
+		and not vim.loop.fs_stat(name)
+	then
+		pcall(vim.api.nvim_buf_set_name, buf, "")
+		return true
+	end
+	return false
+end
+
+local function buffer_name_exists(name, current_buf)
+	local normalized_name = vim.fn.fnamemodify(name, ":p")
+	for _, buf in ipairs(vim.api.nvim_list_bufs()) do
+		if buf ~= current_buf and vim.api.nvim_buf_is_valid(buf) then
+			local existing = vim.api.nvim_buf_get_name(buf)
+			if existing == name or existing == normalized_name then
+				if not clear_stale_buffer_name(buf) then
+					return true
+				end
+			end
+		end
+	end
+	return false
+end
+
+local function unique_buffer_name(title, buf)
+	if not buffer_name_exists(title, buf) then
+		return title
+	end
+
+	local i = 2
+	while buffer_name_exists(title .. " (" .. i .. ")", buf) do
+		i = i + 1
+	end
+	return title .. " (" .. i .. ")"
+end
+
+local function set_buffer_name_from_title(buf, title)
+	if not config.config.set_buffer_name then
+		return
+	end
+	if vim.b[buf].term_buffer_name_title == title and vim.api.nvim_buf_get_name(buf) == vim.b[buf].term_buffer_name then
 		return
 	end
 
-	vim.api.nvim_create_autocmd({ "TermOpen", "BufEnter", "BufFilePost" }, {
-		pattern = "*",
-		group = "Term",
-		callback = function()
-			if vim.t.term_toggling then
-				return
-			end
-			if vim.bo[0].buftype == "terminal" then
-				winbar.update()
-			end
-		end,
-	})
+	local name = unique_buffer_name(title, buf)
+	local ok = pcall(vim.api.nvim_buf_set_name, buf, name)
+	if ok then
+		vim.b[buf].term_buffer_name_title = title
+		vim.b[buf].term_buffer_name = vim.api.nvim_buf_get_name(buf)
+	end
+end
+
+clear_buffer_name_from_title = function(buf)
+	if vim.b[buf].term_buffer_name then
+		pcall(vim.api.nvim_buf_set_name, buf, "")
+		vim.b[buf].term_buffer_name = nil
+		vim.b[buf].term_buffer_name_title = nil
+	end
+end
+
+function M.setup_winbar_autocmds()
+	if config.config.winbar then
+		vim.api.nvim_create_autocmd({ "TermOpen", "BufEnter", "BufFilePost" }, {
+			pattern = "*",
+			group = "Term",
+			callback = function()
+				if vim.t.term_toggling then
+					return
+				end
+				if vim.bo[0].buftype == "terminal" then
+					winbar.update()
+				end
+			end,
+		})
+	end
 
 	vim.api.nvim_create_autocmd("TermRequest", {
 		pattern = "*",
@@ -501,6 +575,7 @@ function M.setup_winbar_autocmds()
 				if title and #title > 0 then
 					local buf = ev.buf
 					vim.b[buf].term_title = title
+					set_buffer_name_from_title(buf, title)
 					winbar.update()
 					statusline.update()
 				end

@@ -74,6 +74,7 @@ the full default configuration: >lua
       float_zoom = true,
       float_zoom_show_tabline = true,
       float_zoom_hide_cmdline = false,
+      set_buffer_name = true,
       osc_notifications = true,
       keys = {
 	toggle			= "<C-S-Space>",
@@ -120,6 +121,12 @@ show_winbar_when_single_tab ~
 	When true, shows the terminal-tab winbar even while the current Vim tab
 	has only one terminal tab. By default the winbar appears only when there
 	are two or more terminal tabs. Requires `winbar = true`. Default: `false`.
+
+					*terminal.nvim-opt-set_buffer_name*
+set_buffer_name ~
+	When true, renames terminal buffers to their OSC terminal title. Duplicate
+	titles are made unique by appending ` (2)`, ` (3)`, and so on. Set to
+	`false` to keep Neovim's default terminal buffer names. Default: `true`.
 
 						*terminal.nvim-opt-float*
 float ~

@@ -64,6 +64,7 @@ terminal.nvim-opt-float_zoom_show_tabline	terminal-nvim.txt	/*terminal.nvim-opt-
 terminal.nvim-opt-height	terminal-nvim.txt	/*terminal.nvim-opt-height*
 terminal.nvim-opt-keys	terminal-nvim.txt	/*terminal.nvim-opt-keys*
 terminal.nvim-opt-osc_notifications	terminal-nvim.txt	/*terminal.nvim-opt-osc_notifications*
+terminal.nvim-opt-set_buffer_name	terminal-nvim.txt	/*terminal.nvim-opt-set_buffer_name*
 terminal.nvim-opt-show_winbar_when_single_tab	terminal-nvim.txt	/*terminal.nvim-opt-show_winbar_when_single_tab*
 terminal.nvim-opt-winbar	terminal-nvim.txt	/*terminal.nvim-opt-winbar*
 terminal.nvim-requirements	terminal-nvim.txt	/*terminal.nvim-requirements*

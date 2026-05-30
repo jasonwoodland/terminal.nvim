@@ -18,6 +18,7 @@ M.config = {
 	float_zoom = true,
 	float_zoom_show_tabline = true,
 	float_zoom_hide_cmdline = false,
+	set_buffer_name = true,
 	osc_notifications = true,
 	keys = {
 		toggle = "<C-S-Space>",
