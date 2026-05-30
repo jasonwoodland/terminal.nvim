@@ -226,25 +226,64 @@ function M.go_to(index)
 	window.switch_to_tab(index)
 end
 
+local function get_visible_tab_idx(tabs)
+	local bufnr = vim.api.nvim_get_current_buf()
+	if not vim.api.nvim_buf_is_valid(bufnr) or vim.bo[bufnr].buftype ~= "terminal" then
+		if state.win_valid(vim.t.term_winid) then
+			bufnr = vim.api.nvim_win_get_buf(vim.t.term_winid)
+		end
+	end
+
+	local tab_idx = state.find_buf_tab(bufnr)
+	if tab_idx then
+		vim.t.term_tab_idx = tab_idx
+		return tab_idx
+	end
+
+	return state.clamp(vim.t.term_tab_idx or 1, 1, #tabs)
+end
+
+local function move_indexed_values(values, current_idx, new_idx)
+	local value = table.remove(values, current_idx)
+	table.insert(values, new_idx, value)
+	return values
+end
+
 function M.move(direction)
 	local tabs = state.get_tabs()
 	if #tabs < 2 then
 		return
 	end
 
-	local current_idx = vim.t.term_tab_idx or 1
+	local current_idx = get_visible_tab_idx(tabs)
 	local new_idx = ((current_idx + direction - 1) % #tabs) + 1
 
 	local order = state.get_term_order()
-
-	order[current_idx], order[new_idx] = order[new_idx], order[current_idx]
+	move_indexed_values(order, current_idx, new_idx)
 	vim.t.term_order = order
 
-	local s1, s2 = state.get_tab_state(current_idx), state.get_tab_state(new_idx)
-	state.set_tab_state(current_idx, s2)
-	state.set_tab_state(new_idx, s1)
+	local tab_states = {}
+	local activity = vim.t.term_tab_activity or {}
+	local activity_values = {}
+	for i = 1, #tabs do
+		tab_states[i] = state.get_tab_state(i)
+		activity_values[i] = activity[tostring(i)] == true
+	end
 
-	state.swap_activity(current_idx, new_idx)
+	move_indexed_values(tab_states, current_idx, new_idx)
+	move_indexed_values(activity_values, current_idx, new_idx)
+
+	for i = 1, #tabs do
+		state.set_tab_state(i, tab_states[i])
+	end
+
+	local new_activity = {}
+	for i, is_active in ipairs(activity_values) do
+		if is_active then
+			new_activity[tostring(i)] = true
+		end
+	end
+	vim.t.term_tab_activity = new_activity
 
 	vim.t.term_tab_idx = new_idx
 
