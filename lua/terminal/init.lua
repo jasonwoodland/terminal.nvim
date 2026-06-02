@@ -543,7 +543,7 @@ function M.new()
 
 	-- Add to order before termopen so TermOpen autocmd doesn't double-add
 	local order = state.get_term_order()
-	local insert_idx = (current_idx or #order) + 1
+	local insert_idx = #order == 0 and 1 or (current_idx or #order) + 1
 	table.insert(order, insert_idx, { bufnr })
 	vim.t.term_order = order
 	vim.t.term_tab_idx = insert_idx
