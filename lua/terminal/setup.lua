@@ -267,7 +267,7 @@ function M.setup_autocmd(api)
 		pattern = "*",
 		group = "Term",
 		callback = function()
-			state.adopt_orphaned_terminals()
+			state.adopt_current_terminal()
 
 			-- Track focus within pane windows
 			local current_win = vim.api.nvim_get_current_win()
@@ -421,7 +421,7 @@ function M.setup_autocmd(api)
 		group = "Term",
 		callback = function()
 			vim.schedule(function()
-				state.adopt_orphaned_terminals()
+				state.adopt_current_terminal()
 				update_float_win_config()
 				winbar.update()
 				if vim.bo.buftype == "terminal" then

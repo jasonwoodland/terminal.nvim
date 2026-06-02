@@ -329,7 +329,7 @@ function M.move_to_vim_tab(direction)
 	state.shift_activity_after_remove(tab_idx, total_before)
 
 	-- Add tab to target tab before opening remaining tabs, so
-	-- adopt_orphaned_terminals() (triggered by WinEnter) doesn't re-adopt
+	-- adopt_current_terminal() (triggered by WinEnter) doesn't re-adopt
 	-- the moved buffers into the source tab.
 	local target_order = vim.t[target_tab].term_order
 	if not target_order then

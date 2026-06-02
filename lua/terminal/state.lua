@@ -331,7 +331,36 @@ function M.get_current_tab()
 	return tabs[idx], idx
 end
 
+function M.adopt_current_terminal()
+	local bufnr = vim.api.nvim_get_current_buf()
+	if not vim.api.nvim_buf_is_valid(bufnr) or vim.bo[bufnr].buftype ~= "terminal" then
+		return false
+	end
+
+	local owner_tab = vim.b[bufnr].term_owner_tab
+	if owner_tab and vim.api.nvim_tabpage_is_valid(owner_tab) then
+		return false
+	end
+
+	M.add_term_to_order(bufnr)
+	vim.b[bufnr].term_owner_tab = vim.api.nvim_get_current_tabpage()
+	return true
+end
+
 function M.adopt_orphaned_terminals()
+	local orphans = {}
+	for _, buf in ipairs(vim.api.nvim_list_bufs()) do
+		if vim.api.nvim_buf_is_valid(buf) and vim.bo[buf].buftype == "terminal" then
+			local owner_tab = vim.b[buf].term_owner_tab
+			if not owner_tab or not vim.api.nvim_tabpage_is_valid(owner_tab) then
+				table.insert(orphans, buf)
+			end
+		end
+	end
+	if #orphans == 0 then
+		return
+	end
+
 	local owned = {}
 	for _, tab in ipairs(vim.api.nvim_list_tabpages()) do
 		local order = vim.t[tab].term_order
@@ -345,9 +374,11 @@ function M.adopt_orphaned_terminals()
 		end
 	end
 
-	for _, buf in ipairs(vim.api.nvim_list_bufs()) do
-		if vim.api.nvim_buf_is_valid(buf) and vim.bo[buf].buftype == "terminal" and not owned[buf] then
+	local current_tab = vim.api.nvim_get_current_tabpage()
+	for _, buf in ipairs(orphans) do
+		if not owned[buf] then
 			M.add_term_to_order(buf)
+			vim.b[buf].term_owner_tab = current_tab
 		end
 	end
 end
