@@ -482,8 +482,8 @@ function M.open_tab_windows(tab, tab_idx)
 	winbar.update()
 end
 
-function M.reopen_current_tab(target_idx)
-	local tabs = state.get_tabs()
+function M.reopen_current_tab(target_idx, tabs)
+	tabs = tabs or state.get_tabs()
 	if #tabs == 0 then
 		vim.t.term_winid = nil
 		vim.t.term_winids = {}
@@ -495,10 +495,124 @@ function M.reopen_current_tab(target_idx)
 	M.open_tab_windows(tabs[target_idx], target_idx)
 end
 
-function M.rebuild_tab(target_idx)
+function M.rebuild_tab(target_idx, tabs)
 	M.save_tab_state()
 	M.close_pane_windows()
-	M.reopen_current_tab(target_idx)
+	M.reopen_current_tab(target_idx, tabs)
+end
+
+function M.swap_tab_buffers(target_tab, target_idx)
+	-- Fast-path buffer swap: reuse existing pane windows.
+	-- Called only when pane counts match (checked by caller).
+	-- Mirrors the buffer-attach logic in open_tab_windows().
+	local wins = vim.t.term_winids or {}
+	local target_st = state.get_tab_state(target_idx)
+	local tab_count = #state.get_tabs()
+	local show_winbar = config.should_show_winbar(tab_count)
+	local float_winblend = config.get_float_winblend()
+	local is_float = config.is_float_mode()
+
+	local function can_set_winbar(win)
+		return show_winbar and state.win_valid(win) and vim.api.nvim_win_get_height(win) >= 2
+	end
+
+	local focus_idx = state.clamp(target_st.focus or 1, 1, #wins)
+
+	-- Pre-validation: abort to rebuild_tab if the open windows don't match the
+	-- target tab's panes, or if any window or buffer is invalid. The caller
+	-- compares pane counts in the data model (term_order), but term_winids can
+	-- briefly disagree with it (e.g. TermClose shrinks term_order synchronously
+	-- while the rebuild is deferred via vim.schedule).
+	if #wins ~= #target_tab then
+		return false
+	end
+	for i, win in ipairs(wins) do
+		if not state.win_valid(win) then
+			return false
+		end
+		if not vim.api.nvim_buf_is_valid(target_tab[i]) then
+			return false
+		end
+	end
+
+	-- Swap buffers in all pane windows (single eventignore/pcall block)
+	local old_eventignore = vim.o.eventignore
+	vim.o.eventignore = "BufEnter,BufLeave,BufWinEnter"
+	local swap_ok, swap_err = pcall(function()
+		for i, win in ipairs(wins) do
+			vim.api.nvim_win_set_buf(win, target_tab[i])
+			-- Re-apply window options (nvim_win_set_buf restores buffer's saved WinInfo)
+			vim.wo[win].signcolumn = "no"
+			vim.wo[win].foldcolumn = "0"
+			vim.wo[win].number = false
+			vim.wo[win].relativenumber = false
+			vim.wo[win].scrolloff = 0
+			vim.wo[win].sidescrolloff = 0
+			vim.wo[win].winblend = float_winblend
+			-- Apply/clear native winbar on terminal window
+			if can_set_winbar(win) then
+				vim.wo[win].winbar = " "
+			else
+				vim.wo[win].winbar = ""
+			end
+			-- Update z-index in float mode if focus changed
+			if is_float then
+				vim.api.nvim_win_set_config(win, { zindex = (i == focus_idx) and 31 or 30 })
+			end
+		end
+	end)
+	vim.o.eventignore = old_eventignore
+
+	if not swap_ok then
+		return false
+	end
+
+	-- Force PTY dimensions in zoom mode (mirrors open_tab_windows)
+	if vim.t.term_zoom then
+		for i, win in ipairs(wins) do
+			if state.win_valid(win) then
+				local job_id = vim.b[target_tab[i]].terminal_job_id
+				if job_id then
+					local rows = vim.api.nvim_win_get_height(win)
+					if can_set_winbar(win) then
+						rows = rows - 1
+					end
+					pcall(vim.fn.jobresize, job_id, vim.api.nvim_win_get_width(win), math.max(rows, 1))
+				end
+			end
+		end
+	end
+
+	-- Set focus to target tab's focus pane
+	if wins[focus_idx] and state.win_valid(wins[focus_idx]) then
+		vim.api.nvim_set_current_win(wins[focus_idx])
+	end
+
+	-- Update state variables
+	vim.t.term_winids = wins
+	vim.t.term_winid = wins[focus_idx] or wins[1]
+	vim.t.term_bufnr = target_tab[focus_idx] or target_tab[1]
+	vim.t.term_tab_idx = target_idx
+
+	-- Clear activity flag
+	local activity = vim.t.term_tab_activity or {}
+	activity[tostring(target_idx)] = nil
+	vim.t.term_tab_activity = activity
+
+	-- Restore terminal mode from TARGET tab's saved state
+	local mode_to_restore = "t"
+	if target_st.modes and target_st.modes[focus_idx] then
+		mode_to_restore = target_st.modes[focus_idx]
+	end
+	if mode_to_restore ~= "n" then
+		vim.cmd("startinsert")
+	else
+		vim.cmd("stopinsert")
+	end
+
+	statusline.update()
+	winbar.update()
+	return true
 end
 
 function M.switch_to_tab(target_idx)
@@ -506,8 +620,22 @@ function M.switch_to_tab(target_idx)
 	if current_idx and current_idx ~= target_idx then
 		vim.t.term_prev_tab_idx = current_idx
 	end
+
+	-- Fast path: swap buffers in place when pane counts match
+	local tabs = state.get_tabs()
+	local current_tab = tabs[current_idx or 1]
+	local target_tab = tabs[target_idx]
+	if current_tab and target_tab and #current_tab == #target_tab then
+		M.save_tab_state()
+		state.set_toggling()
+		if M.swap_tab_buffers(target_tab, target_idx) then
+			return
+		end
+		-- Fast path failed (invalid window/buffer or pcall error), fall back to rebuild
+	end
+
 	state.set_toggling()
-	M.rebuild_tab(target_idx)
+	M.rebuild_tab(target_idx, tabs)
 end
 
 return M
