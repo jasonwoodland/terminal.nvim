@@ -128,39 +128,44 @@ function M.is_in_term_window()
 	return false
 end
 
-function M.record_current_term_mode()
-	local bufnr = vim.api.nvim_get_current_buf()
-	if not vim.api.nvim_buf_is_valid(bufnr) or vim.bo[bufnr].buftype ~= "terminal" then
-		return nil
-	end
-
-	local mode = vim.api.nvim_get_mode().mode == "t" and "t" or "n"
-	vim.b[bufnr].term_mode = mode
-	return mode
-end
-
 -------------------------------------------------------------------------------
 -- Data Model: Tabs
 --
--- term_order: {{buf1, buf2}, {buf3}, {buf4}} -- list of tabs
+-- term_order: list of tab entries, each owning its panes and saved state:
+--   { bufs = {buf1, buf2}, focus = 1, widths = {80, 40}, modes = {"t","n"},
+--     activity = true }
+-- Because state lives inside the entry, reordering or removing tabs carries
+-- widths/focus/modes/activity along automatically -- there is no index-keyed
+-- side table to remap.
+--
 -- term_tab_idx: 1-based index of the active tab
--- term_tab_state: saved state per tab {[idx_str] = {widths, focus, views, modes}}
 -- term_winids: list of window IDs for panes in the current tab
 -- term_winbar_winid: window ID of the floating winbar overlay
 -------------------------------------------------------------------------------
 
+-- Upgrade older persisted formats:
+--   v1: {buf1, buf2}            (one buffer per tab)
+--   v2: {{buf1, buf2}, {buf3}}  (buffer lists, state in side tables)
+--   v3: {{bufs = {...}, ...}}   (entries owning their state)
 function M.migrate_term_order(order)
 	if #order == 0 then
 		return order
 	end
-	if type(order[1]) == "number" then
-		local new_order = {}
-		for _, buf in ipairs(order) do
-			table.insert(new_order, { buf })
-		end
-		return new_order
+	local first = order[1]
+	if type(first) == "table" and first.bufs then
+		return order
 	end
-	return order
+	local new_order = {}
+	if type(first) == "number" then
+		for _, buf in ipairs(order) do
+			table.insert(new_order, { bufs = { buf } })
+		end
+	else
+		for _, bufs in ipairs(order) do
+			table.insert(new_order, { bufs = bufs })
+		end
+	end
+	return new_order
 end
 
 function M.get_term_order()
@@ -172,34 +177,24 @@ function M.get_tabs()
 	local order = M.get_term_order()
 
 	local valid_order = {}
-	local removed = {}
-	for gi, tab in ipairs(order) do
-		local valid_tab = {}
-		for _, buf in ipairs(tab) do
+	local changed = false
+	for _, entry in ipairs(order) do
+		local valid_bufs = {}
+		for _, buf in ipairs(entry.bufs) do
 			if vim.api.nvim_buf_is_valid(buf) and vim.bo[buf].buftype == "terminal" then
-				table.insert(valid_tab, buf)
+				table.insert(valid_bufs, buf)
 			end
 		end
-		if #valid_tab > 0 then
-			table.insert(valid_order, valid_tab)
-		else
-			table.insert(removed, gi)
+		if #valid_bufs ~= #entry.bufs then
+			changed = true
+			entry.bufs = valid_bufs
+		end
+		if #valid_bufs > 0 then
+			table.insert(valid_order, entry)
 		end
 	end
 
-	-- Remap activity keys when tabs are removed by filtering
-	if #removed > 0 then
-		local old = vim.t.term_tab_activity or {}
-		local new = {}
-		local offset = 0
-		for i = 1, #order do
-			if removed[offset + 1] == i then
-				offset = offset + 1
-			elseif old[tostring(i)] then
-				new[tostring(i - offset)] = true
-			end
-		end
-		vim.t.term_tab_activity = new
+	if changed then
 		vim.t.term_order = valid_order
 	end
 
@@ -213,8 +208,8 @@ end
 
 function M.find_buf_tab(bufnr)
 	local tabs = M.get_tabs()
-	for gi, tab in ipairs(tabs) do
-		for pi, buf in ipairs(tab) do
+	for gi, entry in ipairs(tabs) do
+		for pi, buf in ipairs(entry.bufs) do
 			if buf == bufnr then
 				return gi, pi
 			end
@@ -223,35 +218,11 @@ function M.find_buf_tab(bufnr)
 	return nil, nil
 end
 
-function M.swap_activity(idx1, idx2)
-	local activity = vim.t.term_tab_activity or {}
-	local k1, k2 = tostring(idx1), tostring(idx2)
-	activity[k1], activity[k2] = activity[k2], activity[k1]
-	vim.t.term_tab_activity = activity
-end
-
-function M.shift_activity_after_remove(removed_idx, total_before)
-	local old = vim.t.term_tab_activity or {}
-	local new = {}
-	for i = 1, total_before do
-		if i < removed_idx then
-			if old[tostring(i)] then
-				new[tostring(i)] = true
-			end
-		elseif i > removed_idx then
-			if old[tostring(i)] then
-				new[tostring(i - 1)] = true
-			end
-		end
-	end
-	vim.t.term_tab_activity = new
-end
-
 function M.add_term_to_order(bufnr, after_bufnr)
 	local order = M.get_term_order()
 
-	for _, tab in ipairs(order) do
-		for _, buf in ipairs(tab) do
+	for _, entry in ipairs(order) do
+		for _, buf in ipairs(entry.bufs) do
 			if buf == bufnr then
 				return
 			end
@@ -259,10 +230,10 @@ function M.add_term_to_order(bufnr, after_bufnr)
 	end
 
 	if after_bufnr then
-		for i, tab in ipairs(order) do
-			for _, buf in ipairs(tab) do
+		for i, entry in ipairs(order) do
+			for _, buf in ipairs(entry.bufs) do
 				if buf == after_bufnr then
-					table.insert(order, i + 1, { bufnr })
+					table.insert(order, i + 1, { bufs = { bufnr } })
 					vim.t.term_order = order
 					return
 				end
@@ -270,55 +241,47 @@ function M.add_term_to_order(bufnr, after_bufnr)
 		end
 	end
 
-	table.insert(order, { bufnr })
+	table.insert(order, { bufs = { bufnr } })
 	vim.t.term_order = order
 end
 
 function M.remove_term_from_order(bufnr)
 	local order = M.get_term_order()
-	local total_before = #order
 
-	local removed_tab_idx = nil
 	local new_order = {}
-	for gi, tab in ipairs(order) do
-		local new_tab = {}
-		for _, buf in ipairs(tab) do
+	for _, entry in ipairs(order) do
+		local new_bufs = {}
+		for _, buf in ipairs(entry.bufs) do
 			if buf ~= bufnr then
-				table.insert(new_tab, buf)
+				table.insert(new_bufs, buf)
 			end
 		end
-		if #new_tab > 0 then
-			table.insert(new_order, new_tab)
-		elseif not removed_tab_idx then
-			removed_tab_idx = gi
+		if #new_bufs > 0 then
+			entry.bufs = new_bufs
+			table.insert(new_order, entry)
 		end
 	end
 
 	vim.t.term_order = new_order
 	vim.t.term_tab_idx = M.clamp(vim.t.term_tab_idx or 1, 1, math.max(#new_order, 1))
-
-	if removed_tab_idx then
-		M.shift_activity_after_remove(removed_tab_idx, total_before)
-	end
 end
 
 function M.add_buf_to_tab(bufnr, tab_idx, after_pane_idx)
 	local order = M.get_term_order()
 
-	if not order[tab_idx] then
+	local entry = order[tab_idx]
+	if not entry then
 		return
 	end
 
-	local tab = order[tab_idx]
-
-	for _, buf in ipairs(tab) do
+	for _, buf in ipairs(entry.bufs) do
 		if buf == bufnr then
 			return
 		end
 	end
 
-	local insert_pos = after_pane_idx and (after_pane_idx + 1) or (#tab + 1)
-	table.insert(tab, insert_pos, bufnr)
+	local insert_pos = after_pane_idx and (after_pane_idx + 1) or (#entry.bufs + 1)
+	table.insert(entry.bufs, insert_pos, bufnr)
 	vim.t.term_order = order
 end
 
@@ -366,8 +329,8 @@ function M.adopt_orphaned_terminals()
 		local order = vim.t[tab].term_order
 		if order then
 			order = M.migrate_term_order(order)
-			for _, grp in ipairs(order) do
-				for _, buf in ipairs(grp) do
+			for _, entry in ipairs(order) do
+				for _, buf in ipairs(entry.bufs) do
 					owned[buf] = true
 				end
 			end
@@ -387,15 +350,52 @@ end
 -- Tab State Helpers
 -------------------------------------------------------------------------------
 
+-- Saved view state (widths/focus/modes) lives on the tab entry itself; these
+-- accessors keep a stable read-modify-write interface over it.
 function M.get_tab_state(tab_idx)
-	local tab_state = vim.t.term_tab_state or {}
-	return tab_state[tostring(tab_idx)] or {}
+	local order = M.get_term_order()
+	local entry = order[tab_idx]
+	if not entry then
+		return {}
+	end
+	return { widths = entry.widths, focus = entry.focus, modes = entry.modes }
 end
 
 function M.set_tab_state(tab_idx, st)
-	local tab_state = vim.t.term_tab_state or {}
-	tab_state[tostring(tab_idx)] = st
-	vim.t.term_tab_state = tab_state
+	local order = M.get_term_order()
+	local entry = order[tab_idx]
+	if not entry then
+		return
+	end
+	entry.widths = st.widths
+	entry.focus = st.focus
+	entry.modes = st.modes
+	vim.t.term_order = order
+end
+
+-- Set/clear the activity flag on a tab entry. Returns true when the flag
+-- actually changed.
+function M.set_activity(tab_idx, active)
+	local order = M.get_term_order()
+	local entry = order[tab_idx]
+	if not entry then
+		return false
+	end
+	local val = active and true or nil
+	if entry.activity == val then
+		return false
+	end
+	entry.activity = val
+	vim.t.term_order = order
+	-- Drop the per-buffer fast-path flag used by the on_lines activity watcher
+	if not val then
+		for _, buf in ipairs(entry.bufs) do
+			if vim.api.nvim_buf_is_valid(buf) and vim.b[buf].term_activity_flagged then
+				vim.b[buf].term_activity_flagged = nil
+			end
+		end
+	end
+	return true
 end
 
 function M.setup_vars()
@@ -403,7 +403,6 @@ function M.setup_vars()
 	vim.t.term_winids = vim.t.term_winids or {}
 	vim.t.term_height = vim.t.term_height or config.get_term_height()
 	vim.t.term_tab_idx = vim.t.term_tab_idx or 1
-	vim.t.term_tab_state = vim.t.term_tab_state or {}
 end
 
 -------------------------------------------------------------------------------

@@ -4,6 +4,7 @@ local M = {}
 
 local config = require("terminal.config")
 local state = require("terminal.state")
+local mode = require("terminal.mode")
 local winbar = require("terminal.winbar")
 local statusline = require("terminal.statusline")
 local overlay = require("terminal.overlay")
@@ -100,6 +101,77 @@ local function open_window(win_config)
 	return win, scratch
 end
 
+-- Setting vim.wo[win].winbar requires the window to have >= 2 lines (1 for
+-- winbar, 1 for content); otherwise Neovim raises E36 "Not enough room".
+-- This matters when the user shrinks the app window to a very small size in
+-- float zoom mode.
+local function can_set_winbar(win, show_winbar)
+	return show_winbar and state.win_valid(win) and vim.api.nvim_win_get_height(win) >= 2
+end
+
+-- Window options that must hold on every pane window. nvim_win_set_buf calls
+-- get_winopts() which restores the buffer's saved w_onebuf_opt, so these are
+-- applied both before and after attaching terminal buffers; when they match,
+-- the terminal sees no dimension change at attachment time.
+local function apply_pane_winopts(win, float_winblend, show_winbar)
+	vim.wo[win].signcolumn = "no"
+	vim.wo[win].foldcolumn = "0"
+	vim.wo[win].number = false
+	vim.wo[win].relativenumber = false
+	vim.wo[win].scrolloff = 0
+	vim.wo[win].sidescrolloff = 0
+	vim.wo[win].winblend = float_winblend
+	if can_set_winbar(win, show_winbar) then
+		vim.wo[win].winbar = " "
+	else
+		vim.wo[win].winbar = ""
+	end
+end
+
+-- Force correct PTY dimensions in zoom mode once window options are
+-- finalized. nvim_win_set_buf may report stale dimensions to the PTY before
+-- winbar/signcolumn/etc. are re-applied.
+local function resize_zoom_ptys(wins, bufs, show_winbar)
+	if not vim.t.term_zoom then
+		return
+	end
+	for i, win in ipairs(wins) do
+		if state.win_valid(win) then
+			local job_id = vim.b[bufs[i]].terminal_job_id
+			if job_id then
+				local rows = vim.api.nvim_win_get_height(win)
+				if can_set_winbar(win, show_winbar) then
+					rows = rows - 1
+				end
+				pcall(vim.fn.jobresize, job_id, vim.api.nvim_win_get_width(win), math.max(rows, 1))
+			end
+		end
+	end
+end
+
+-- Common tail for open/swap: focus the saved pane, publish the tab-scoped
+-- window/buffer variables, clear the activity flag, and restore the mode the
+-- user left the focused terminal in.
+local function finalize_tab(wins, bufs, tab_idx, st)
+	local focus_idx = state.clamp(st.focus or 1, 1, #wins)
+
+	if wins[focus_idx] and state.win_valid(wins[focus_idx]) then
+		vim.api.nvim_set_current_win(wins[focus_idx])
+	end
+
+	vim.t.term_winids = wins
+	vim.t.term_winid = wins[focus_idx] or wins[1]
+	vim.t.term_bufnr = bufs[focus_idx] or bufs[1]
+	vim.t.term_tab_idx = tab_idx
+
+	state.set_activity(tab_idx, false)
+
+	mode.apply(st.modes and st.modes[focus_idx])
+
+	statusline.update()
+	winbar.update()
+end
+
 -- Whether the current screen is large enough to host a float-mode rebuild.
 -- In float zoom mode the pane window needs one content row plus any visible
 -- native winbar slot, and 1 row for the statusline overlay. If the screen is
@@ -154,7 +226,7 @@ function M.termopen_with_size(bufnr, num_panes, tab_count)
 		col = 0,
 		noautocmd = true,
 	})
-	vim.fn.termopen(vim.env.SHELL)
+	vim.fn.termopen(vim.env.SHELL or vim.o.shell)
 	vim.api.nvim_win_close(tmp_win, true)
 end
 
@@ -226,8 +298,8 @@ function M.close_pane_windows()
 	closing_pane_windows = false
 end
 
-function M.open_tab_windows(tab, tab_idx)
-	if not tab or #tab == 0 then
+function M.open_tab_windows(entry, tab_idx)
+	if not entry or not entry.bufs or #entry.bufs == 0 then
 		return
 	end
 
@@ -236,7 +308,8 @@ function M.open_tab_windows(tab, tab_idx)
 		state.set_zoom_ruler()
 	end
 
-	local st = state.get_tab_state(tab_idx)
+	local bufs = entry.bufs
+	local st = entry
 	local tab_count = #state.get_tabs()
 	local show_winbar = config.should_show_winbar(tab_count)
 
@@ -245,12 +318,12 @@ function M.open_tab_windows(tab, tab_idx)
 	local height = vim.t.term_height or config.get_term_height()
 
 	local has_stl = false
-	local focus_idx = state.clamp(st.focus or 1, 1, #tab)
+	local focus_idx = state.clamp(st.focus or 1, 1, #bufs)
 
 	if config.is_float_mode() then
 		overlay.update()
 		local base_config = M.get_float_win_config()
-		local num_panes = #tab
+		local num_panes = #bufs
 		local total_width = base_config.width
 
 		-- Calculate pane widths
@@ -286,7 +359,7 @@ function M.open_tab_windows(tab, tab_idx)
 		local stl_height = has_stl and 1 or 0
 		local col_offset = 0
 		local fillchar = vim.opt.fillchars:get().vert or "\xe2\x94\x82"
-		for i in ipairs(tab) do
+		for i in ipairs(bufs) do
 			local has_left = (i > 1)
 			local has_right = (i < num_panes)
 			local border
@@ -329,7 +402,7 @@ function M.open_tab_windows(tab, tab_idx)
 		table.insert(wins, first_win)
 		table.insert(scratches, first_scratch)
 
-		for i = 2, #tab do
+		for i = 2, #bufs do
 			local prev_win = wins[i - 1]
 			local win, scratch = open_window({
 				split = "right",
@@ -358,36 +431,12 @@ function M.open_tab_windows(tab, tab_idx)
 		end
 	end
 
-	-- Setting vim.wo[win].winbar requires the window to have >= 2 lines
-	-- (1 for winbar, 1 for content); otherwise Neovim raises E36 "Not enough
-	-- room". This matters when the user shrinks the app window to a very
-	-- small size in float zoom mode.
-	local function can_set_winbar(win)
-		return show_winbar and vim.api.nvim_win_get_height(win) >= 2
-	end
-
-	local function apply_winbar(win)
-		if can_set_winbar(win) then
-			vim.wo[win].winbar = " "
-		else
-			vim.wo[win].winbar = ""
-		end
-	end
-
 	-- Set window options on the scratch windows BEFORE attaching terminal
-	-- buffers. nvim_win_set_buf calls get_winopts() which restores the
-	-- buffer's saved w_onebuf_opt. If those match what we set here, the
-	-- terminal sees no dimension change at attachment time.
+	-- buffers, so the terminal sees no dimension change at attachment time.
 	local float_winblend = config.get_float_winblend()
 	for _, win in ipairs(wins) do
 		if state.win_valid(win) then
-			vim.wo[win].signcolumn = "no"
-			vim.wo[win].foldcolumn = "0"
-			vim.wo[win].number = false
-			vim.wo[win].relativenumber = false
-			vim.wo[win].scrolloff = 0
-			vim.wo[win].sidescrolloff = 0
-			vim.wo[win].winblend = float_winblend
+			apply_pane_winopts(win, float_winblend, show_winbar)
 			vim.wo[win].cursorline = false
 			vim.wo[win].cursorcolumn = false
 			vim.wo[win].spell = false
@@ -396,7 +445,6 @@ function M.open_tab_windows(tab, tab_idx)
 			vim.wo[win].statuscolumn = ""
 			vim.wo[win].fillchars = "eob: "
 			vim.wo[win].winhighlight = "EndOfBuffer:"
-			apply_winbar(win)
 		end
 	end
 
@@ -411,15 +459,8 @@ function M.open_tab_windows(tab, tab_idx)
 	local attach_ok, attach_err = pcall(function()
 		for i, win in ipairs(wins) do
 			if state.win_valid(win) then
-				vim.api.nvim_win_set_buf(win, tab[i])
-				vim.wo[win].signcolumn = "no"
-				vim.wo[win].foldcolumn = "0"
-				vim.wo[win].number = false
-				vim.wo[win].relativenumber = false
-				vim.wo[win].scrolloff = 0
-				vim.wo[win].sidescrolloff = 0
-				vim.wo[win].winblend = float_winblend
-				apply_winbar(win)
+				vim.api.nvim_win_set_buf(win, bufs[i])
+				apply_pane_winopts(win, float_winblend, show_winbar)
 			end
 		end
 	end)
@@ -428,23 +469,7 @@ function M.open_tab_windows(tab, tab_idx)
 		error(attach_err)
 	end
 
-	-- Force correct PTY dimensions after all window options are finalized.
-	-- nvim_win_set_buf may report stale dimensions to the PTY before
-	-- winbar/signcolumn/etc. are re-applied.
-	if vim.t.term_zoom then
-		for i, win in ipairs(wins) do
-			if state.win_valid(win) then
-				local job_id = vim.b[tab[i]].terminal_job_id
-				if job_id then
-					local rows = vim.api.nvim_win_get_height(win)
-					if can_set_winbar(win) then
-						rows = rows - 1
-					end
-					pcall(vim.fn.jobresize, job_id, vim.api.nvim_win_get_width(win), math.max(rows, 1))
-				end
-			end
-		end
-	end
+	resize_zoom_ptys(wins, bufs, show_winbar)
 
 	for _, scratch in ipairs(scratches) do
 		if vim.api.nvim_buf_is_valid(scratch) then
@@ -452,34 +477,7 @@ function M.open_tab_windows(tab, tab_idx)
 		end
 	end
 
-	focus_idx = state.clamp(focus_idx, 1, #wins)
-
-	if wins[focus_idx] and state.win_valid(wins[focus_idx]) then
-		vim.api.nvim_set_current_win(wins[focus_idx])
-	end
-
-	vim.t.term_winids = wins
-	vim.t.term_winid = wins[focus_idx] or wins[1]
-	vim.t.term_bufnr = tab[focus_idx] or tab[1]
-	vim.t.term_tab_idx = tab_idx
-
-	-- Clear activity flag now that term_tab_idx is set
-	local activity = vim.t.term_tab_activity or {}
-	activity[tostring(tab_idx)] = nil
-	vim.t.term_tab_activity = activity
-
-	local mode_to_restore = "t"
-	if st.modes and st.modes[focus_idx] then
-		mode_to_restore = st.modes[focus_idx]
-	end
-	if mode_to_restore ~= "n" then
-		vim.cmd("startinsert")
-	else
-		vim.cmd("stopinsert")
-	end
-
-	statusline.update()
-	winbar.update()
+	finalize_tab(wins, bufs, tab_idx, st)
 end
 
 function M.reopen_current_tab(target_idx, tabs)
@@ -501,20 +499,17 @@ function M.rebuild_tab(target_idx, tabs)
 	M.reopen_current_tab(target_idx, tabs)
 end
 
-function M.swap_tab_buffers(target_tab, target_idx)
+function M.swap_tab_buffers(target_entry, target_idx)
 	-- Fast-path buffer swap: reuse existing pane windows.
 	-- Called only when pane counts match (checked by caller).
 	-- Mirrors the buffer-attach logic in open_tab_windows().
 	local wins = vim.t.term_winids or {}
-	local target_st = state.get_tab_state(target_idx)
+	local target_bufs = target_entry.bufs
+	local target_st = target_entry
 	local tab_count = #state.get_tabs()
 	local show_winbar = config.should_show_winbar(tab_count)
 	local float_winblend = config.get_float_winblend()
 	local is_float = config.is_float_mode()
-
-	local function can_set_winbar(win)
-		return show_winbar and state.win_valid(win) and vim.api.nvim_win_get_height(win) >= 2
-	end
 
 	local focus_idx = state.clamp(target_st.focus or 1, 1, #wins)
 
@@ -523,14 +518,14 @@ function M.swap_tab_buffers(target_tab, target_idx)
 	-- compares pane counts in the data model (term_order), but term_winids can
 	-- briefly disagree with it (e.g. TermClose shrinks term_order synchronously
 	-- while the rebuild is deferred via vim.schedule).
-	if #wins ~= #target_tab then
+	if #wins ~= #target_bufs then
 		return false
 	end
 	for i, win in ipairs(wins) do
 		if not state.win_valid(win) then
 			return false
 		end
-		if not vim.api.nvim_buf_is_valid(target_tab[i]) then
+		if not vim.api.nvim_buf_is_valid(target_bufs[i]) then
 			return false
 		end
 	end
@@ -538,23 +533,11 @@ function M.swap_tab_buffers(target_tab, target_idx)
 	-- Swap buffers in all pane windows (single eventignore/pcall block)
 	local old_eventignore = vim.o.eventignore
 	vim.o.eventignore = "BufEnter,BufLeave,BufWinEnter"
-	local swap_ok, swap_err = pcall(function()
+	local swap_ok = pcall(function()
 		for i, win in ipairs(wins) do
-			vim.api.nvim_win_set_buf(win, target_tab[i])
+			vim.api.nvim_win_set_buf(win, target_bufs[i])
 			-- Re-apply window options (nvim_win_set_buf restores buffer's saved WinInfo)
-			vim.wo[win].signcolumn = "no"
-			vim.wo[win].foldcolumn = "0"
-			vim.wo[win].number = false
-			vim.wo[win].relativenumber = false
-			vim.wo[win].scrolloff = 0
-			vim.wo[win].sidescrolloff = 0
-			vim.wo[win].winblend = float_winblend
-			-- Apply/clear native winbar on terminal window
-			if can_set_winbar(win) then
-				vim.wo[win].winbar = " "
-			else
-				vim.wo[win].winbar = ""
-			end
+			apply_pane_winopts(win, float_winblend, show_winbar)
 			-- Update z-index in float mode if focus changed
 			if is_float then
 				vim.api.nvim_win_set_config(win, { zindex = (i == focus_idx) and 31 or 30 })
@@ -567,51 +550,9 @@ function M.swap_tab_buffers(target_tab, target_idx)
 		return false
 	end
 
-	-- Force PTY dimensions in zoom mode (mirrors open_tab_windows)
-	if vim.t.term_zoom then
-		for i, win in ipairs(wins) do
-			if state.win_valid(win) then
-				local job_id = vim.b[target_tab[i]].terminal_job_id
-				if job_id then
-					local rows = vim.api.nvim_win_get_height(win)
-					if can_set_winbar(win) then
-						rows = rows - 1
-					end
-					pcall(vim.fn.jobresize, job_id, vim.api.nvim_win_get_width(win), math.max(rows, 1))
-				end
-			end
-		end
-	end
+	resize_zoom_ptys(wins, target_bufs, show_winbar)
 
-	-- Set focus to target tab's focus pane
-	if wins[focus_idx] and state.win_valid(wins[focus_idx]) then
-		vim.api.nvim_set_current_win(wins[focus_idx])
-	end
-
-	-- Update state variables
-	vim.t.term_winids = wins
-	vim.t.term_winid = wins[focus_idx] or wins[1]
-	vim.t.term_bufnr = target_tab[focus_idx] or target_tab[1]
-	vim.t.term_tab_idx = target_idx
-
-	-- Clear activity flag
-	local activity = vim.t.term_tab_activity or {}
-	activity[tostring(target_idx)] = nil
-	vim.t.term_tab_activity = activity
-
-	-- Restore terminal mode from TARGET tab's saved state
-	local mode_to_restore = "t"
-	if target_st.modes and target_st.modes[focus_idx] then
-		mode_to_restore = target_st.modes[focus_idx]
-	end
-	if mode_to_restore ~= "n" then
-		vim.cmd("startinsert")
-	else
-		vim.cmd("stopinsert")
-	end
-
-	statusline.update()
-	winbar.update()
+	finalize_tab(wins, target_bufs, target_idx, target_st)
 	return true
 end
 
@@ -625,7 +566,7 @@ function M.switch_to_tab(target_idx)
 	local tabs = state.get_tabs()
 	local current_tab = tabs[current_idx or 1]
 	local target_tab = tabs[target_idx]
-	if current_tab and target_tab and #current_tab == #target_tab then
+	if current_tab and target_tab and #current_tab.bufs == #target_tab.bufs then
 		M.save_tab_state()
 		state.set_toggling()
 		if M.swap_tab_buffers(target_tab, target_idx) then

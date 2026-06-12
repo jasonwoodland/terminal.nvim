@@ -6,6 +6,7 @@ local loaded = false
 
 local config = require("terminal.config")
 local state = require("terminal.state")
+local mode = require("terminal.mode")
 local window = require("terminal.window")
 local winbar = require("terminal.winbar")
 local statusline = require("terminal.statusline")
@@ -67,7 +68,7 @@ function M.toggle(opts)
 
 		local tab, tab_idx = state.get_current_tab()
 
-		if tab and #tab > 0 then
+		if tab and #tab.bufs > 0 then
 			if height > 1 then
 				vim.t.term_height = height
 			end
@@ -76,7 +77,7 @@ function M.toggle(opts)
 			-- Create a new terminal and open it via open_tab_windows
 			local bufnr = vim.api.nvim_create_buf(false, true)
 			local order = state.get_term_order()
-			table.insert(order, { bufnr })
+			table.insert(order, { bufs = { bufnr } })
 			vim.t.term_order = order
 			vim.t.term_tab_idx = #order
 			window.termopen_with_size(bufnr, nil, #order)
@@ -243,12 +244,6 @@ local function get_visible_tab_idx(tabs)
 	return state.clamp(vim.t.term_tab_idx or 1, 1, #tabs)
 end
 
-local function move_indexed_values(values, current_idx, new_idx)
-	local value = table.remove(values, current_idx)
-	table.insert(values, new_idx, value)
-	return values
-end
-
 function M.move(direction)
 	local tabs = state.get_tabs()
 	if #tabs < 2 then
@@ -258,32 +253,12 @@ function M.move(direction)
 	local current_idx = get_visible_tab_idx(tabs)
 	local new_idx = ((current_idx + direction - 1) % #tabs) + 1
 
+	-- Entries own their state (widths/focus/modes/activity), so moving the
+	-- entry moves everything with it.
 	local order = state.get_term_order()
-	move_indexed_values(order, current_idx, new_idx)
+	local entry = table.remove(order, current_idx)
+	table.insert(order, new_idx, entry)
 	vim.t.term_order = order
-
-	local tab_states = {}
-	local activity = vim.t.term_tab_activity or {}
-	local activity_values = {}
-	for i = 1, #tabs do
-		tab_states[i] = state.get_tab_state(i)
-		activity_values[i] = activity[tostring(i)] == true
-	end
-
-	move_indexed_values(tab_states, current_idx, new_idx)
-	move_indexed_values(activity_values, current_idx, new_idx)
-
-	for i = 1, #tabs do
-		state.set_tab_state(i, tab_states[i])
-	end
-
-	local new_activity = {}
-	for i, is_active in ipairs(activity_values) do
-		if is_active then
-			new_activity[tostring(i)] = true
-		end
-	end
-	vim.t.term_tab_activity = new_activity
 
 	vim.t.term_tab_idx = new_idx
 
@@ -320,13 +295,11 @@ function M.move_to_vim_tab(direction)
 	window.save_tab_state()
 	window.close_pane_windows()
 
-	-- Remove tab from current tab
+	-- Remove the entry AFTER save_tab_state so it carries up-to-date
+	-- focus/modes (and widths/activity) into the target Vim tab.
 	local order = state.get_term_order()
-	local total_before = #order
-	table.remove(order, tab_idx)
+	local entry = table.remove(order, tab_idx)
 	vim.t.term_order = order
-
-	state.shift_activity_after_remove(tab_idx, total_before)
 
 	-- Add tab to target tab before opening remaining tabs, so
 	-- adopt_current_terminal() (triggered by WinEnter) doesn't re-adopt
@@ -336,9 +309,9 @@ function M.move_to_vim_tab(direction)
 		target_order = {}
 	end
 	target_order = state.migrate_term_order(target_order)
-	table.insert(target_order, tab)
+	table.insert(target_order, entry)
 	vim.t[target_tab].term_order = target_order
-	for _, buf in ipairs(tab) do
+	for _, buf in ipairs(entry.bufs) do
 		vim.b[buf].term_owner_tab = target_tab
 	end
 
@@ -356,7 +329,7 @@ function M.move_to_vim_tab(direction)
 	end
 
 	-- Switch to target tab
-	state.record_current_term_mode()
+	mode.record()
 	vim.api.nvim_set_current_tabpage(target_tab)
 	state.setup_vars()
 
@@ -396,8 +369,8 @@ function M.go_to_notification()
 		local ok, order = pcall(vim.api.nvim_tabpage_get_var, tp, "term_order")
 		if ok and order then
 			order = state.migrate_term_order(order)
-			for _, grp in ipairs(order) do
-				for _, buf in ipairs(grp) do
+			for _, entry in ipairs(order) do
+				for _, buf in ipairs(entry.bufs) do
 					if buf == bufnr then
 						target_tab = tp
 						break
@@ -419,7 +392,7 @@ function M.go_to_notification()
 
 	-- Switch to the target tab if needed
 	if target_tab ~= vim.api.nvim_get_current_tabpage() then
-		state.record_current_term_mode()
+		mode.record()
 		vim.api.nvim_set_current_tabpage(target_tab)
 		state.setup_vars()
 	end
@@ -449,14 +422,9 @@ function M.go_to_notification()
 		-- Already on the right tab, just focus the pane
 		local wins = vim.t.term_winids or {}
 		if pane_idx and pane_idx <= #wins and state.win_valid(wins[pane_idx]) then
-			state.record_current_term_mode()
+			mode.record()
 			vim.api.nvim_set_current_win(wins[pane_idx])
-			local mode = vim.b[bufnr].term_mode
-			if mode == "t" or mode == nil then
-				vim.cmd("startinsert")
-			else
-				vim.cmd("stopinsert")
-			end
+			mode.apply(vim.b[bufnr].term_mode)
 			statusline.update()
 		end
 	end
@@ -498,7 +466,7 @@ function M.delete()
 	local tabs = state.get_tabs()
 	local tab = tabs[tab_idx]
 
-	if #tab == 1 then
+	if #tab.bufs == 1 then
 		window.save_tab_state()
 		window.close_pane_windows()
 		state.remove_term_from_order(bufnr)
@@ -509,22 +477,19 @@ function M.delete()
 		window.close_pane_windows()
 
 		local order = state.get_term_order()
-		local g = order[tab_idx]
-		local new_g = {}
-		for _, buf in ipairs(g) do
+		local entry = order[tab_idx]
+		local new_bufs = {}
+		for _, buf in ipairs(entry.bufs) do
 			if buf ~= bufnr then
-				table.insert(new_g, buf)
+				table.insert(new_bufs, buf)
 			end
 		end
-		order[tab_idx] = new_g
-		vim.t.term_order = order
-
-		local st = state.get_tab_state(tab_idx)
-		st.widths = nil
-		if st.focus and st.focus > #new_g then
-			st.focus = #new_g
+		entry.bufs = new_bufs
+		entry.widths = nil
+		if entry.focus and entry.focus > #new_bufs then
+			entry.focus = #new_bufs
 		end
-		state.set_tab_state(tab_idx, st)
+		vim.t.term_order = order
 
 		vim.api.nvim_buf_delete(bufnr, { force = true })
 		window.reopen_current_tab(tab_idx)
@@ -544,13 +509,13 @@ function M.new()
 	-- Add to order before termopen so TermOpen autocmd doesn't double-add
 	local order = state.get_term_order()
 	local insert_idx = #order == 0 and 1 or (current_idx or #order) + 1
-	table.insert(order, insert_idx, { bufnr })
+	table.insert(order, insert_idx, { bufs = { bufnr } })
 	vim.t.term_order = order
 	vim.t.term_tab_idx = insert_idx
 
 	window.termopen_with_size(bufnr, nil, #order)
 
-	window.open_tab_windows({ bufnr }, insert_idx)
+	window.open_tab_windows({ bufs = { bufnr } }, insert_idx)
 end
 
 function M.vsplit()
@@ -574,9 +539,9 @@ function M.vsplit()
 	-- Add to tab after current pane, before termopen so TermOpen autocmd doesn't double-add
 	state.add_buf_to_tab(bufnr, tab_idx, current_pane_idx)
 
-	window.termopen_with_size(bufnr, #tab + 1, #state.get_term_order())
+	window.termopen_with_size(bufnr, #tab.bufs + 1, #state.get_term_order())
 
-	local insert_pos = (current_pane_idx or #tab) + 1
+	local insert_pos = (current_pane_idx or #tab.bufs) + 1
 	local st = state.get_tab_state(tab_idx)
 	st.widths = nil
 	st.focus = insert_pos
@@ -621,13 +586,10 @@ function M.setup(user_config)
 
 	state.setup_vars()
 
-	local setup = require("terminal.setup")
-	setup.setup_autocmd(M)
-	setup.setup_winbar_autocmds()
-	setup.setup_osc_notifications()
-	setup.setup_keymap(M)
-	setup.setup_command(M)
-	setup.setup_alias()
+	require("terminal.autocmds").setup(M)
+	require("terminal.osc").setup()
+	require("terminal.keymaps").setup(M)
+	require("terminal.commands").setup(M)
 
 	require("terminal.job").setup()
 	require("terminal.fugitive").setup()

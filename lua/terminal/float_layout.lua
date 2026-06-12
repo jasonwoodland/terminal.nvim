@@ -4,6 +4,7 @@ local M = {}
 
 local config = require("terminal.config")
 local state = require("terminal.state")
+local mode = require("terminal.mode")
 local winbar = require("terminal.winbar")
 local statusline = require("terminal.statusline")
 
@@ -155,29 +156,9 @@ local function get_sep_screen_col(sep_idx)
 	end
 end
 
-local function restore_term_mode(winid, mode)
-	if not state.win_valid(winid) then
-		return
-	end
-
-	local ok, bufnr = pcall(vim.api.nvim_win_get_buf, winid)
-	if not ok or not vim.api.nvim_buf_is_valid(bufnr) or vim.bo[bufnr].buftype ~= "terminal" then
-		return
-	end
-
-	local restore_mode = mode or vim.b[bufnr].term_mode
-	if restore_mode == "t" or restore_mode == nil then
-		vim.b[bufnr].term_mode = "t"
-		vim.cmd("startinsert")
-	else
-		vim.b[bufnr].term_mode = "n"
-		vim.cmd("stopinsert")
-	end
-end
-
 function M.setup_mouse_mappings(bufnr, api)
-	for _, mode in ipairs({ "n", "t" }) do
-		vim.keymap.set(mode, "<LeftMouse>", function()
+	for _, keymode in ipairs({ "n", "t" }) do
+		vim.keymap.set(keymode, "<LeftMouse>", function()
 			local mouse = vim.fn.getmousepos()
 
 			-- Track mode for tabline clicks so LeftRelease can restore it
@@ -204,11 +185,11 @@ function M.setup_mouse_mappings(bufnr, api)
 					local stl_buf = vim.api.nvim_win_get_buf(mouse.winid)
 					local stl_pane = vim.b[stl_buf].terminal_stl_pane
 					if stl_pane and state.win_valid(stl_pane) then
-						local m = vim.b[vim.api.nvim_win_get_buf(stl_pane)].term_mode
-						state.record_current_term_mode()
+						local m = mode.of_win(stl_pane)
+						mode.record()
 						vim.schedule(function()
 							vim.api.nvim_set_current_win(stl_pane)
-							restore_term_mode(stl_pane, m)
+							mode.restore(stl_pane, m)
 							statusline.update()
 						end)
 					end
@@ -221,11 +202,11 @@ function M.setup_mouse_mappings(bufnr, api)
 					for _, win in ipairs(wins) do
 						if mouse.winid == win and state.win_valid(win) then
 							stl_click = true
-							local m = vim.b[vim.api.nvim_win_get_buf(win)].term_mode
-							state.record_current_term_mode()
+							local m = mode.of_win(win)
+							mode.record()
 							vim.schedule(function()
 								vim.api.nvim_set_current_win(win)
-								restore_term_mode(win, m)
+								mode.restore(win, m)
 							end)
 							return ""
 						end
@@ -251,7 +232,7 @@ function M.setup_mouse_mappings(bufnr, api)
 				return "<LeftMouse>"
 			end, { buffer = bufnr, expr = true, noremap = true })
 
-		vim.keymap.set(mode, "<LeftDrag>", function()
+		vim.keymap.set(keymode, "<LeftDrag>", function()
 				local drag_mouse = vim.fn.getmousepos()
 				if drag_mouse.winid == vim.t.term_winbar_winid or statusline.is_stl_window(drag_mouse.winid) or stl_click then
 					return ""
@@ -291,7 +272,7 @@ function M.setup_mouse_mappings(bufnr, api)
 			"<2-LeftRelease>", "<3-LeftRelease>", "<4-LeftRelease>",
 			"<2-LeftDrag>", "<3-LeftDrag>", "<4-LeftDrag>",
 		}) do
-			vim.keymap.set(mode, event, function()
+			vim.keymap.set(keymode, event, function()
 				local ev_mouse = vim.fn.getmousepos()
 				if ev_mouse.winid == vim.t.term_winbar_winid or statusline.is_stl_window(ev_mouse.winid) then
 					return ""
@@ -300,7 +281,7 @@ function M.setup_mouse_mappings(bufnr, api)
 			end, { buffer = bufnr, expr = true, noremap = true })
 		end
 
-		vim.keymap.set(mode, "<LeftRelease>", function()
+		vim.keymap.set(keymode, "<LeftRelease>", function()
 				local rel_mouse = vim.fn.getmousepos()
 				if rel_mouse.winid == vim.t.term_winbar_winid or statusline.is_stl_window(rel_mouse.winid) then
 					return ""
@@ -312,10 +293,8 @@ function M.setup_mouse_mappings(bufnr, api)
 				if tabline_click_mode then
 					local was_terminal = tabline_click_mode == "t"
 					tabline_click_mode = nil
-					if was_terminal and vim.bo.buftype == "terminal" and (vim.b.term_mode == "t" or vim.b.term_mode == nil) then
-						vim.schedule(function()
-							vim.cmd("startinsert")
-						end)
+					if was_terminal and vim.bo.buftype == "terminal" then
+						vim.schedule(mode.restore_current)
 					end
 					return ""
 				end

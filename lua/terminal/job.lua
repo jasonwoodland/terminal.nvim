@@ -5,12 +5,16 @@ local job_bufnr = nil
 function M.run(cmd, cb)
 	local prev_win = vim.api.nvim_get_current_win()
 	vim.cmd("bot new +resize10")
-	job_bufnr = vim.api.nvim_get_current_buf()
+	local bufnr = vim.api.nvim_get_current_buf()
+	job_bufnr = bufnr
 	vim.fn.termopen(cmd, {
 		on_exit = function(_, code, _)
 			if code == 0 then
-				if vim.api.nvim_buf_is_valid(job_bufnr) then
-					vim.api.nvim_buf_delete(job_bufnr, { force = true })
+				if vim.api.nvim_buf_is_valid(bufnr) then
+					vim.api.nvim_buf_delete(bufnr, { force = true })
+				end
+				if job_bufnr == bufnr then
+					job_bufnr = nil
 				end
 				if cb then
 					cb()
@@ -21,7 +25,7 @@ function M.run(cmd, cb)
 			end
 		end,
 	})
-	local line_count = vim.api.nvim_buf_line_count(job_bufnr)
+	local line_count = vim.api.nvim_buf_line_count(bufnr)
 	vim.api.nvim_win_set_cursor(0, { line_count, 0 })
 	vim.api.nvim_set_current_win(prev_win)
 end

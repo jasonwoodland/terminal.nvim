@@ -15,8 +15,8 @@ function M.get_click_ranges()
 	return winbar_click_ranges
 end
 
-local function get_winbar_title(tab)
-	local buf = tab[1]
+local function get_winbar_title(entry)
+	local buf = entry.bufs[1]
 	local title = vim.b[buf].term_title or vim.api.nvim_buf_get_name(buf)
 	title = title:gsub("([^/~ ]+)/", function(c) return c:sub(1, 1) .. "/" end)
 	return title
@@ -31,9 +31,7 @@ local function render_winbar_content()
 	local current_idx = vim.t.term_tab_idx or 1
 
 	-- Always clear activity for the current tab
-	local activity = vim.t.term_tab_activity or {}
-	activity[tostring(current_idx)] = nil
-	vim.t.term_tab_activity = activity
+	state.set_activity(current_idx, false)
 
 	vim.api.nvim_buf_clear_namespace(winbar_bufnr, winbar_ns, 0, -1)
 	winbar_click_ranges = {}
@@ -41,13 +39,12 @@ local function render_winbar_content()
 	local parts = {}
 	local byte_offset = 0
 
-	for i, tab in ipairs(tabs) do
-		local title = get_winbar_title(tab)
-		local tab_activity = vim.t.term_tab_activity or {}
-		local has_activity = i ~= current_idx and tab_activity[tostring(i)] or false
+	for i, entry in ipairs(tabs) do
+		local title = get_winbar_title(entry)
+		local has_activity = i ~= current_idx and entry.activity or false
 		local label = " " .. i .. ":" .. title .. (has_activity and "*" or "") .. " "
-		if #tab > 1 then
-			label = label .. "[" .. #tab .. "] "
+		if #entry.bufs > 1 then
+			label = label .. "[" .. #entry.bufs .. "] "
 		end
 
 		local start_col = byte_offset
@@ -65,9 +62,9 @@ local function render_winbar_content()
 	for _, range in ipairs(winbar_click_ranges) do
 		local hl = range.tab_idx == current_idx and "WinBarActive" or "WinBar"
 		vim.api.nvim_buf_set_extmark(winbar_bufnr, winbar_ns, 0, range.start_col, {
-		hl_group = hl,
-		end_col = range.end_col,
-	})
+			hl_group = hl,
+			end_col = range.end_col,
+		})
 	end
 end
 
@@ -78,7 +75,7 @@ function M.get_term_windows()
 	end
 
 	local tab_bufs = {}
-	for _, buf in ipairs(tab) do
+	for _, buf in ipairs(tab.bufs) do
 		tab_bufs[buf] = true
 	end
 

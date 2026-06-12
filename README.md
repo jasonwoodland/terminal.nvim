@@ -93,14 +93,21 @@ require("terminal").setup({
     next = "<C-S-]>",
     last_tab = "<C-S-o>",
     last_pane = "<C-S-p>",
+    pane_left = "<C-S-h>",
+    pane_right = "<C-S-l>",
+    vsplit = "<C-S-v>",
+    go_to_tab = "<C-S-%d>",      -- %d is replaced with 1-9
     move_prev = "<C-S-M-[>",
     move_next = "<C-S-M-]>",
     paste_register = "<C-S-r>",
+    digraph = "<C-S-k>",
     reset_height = "<C-S-=>",
-    tab_next = "<C-PageDown>",
-    tab_prev = "<C-PageUp>",
-    move_to_tab_prev = "<C-M-PageUp>",
-    move_to_tab_next = "<C-M-PageDown>",
+    vim_tab_next = "<C-PageDown>",
+    vim_tab_prev = "<C-PageUp>",
+    vim_tab_move_prev = "<C-M-PageUp>",
+    vim_tab_move_next = "<C-M-PageDown>",
+    move_to_vim_tab_prev = "<C-S-M-PageUp>",
+    move_to_vim_tab_next = "<C-S-M-PageDown>",
     last_notification = "<C-S-a>",
   },
 })
@@ -272,6 +279,13 @@ These work anywhere in Normal and/or Terminal mode:
       <td><kbd>&lt;C-S-r&gt;&nbsp;=</kbd></td>
       <td>Enter an expression and the results are inserted</td>
     </tr>
+    <tr><th colspan="4" align="left">Digraphs</th></tr>
+    <tr>
+      <td align="center"></td>
+      <td align="center">✓</td>
+      <td><kbd>&lt;C-S-k&gt;&nbsp;{char1}{char2}</kbd></td>
+      <td>Enter a digraph and send it to the terminal (like <code>i_CTRL-K</code>)</td>
+    </tr>
   </tbody>
 </table>
 
@@ -302,7 +316,7 @@ Press <kbd>&lt;C-S-w&gt;</kbd> followed by a sub-key (works in both Normal and T
     </tr>
     <tr>
       <td><kbd>p</kbd></td>
-      <td>Close terminal (toggle off)</td>
+      <td>Jump to the previous (last-visited) pane</td>
     </tr>
     <tr><th colspan="2" align="left">Pane management</th></tr>
     <tr>

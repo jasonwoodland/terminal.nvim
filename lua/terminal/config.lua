@@ -32,6 +32,11 @@ M.config = {
 		next = "<C-S-]>",
 		last_tab = "<C-S-o>",
 		last_pane = "<C-S-p>",
+		pane_left = "<C-S-h>",
+		pane_right = "<C-S-l>",
+		vsplit = "<C-S-v>",
+		-- %d is replaced with 1-9; set to false to disable the go-to-tab maps
+		go_to_tab = "<C-S-%d>",
 		move_prev = "<C-S-M-[>",
 		move_next = "<C-S-M-]>",
 		paste_register = "<C-S-r>",
