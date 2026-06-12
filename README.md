@@ -6,20 +6,20 @@ Use Neovim as your terminal multiplexer.
 
 ## Features
 
-- [x] Multiple terminal tabs per Vim tab
-- [x] Split panes within terminal tabs
-- [x] Unobtrusive, idiomatic keymaps that work in both Terminal and Normal modes
-- [x] Toggle fullscreen terminal
-- [x] Clickable winbar with terminal tabs
-- [x] Fast tab/window switching, reordering and resizing without leaving Terminal mode
-- [x] Drawer-style and floating window modes
-- [x] Mouse-draggable pane borders in float mode
-- [x] Preserve and restore terminal buffer mode when switching focus
-- [x] Insert the contents of registers while in Terminal mode
-- [x] OSC notification passthrough and bell
-- [x] Activity indicator for background terminal tabs
-- [x] Confirm before deleting a terminal with a running process
-- [x] Fully configurable keymaps
+- Multiple terminal tabs per Vim tab
+- Split panes within terminal tabs
+- Unobtrusive, idiomatic keymaps that work in both Terminal and Normal modes
+- Toggle fullscreen terminal
+- Clickable winbar with terminal tabs
+- Fast tab/window switching, reordering and resizing without leaving Terminal mode
+- Drawer-style and floating window modes
+- Mouse-draggable pane borders in float mode
+- Preserve and restore terminal buffer mode when switching focus
+- Insert the contents of registers while in Terminal mode
+- OSC notification passthrough and bell
+- Activity indicator for background terminal tabs
+- Confirm before deleting a terminal with a running process
+- Fully configurable keymaps
 
 ## Requirements
 
@@ -447,7 +447,9 @@ While in Terminal mode, you can press `<C-S-r> "` to insert the contents of the 
 
 See `:help registers` for more information.
 
-## Appendix: Starting as a fullscreen terminal multiplexer
+## Appendix
+
+### Starting as a fullscreen terminal multiplexer
 
 If your workflow starts from the shell, you can launch Neovim directly into a fullscreen terminal.nvim session:
 
