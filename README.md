@@ -458,3 +458,7 @@ nvim +"lua require('terminal').toggle()" +"lua require('terminal').zoom()"
 ```
 
 This opens terminal.nvim immediately and then zooms it to fill the editor area.
+
+## Contributing
+
+All issues and PRs are welcome.
