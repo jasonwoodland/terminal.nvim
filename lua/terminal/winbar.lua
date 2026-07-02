@@ -15,8 +15,26 @@ function M.get_click_ranges()
 	return winbar_click_ranges
 end
 
-local function get_winbar_title(entry)
-	local buf = entry.bufs[1]
+-- The buffer whose title represents a tab: the focused pane — live focus for
+-- the current tab, saved focus for background tabs — falling back to the
+-- first pane.
+local function title_buf(entry, is_current)
+	local candidates = { entry.focus }
+	if is_current then
+		table.insert(candidates, 1, vim.t.term_bufnr)
+	end
+	for _, cand in ipairs(candidates) do
+		for _, buf in ipairs(entry.bufs) do
+			if buf == cand then
+				return buf
+			end
+		end
+	end
+	return entry.bufs[1]
+end
+
+local function get_winbar_title(entry, is_current)
+	local buf = title_buf(entry, is_current)
 	local title = vim.b[buf].term_title or vim.api.nvim_buf_get_name(buf)
 	title = title:gsub("([^/~ ]+)/", function(c) return c:sub(1, 1) .. "/" end)
 	return title
@@ -40,7 +58,7 @@ local function render_winbar_content()
 	local byte_offset = 0
 
 	for i, entry in ipairs(tabs) do
-		local title = get_winbar_title(entry)
+		local title = get_winbar_title(entry, i == current_idx)
 		local has_activity = i ~= current_idx and entry.activity or false
 		local label = " " .. i .. ":" .. title .. (has_activity and "*" or "") .. " "
 		if #entry.bufs > 1 then
@@ -79,7 +97,7 @@ function M.get_term_windows()
 		tab_bufs[buf] = true
 	end
 
-	local wins = {}
+	local buf_wins = {}
 	local float_mode = config.is_float_mode()
 
 	for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
@@ -90,37 +108,23 @@ function M.get_term_windows()
 				local is_float = win_config.relative and win_config.relative ~= ""
 				if (float_mode and is_float) or (not float_mode and not is_float) then
 					if win ~= vim.t.term_winbar_winid then
-						table.insert(wins, win)
+						buf_wins[buf] = win
 					end
 				end
 			end
 		end
 	end
 
-	table.sort(wins, function(a, b)
-		local pos_a = vim.api.nvim_win_get_position(a)
-		local pos_b = vim.api.nvim_win_get_position(b)
-		return pos_a[2] < pos_b[2]
-	end)
+	-- DFS (bufs) order: positional sorting cannot reproduce the layout-tree
+	-- order for 2-D layouts.
+	local wins = {}
+	for _, buf in ipairs(tab.bufs) do
+		if buf_wins[buf] then
+			table.insert(wins, buf_wins[buf])
+		end
+	end
 
 	return wins
-end
-
-local function has_top_border(border)
-	if border == nil or border == "none" or border == "shadow" then
-		return false
-	end
-	if type(border) == "table" then
-		local top = border[2]
-		if top == nil or top == "" then
-			return false
-		end
-		if type(top) == "table" and (top[1] == nil or top[1] == "") then
-			return false
-		end
-		return true
-	end
-	return true
 end
 
 local function get_winbar_overlay_config()
@@ -144,31 +148,26 @@ local function get_winbar_overlay_config()
 	local row = pos[1]
 	local col = pos[2]
 
-	local total_width = 0
-	local valid_count = 0
+	-- Bounding box across all panes (2-D layouts stack panes, so summing
+	-- widths would overcount)
+	local min_col, max_col = math.huge, 0
 	for _, win in ipairs(wins) do
 		if state.win_valid(win) then
-			total_width = total_width + vim.api.nvim_win_get_width(win)
-			valid_count = valid_count + 1
+			local p = vim.api.nvim_win_get_position(win)
+			min_col = math.min(min_col, p[2])
+			max_col = math.max(max_col, p[2] + vim.api.nvim_win_get_width(win))
 		end
 	end
-	if valid_count > 1 then
-		total_width = total_width + (valid_count - 1)
-	end
+	local total_width = max_col - min_col
 
 	if total_width <= 0 then
 		return nil
 	end
+	col = math.min(col, min_col)
 
 	if config.is_float_mode() then
-		-- nvim_win_get_position returns the outer (border) top-left for
-		-- bordered floats. Shift inside the border so the winbar sits at
-		-- the content's first row instead of overlapping the border.
-		local first_cfg = vim.api.nvim_win_get_config(first_win)
-		if has_top_border(first_cfg.border) then
-			row = row + 1
-			col = col + 1
-		end
+		-- Panes are borderless floats positioned at content coordinates (the
+		-- canvas float draws the border), so no border offset is needed.
 		return {
 			relative = "editor",
 			row = row,

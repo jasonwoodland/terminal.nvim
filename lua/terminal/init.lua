@@ -77,7 +77,7 @@ function M.toggle(opts)
 			-- Create a new terminal and open it via open_tab_windows
 			local bufnr = vim.api.nvim_create_buf(false, true)
 			local order = state.get_term_order()
-			table.insert(order, { bufs = { bufnr } })
+			table.insert(order, state.new_entry(bufnr))
 			vim.t.term_order = order
 			vim.t.term_tab_idx = #order
 			window.termopen_with_size(bufnr, nil, #order)
@@ -124,18 +124,15 @@ function M.zoom()
 		return
 	end
 	if vim.t.term_prev_height == nil then
-		vim.t.term_prev_height = vim.t.term_height
-		vim.api.nvim_win_call(wins2[1], function()
-			vim.cmd("resize")
-		end)
-		vim.t.term_height = vim.api.nvim_win_get_height(wins2[1])
+		-- set before resizing so WinResized doesn't overwrite term_height
+		vim.t.term_prev_height = state.drawer_span() or vim.t.term_height
+		-- maximize; vim/set_drawer_height clamp to the available rows
+		window.set_drawer_height(vim.o.lines)
 	else
-		vim.t.term_height = vim.t.term_prev_height
+		local target = vim.t.term_prev_height
 		vim.t.term_prev_height = nil
+		window.set_drawer_height(target)
 	end
-	vim.api.nvim_win_call(wins2[1], function()
-		vim.api.nvim_win_set_height(0, vim.t.term_height)
-	end)
 end
 
 function M.float_toggle()
@@ -170,13 +167,7 @@ function M.reset_height()
 	if vim.t.term_prev_height ~= nil or vim.t.term_zoom or config.is_float_mode() then
 		return
 	end
-	vim.t.term_height = config.get_term_height()
-	local wins = vim.t.term_winids or {}
-	if #wins > 0 and state.win_valid(wins[1]) then
-		vim.api.nvim_win_call(wins[1], function()
-			vim.api.nvim_win_set_height(0, vim.t.term_height)
-		end)
-	end
+	window.set_drawer_height(config.get_term_height())
 end
 
 --------------------------------------------------------------------------------
@@ -414,7 +405,7 @@ function M.go_to_notification()
 		window.close_pane_windows()
 
 		local st = state.get_tab_state(tab_idx)
-		st.focus = pane_idx
+		st.focus = bufnr
 		state.set_tab_state(tab_idx, st)
 
 		window.reopen_current_tab(tab_idx)
@@ -463,37 +454,15 @@ function M.delete()
 		return
 	end
 
-	local tabs = state.get_tabs()
-	local tab = tabs[tab_idx]
+	window.save_tab_state()
+	window.save_layout_sizes()
+	window.close_pane_windows()
 
-	if #tab.bufs == 1 then
-		window.save_tab_state()
-		window.close_pane_windows()
-		state.remove_term_from_order(bufnr)
-		vim.api.nvim_buf_delete(bufnr, { force = true })
-		window.reopen_current_tab()
-	else
-		window.save_tab_state()
-		window.close_pane_windows()
-
-		local order = state.get_term_order()
-		local entry = order[tab_idx]
-		local new_bufs = {}
-		for _, buf in ipairs(entry.bufs) do
-			if buf ~= bufnr then
-				table.insert(new_bufs, buf)
-			end
-		end
-		entry.bufs = new_bufs
-		entry.widths = nil
-		if entry.focus and entry.focus > #new_bufs then
-			entry.focus = #new_bufs
-		end
-		vim.t.term_order = order
-
-		vim.api.nvim_buf_delete(bufnr, { force = true })
-		window.reopen_current_tab(tab_idx)
-	end
+	-- Applies vim's close rule: the neighboring pane absorbs the space and
+	-- receives focus; single-pane tabs are removed entirely.
+	state.remove_term_from_order(bufnr)
+	vim.api.nvim_buf_delete(bufnr, { force = true })
+	window.reopen_current_tab()
 end
 
 function M.new()
@@ -509,16 +478,20 @@ function M.new()
 	-- Add to order before termopen so TermOpen autocmd doesn't double-add
 	local order = state.get_term_order()
 	local insert_idx = #order == 0 and 1 or (current_idx or #order) + 1
-	table.insert(order, insert_idx, { bufs = { bufnr } })
+	local entry = state.new_entry(bufnr)
+	table.insert(order, insert_idx, entry)
 	vim.t.term_order = order
 	vim.t.term_tab_idx = insert_idx
 
 	window.termopen_with_size(bufnr, nil, #order)
 
-	window.open_tab_windows({ bufs = { bufnr } }, insert_idx)
+	window.open_tab_windows(entry, insert_idx)
 end
 
-function M.vsplit()
+-- Split the current pane. dir: "row" (vsplit, side by side) or "col"
+-- (split, stacked). The new terminal goes after the current pane and takes
+-- half its space (vim split sizing).
+function M.split(dir)
 	state.set_toggling()
 
 	local tab, tab_idx = state.get_current_tab()
@@ -527,25 +500,24 @@ function M.vsplit()
 		return
 	end
 
-	-- Find current pane index before closing windows
+	-- Find current pane before closing windows
 	local current_bufnr = vim.api.nvim_get_current_buf()
 	local _, current_pane_idx = state.find_buf_tab(current_bufnr)
 
 	window.save_tab_state()
+	window.save_layout_sizes()
 	window.close_pane_windows()
 
 	local bufnr = vim.api.nvim_create_buf(false, true)
 
-	-- Add to tab after current pane, before termopen so TermOpen autocmd doesn't double-add
-	state.add_buf_to_tab(bufnr, tab_idx, current_pane_idx)
+	-- Add to tab before termopen so TermOpen autocmd doesn't double-add
+	if not state.split_buf_in_tab(bufnr, tab_idx, current_bufnr, dir or "row") then
+		vim.api.nvim_buf_delete(bufnr, { force = true })
+		window.reopen_current_tab(tab_idx)
+		return
+	end
 
 	window.termopen_with_size(bufnr, #tab.bufs + 1, #state.get_term_order())
-
-	local insert_pos = (current_pane_idx or #tab.bufs) + 1
-	local st = state.get_tab_state(tab_idx)
-	st.widths = nil
-	st.focus = insert_pos
-	state.set_tab_state(tab_idx, st)
 
 	window.reopen_current_tab(tab_idx)
 
@@ -555,11 +527,19 @@ function M.vsplit()
 	end
 end
 
+function M.vsplit()
+	M.split("row")
+end
+
+function M.hsplit()
+	M.split("col")
+end
+
 -- Like CTRL-W_T: move the current pane out of its split into a new terminal
 -- tab of its own. Fails if the pane's tab has only one pane.
 function M.break_pane_to_tab()
 	local bufnr = vim.api.nvim_get_current_buf()
-	local tab_idx, pane_idx = state.find_buf_tab(bufnr)
+	local tab_idx = state.find_buf_tab(bufnr)
 	if not tab_idx then
 		return
 	end
@@ -572,27 +552,20 @@ function M.break_pane_to_tab()
 
 	state.set_toggling()
 	window.save_tab_state()
+	window.save_layout_sizes()
 	window.close_pane_windows()
 
 	local order = state.get_term_order()
-	local entry = order[tab_idx]
+	local pane_mode = order[tab_idx].modes and order[tab_idx].modes[tostring(bufnr)]
 
-	table.remove(entry.bufs, pane_idx)
-	local pane_mode
-	if entry.modes then
-		pane_mode = table.remove(entry.modes, pane_idx)
-	end
-	entry.widths = nil
-	if entry.focus and entry.focus > #entry.bufs then
-		entry.focus = #entry.bufs
-	end
+	-- Applies the close-space rule to the source tab
+	state.remove_term_from_order(bufnr)
 
+	order = state.get_term_order()
 	local new_idx = tab_idx + 1
-	table.insert(order, new_idx, {
-		bufs = { bufnr },
-		focus = 1,
-		modes = pane_mode and { pane_mode } or nil,
-	})
+	local entry = state.new_entry(bufnr)
+	entry.modes = pane_mode and { [tostring(bufnr)] = pane_mode } or nil
+	table.insert(order, new_idx, entry)
 	vim.t.term_order = order
 	vim.t.term_tab_idx = new_idx
 

@@ -7,7 +7,8 @@ Use Neovim as your terminal multiplexer.
 ## Features
 
 - Multiple terminal tabs per Vim tab
-- Split panes within terminal tabs
+- Split panes within terminal tabs — vertical and horizontal, nesting like vim windows
+- The full vim `CTRL-W` command set over panes (splits, directional navigation, resize cascades, rotate/exchange, move-to-edge), matching vim's exact semantics in both drawer and float mode
 - Unobtrusive, idiomatic keymaps that work in both Terminal and Normal modes
 - Toggle fullscreen terminal
 - Clickable winbar with terminal tabs
@@ -96,6 +97,7 @@ require("terminal").setup({
     pane_left = "<C-S-h>",
     pane_right = "<C-S-l>",
     vsplit = "<C-S-v>",
+    split = "<C-S-s>",
     break_to_tab = "<C-S-t>",
     go_to_tab = "<C-S-%d>",      -- %d is replaced with 1-9
     move_prev = "<C-S-M-[>",
@@ -310,16 +312,12 @@ Press <kbd>&lt;C-S-w&gt;</kbd> followed by a sub-key (works in both Normal and T
   <tbody>
     <tr><th colspan="2" align="left">Navigation</th></tr>
     <tr>
-      <td><kbd>w</kbd></td>
-      <td>Cycle to next pane</td>
+      <td><kbd>w</kbd> / <kbd>W</kbd></td>
+      <td>Cycle to next / previous pane (count = go to pane <em>N</em>)</td>
     </tr>
     <tr>
-      <td><kbd>h</kbd></td>
-      <td>Focus pane left</td>
-    </tr>
-    <tr>
-      <td><kbd>l</kbd></td>
-      <td>Focus pane right</td>
+      <td><kbd>h</kbd> <kbd>j</kbd> <kbd>k</kbd> <kbd>l</kbd></td>
+      <td>Focus pane left / below / above / right (vim's directional rules)</td>
     </tr>
     <tr>
       <td><kbd>p</kbd></td>
@@ -328,11 +326,15 @@ Press <kbd>&lt;C-S-w&gt;</kbd> followed by a sub-key (works in both Normal and T
     <tr><th colspan="2" align="left">Pane management</th></tr>
     <tr>
       <td><kbd>v</kbd></td>
-      <td>Vertical split pane</td>
+      <td>Split pane vertically (side by side)</td>
+    </tr>
+    <tr>
+      <td><kbd>s</kbd></td>
+      <td>Split pane horizontally (stacked)</td>
     </tr>
     <tr>
       <td><kbd>c</kbd></td>
-      <td>Delete current terminal</td>
+      <td>Delete current terminal (the neighboring pane absorbs the space)</td>
     </tr>
     <tr>
       <td><kbd>t</kbd></td>
@@ -340,16 +342,20 @@ Press <kbd>&lt;C-S-w&gt;</kbd> followed by a sub-key (works in both Normal and T
     </tr>
     <tr><th colspan="2" align="left">Resize</th></tr>
     <tr>
-      <td><kbd>&gt;</kbd></td>
-      <td>Grow pane width (accepts count)</td>
+      <td><kbd>&gt;</kbd> / <kbd>&lt;</kbd></td>
+      <td>Grow / shrink pane width (accepts count)</td>
     </tr>
     <tr>
-      <td><kbd>&lt;</kbd></td>
-      <td>Shrink pane width (accepts count)</td>
+      <td><kbd>+</kbd> / <kbd>-</kbd></td>
+      <td>Grow / shrink pane height (accepts count)</td>
+    </tr>
+    <tr>
+      <td><kbd>_</kbd> / <kbd>|</kbd></td>
+      <td>Maximize pane height / width within the terminal (count = set size)</td>
     </tr>
     <tr>
       <td><kbd>=</kbd></td>
-      <td>Equalize pane widths</td>
+      <td>Equalize panes (vim's proportional distribution)</td>
     </tr>
     <tr>
       <td><kbd>{count}&lt;CR&gt;</kbd></td>
@@ -357,27 +363,35 @@ Press <kbd>&lt;C-S-w&gt;</kbd> followed by a sub-key (works in both Normal and T
     </tr>
     <tr><th colspan="2" align="left">Move & rotate</th></tr>
     <tr>
-      <td><kbd>H</kbd></td>
-      <td>Move pane to far left</td>
+      <td><kbd>H</kbd> / <kbd>L</kbd></td>
+      <td>Move pane to the far left / right as a full-height pane</td>
     </tr>
     <tr>
-      <td><kbd>L</kbd></td>
-      <td>Move pane to far right</td>
+      <td><kbd>K</kbd> / <kbd>J</kbd></td>
+      <td>Move pane to the top / bottom as a full-width pane</td>
     </tr>
     <tr>
-      <td><kbd>r</kbd></td>
-      <td>Rotate panes forward</td>
+      <td><kbd>r</kbd> / <kbd>R</kbd></td>
+      <td>Rotate the panes in the current row/column forward / backward</td>
     </tr>
     <tr>
-      <td><kbd>R</kbd></td>
-      <td>Rotate panes backward</td>
+      <td><kbd>x</kbd></td>
+      <td>Exchange the current pane with the next one (count = with pane <em>N</em>)</td>
     </tr>
   </tbody>
 </table>
 
+Splits nest like vim windows: panes form rows and columns, and all of the
+commands above follow vim's `CTRL-W` semantics (researched from the Neovim
+source) — including the directional-navigation descent rules, the resize
+cascade order, proportional `=` distribution, and `E443` when rotating next
+to a split pane.
+
 ### Normal mode `<C-w>` overrides
 
 When focused in a terminal pane window, `<C-w>` sub-keys are overridden to control panes instead of Vim windows. The same sub-keys from the wincmd table above apply, except `t` (break pane to tab), which is only available via `<C-S-w> t` or the `<C-S-t>` shorthand. Outside of terminal pane windows, `<C-w>` behaves normally.
+
+`z{height}<CR>` also works in Normal mode inside a pane, like vim: it sets the pane's height (a full-height or single pane resizes the drawer itself; a stacked pane resizes within the drawer). All other `z` commands (`zz`, `zt`, folds, plain `z<CR>`) pass through untouched.
 
 ## Commands
 
@@ -435,7 +449,9 @@ terminal.float_toggle()             -- Toggle between float and drawer mode
 terminal.reset_height()             -- Reset terminal height to default
 terminal.new()                      -- Create new terminal tab
 terminal.delete()                   -- Delete current terminal
-terminal.vsplit()                   -- Split current tab with a new pane
+terminal.vsplit()                   -- Split the current pane side by side
+terminal.hsplit()                   -- Split the current pane stacked
+terminal.split(dir)                 -- Split explicitly: "row" or "col"
 terminal.next()                     -- Switch to next tab
 terminal.prev()                     -- Switch to previous tab
 terminal.switch(delta, clamp)       -- Switch by delta (wraps by default, clamp=true to stop at ends)

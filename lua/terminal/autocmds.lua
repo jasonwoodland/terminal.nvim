@@ -195,32 +195,17 @@ function M.setup(api)
 				return
 			end
 			local wins = vim.t.term_winids or {}
-			if #wins > 0 and state.win_valid(wins[1]) then
-				local height = vim.api.nvim_win_get_height(wins[1])
-				if height > 0 then
-					vim.t.term_height = height
+			-- Drawer height is the span over all panes, not the first pane's
+			-- height (stacked panes are shorter than the drawer)
+			if not config.is_float_mode() then
+				local span = state.drawer_span()
+				if span and span > 0 then
+					vim.t.term_height = span
 				end
 			end
-			-- Save pane widths when user explicitly resizes (2+ panes)
+			-- Save pane sizes into the layout tree when the user resizes
 			if #wins >= 2 then
-				local _, tab_idx = state.get_current_tab()
-				if tab_idx then
-					local widths = {}
-					local all_valid = true
-					for i, win in ipairs(wins) do
-						if state.win_valid(win) then
-							widths[i] = vim.api.nvim_win_get_width(win)
-						else
-							all_valid = false
-							break
-						end
-					end
-					if all_valid then
-						local st = state.get_tab_state(tab_idx)
-						st.widths = widths
-						state.set_tab_state(tab_idx, st)
-					end
-				end
+				window.save_layout_sizes()
 			end
 			winbar.update()
 		end,
@@ -240,12 +225,15 @@ function M.setup(api)
 					if old_winid and old_winid ~= current_win then
 						vim.t.term_prev_pane_winid = old_winid
 					end
+					local old_bufnr = vim.t.term_bufnr
 					vim.t.term_winid = current_win
 					vim.t.term_bufnr = vim.api.nvim_win_get_buf(current_win)
 
-					-- Clear activity for the current tab
+					-- Clear activity; refresh the winbar when the focused
+					-- pane changed (the tab title follows the focused pane)
 					local current_tab_idx = vim.t.term_tab_idx or 1
-					if state.set_activity(current_tab_idx, false) then
+					local activity_changed = state.set_activity(current_tab_idx, false)
+					if activity_changed or vim.t.term_bufnr ~= old_bufnr then
 						winbar.update()
 					end
 					break

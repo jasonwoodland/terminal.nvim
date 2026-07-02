@@ -3,6 +3,7 @@
 local M = {}
 
 local config = require("terminal.config")
+local frame = require("terminal.frame")
 
 local saved_cmdheight = nil
 local saved_ruler = nil
@@ -49,6 +50,7 @@ function M.is_term_related_window(win)
 		if w == win then return true end
 	end
 	if win == vim.t.term_winbar_winid then return true end
+	if win == vim.t.term_canvas_winid then return true end
 	local ok, buf = pcall(vim.api.nvim_win_get_buf, win)
 	if ok and vim.b[buf].terminal_stl then return true end
 	return false
@@ -95,14 +97,30 @@ function M.restore_ruler()
 	end
 end
 
+-- Total screen rows spanned by the open drawer panes: bounding box over the
+-- pane windows, so stacked panes (and the statusline rows between them) count
+-- toward the drawer height. nil when no pane window is open.
+function M.drawer_span()
+	local wins = vim.t.term_winids or {}
+	local top, bot = math.huge, 0
+	for _, win in ipairs(wins) do
+		if M.win_valid(win) then
+			local pos = vim.api.nvim_win_get_position(win)
+			top = math.min(top, pos[1])
+			bot = math.max(bot, pos[1] + vim.api.nvim_win_get_height(win))
+		end
+	end
+	if bot == 0 then
+		return nil
+	end
+	return bot - top
+end
+
 function M.save_term_height()
 	if vim.t.term_bufnr ~= nil and vim.t.term_prev_height == nil and not vim.t.term_zoom then
-		local wins = vim.t.term_winids or {}
-		if #wins > 0 and M.win_valid(wins[1]) then
-			local height = vim.api.nvim_win_get_height(wins[1])
-			if height > 0 then
-				vim.t.term_height = height
-			end
+		local span = M.drawer_span()
+		if span and span > 0 then
+			vim.t.term_height = span
 		elseif vim.t.term_bufnr then
 			for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
 				if vim.api.nvim_win_get_buf(win) == vim.t.term_bufnr then
@@ -132,40 +150,97 @@ end
 -- Data Model: Tabs
 --
 -- term_order: list of tab entries, each owning its panes and saved state:
---   { bufs = {buf1, buf2}, focus = 1, widths = {80, 40}, modes = {"t","n"},
---     activity = true }
+--   {
+--     layout = <frame tree>,   -- source of truth for pane structure/sizes
+--                              -- (see frame.lua; sizes rescaled on reopen)
+--     bufs = {buf1, buf2},     -- DERIVED: DFS leaf order of layout; kept in
+--                              -- sync via sync_bufs() after tree surgery
+--     focus = <bufnr>,         -- last focused pane buffer
+--     modes = { ["<bufnr>"] = "t"|"n" },  -- string keys (vim.t dicts)
+--     activity = true,
+--   }
 -- Because state lives inside the entry, reordering or removing tabs carries
--- widths/focus/modes/activity along automatically -- there is no index-keyed
--- side table to remap.
+-- everything along automatically -- there is no index-keyed side table.
 --
 -- term_tab_idx: 1-based index of the active tab
--- term_winids: list of window IDs for panes in the current tab
+-- term_winids: pane window IDs of the current tab, in DFS (bufs) order
 -- term_winbar_winid: window ID of the floating winbar overlay
 -------------------------------------------------------------------------------
+
+-- Recompute the derived DFS buffer list from the layout tree.
+function M.sync_bufs(entry)
+	entry.bufs = frame.leaves(entry.layout)
+	return entry
+end
+
+-- Fresh single-pane entry. Sizes are placeholders; rendering rescales the
+-- tree to the real terminal geometry.
+function M.new_entry(bufnr)
+	return {
+		layout = { t = "leaf", buf = bufnr, w = 1, h = 1 },
+		bufs = { bufnr },
+		focus = bufnr,
+	}
+end
 
 -- Upgrade older persisted formats:
 --   v1: {buf1, buf2}            (one buffer per tab)
 --   v2: {{buf1, buf2}, {buf3}}  (buffer lists, state in side tables)
---   v3: {{bufs = {...}, ...}}   (entries owning their state)
+--   v3: {{bufs = {...}, widths = {...}, focus = <idx>, modes = {"t",...}}}
+--   v4: {{layout = <tree>, bufs = {...}, focus = <bufnr>, modes = {map}}}
 function M.migrate_term_order(order)
 	if #order == 0 then
 		return order
 	end
 	local first = order[1]
-	if type(first) == "table" and first.bufs then
+	if type(first) == "table" and first.layout then
 		return order
 	end
-	local new_order = {}
+
+	-- v1/v2 -> v3 shape first
+	local v3 = {}
 	if type(first) == "number" then
 		for _, buf in ipairs(order) do
-			table.insert(new_order, { bufs = { buf } })
+			table.insert(v3, { bufs = { buf } })
+		end
+	elseif not first.bufs then
+		for _, bufs in ipairs(order) do
+			table.insert(v3, { bufs = bufs })
 		end
 	else
-		for _, bufs in ipairs(order) do
-			table.insert(new_order, { bufs = bufs })
-		end
+		v3 = order
 	end
-	return new_order
+
+	-- v3 -> v4: flat bufs + widths become a row layout; positional focus and
+	-- modes become buf-keyed.
+	for _, entry in ipairs(v3) do
+		local total = #entry.bufs - 1
+		if entry.widths and #entry.widths == #entry.bufs then
+			for _, w in ipairs(entry.widths) do
+				total = total + w
+			end
+		else
+			total = total + #entry.bufs
+			entry.widths = nil
+		end
+		entry.layout = frame.from_bufs(entry.bufs, entry.widths, total, 1)
+
+		local focus_idx = M.clamp(entry.focus or 1, 1, #entry.bufs)
+		entry.focus = entry.bufs[focus_idx]
+
+		local modes = nil
+		if type(entry.modes) == "table" then
+			modes = {}
+			for i, buf in ipairs(entry.bufs) do
+				if entry.modes[i] then
+					modes[tostring(buf)] = entry.modes[i]
+				end
+			end
+		end
+		entry.modes = modes
+		entry.widths = nil
+	end
+	return v3
 end
 
 function M.get_term_order()
@@ -179,17 +254,22 @@ function M.get_tabs()
 	local valid_order = {}
 	local changed = false
 	for _, entry in ipairs(order) do
-		local valid_bufs = {}
+		local entry_changed = false
 		for _, buf in ipairs(entry.bufs) do
-			if vim.api.nvim_buf_is_valid(buf) and vim.bo[buf].buftype == "terminal" then
-				table.insert(valid_bufs, buf)
+			if not (vim.api.nvim_buf_is_valid(buf) and vim.bo[buf].buftype == "terminal") then
+				entry_changed = true
+				if entry.layout then
+					entry.layout = select(1, frame.remove(entry.layout, buf))
+				end
 			end
 		end
-		if #valid_bufs ~= #entry.bufs then
+		if entry_changed then
 			changed = true
-			entry.bufs = valid_bufs
+			if entry.layout then
+				M.sync_bufs(entry)
+			end
 		end
-		if #valid_bufs > 0 then
+		if entry.layout and #entry.bufs > 0 then
 			table.insert(valid_order, entry)
 		end
 	end
@@ -233,7 +313,7 @@ function M.add_term_to_order(bufnr, after_bufnr)
 		for i, entry in ipairs(order) do
 			for _, buf in ipairs(entry.bufs) do
 				if buf == after_bufnr then
-					table.insert(order, i + 1, { bufs = { bufnr } })
+					table.insert(order, i + 1, M.new_entry(bufnr))
 					vim.t.term_order = order
 					return
 				end
@@ -241,32 +321,53 @@ function M.add_term_to_order(bufnr, after_bufnr)
 		end
 	end
 
-	table.insert(order, { bufs = { bufnr } })
+	table.insert(order, M.new_entry(bufnr))
 	vim.t.term_order = order
 end
 
+-- Remove a buffer from whichever entry holds it, applying vim's close-space
+-- rule to the entry's layout. Returns the buf of the absorbing pane (nil when
+-- the whole entry went away).
 function M.remove_term_from_order(bufnr)
 	local order = M.get_term_order()
+	local absorb_buf = nil
 
 	local new_order = {}
 	for _, entry in ipairs(order) do
-		local new_bufs = {}
+		local keep = true
 		for _, buf in ipairs(entry.bufs) do
-			if buf ~= bufnr then
-				table.insert(new_bufs, buf)
+			if buf == bufnr then
+				local root, absorbed = frame.remove(entry.layout, bufnr)
+				entry.layout = root
+				absorb_buf = absorbed
+				if root == nil then
+					keep = false
+				else
+					M.sync_bufs(entry)
+					if entry.focus == bufnr then
+						entry.focus = absorbed
+					end
+					if entry.modes then
+						entry.modes[tostring(bufnr)] = nil
+					end
+				end
+				break
 			end
 		end
-		if #new_bufs > 0 then
-			entry.bufs = new_bufs
+		if keep then
 			table.insert(new_order, entry)
 		end
 	end
 
 	vim.t.term_order = new_order
 	vim.t.term_tab_idx = M.clamp(vim.t.term_tab_idx or 1, 1, math.max(#new_order, 1))
+	return absorb_buf
 end
 
-function M.add_buf_to_tab(bufnr, tab_idx, after_pane_idx)
+-- Split the pane holding at_bufnr in a tab, inserting bufnr as the new pane.
+-- dir is "row" (vsplit) or "col" (split). Falls back to appending at the top
+-- level when at_bufnr isn't in the entry.
+function M.split_buf_in_tab(bufnr, tab_idx, at_bufnr, dir)
 	local order = M.get_term_order()
 
 	local entry = order[tab_idx]
@@ -280,9 +381,33 @@ function M.add_buf_to_tab(bufnr, tab_idx, after_pane_idx)
 		end
 	end
 
-	local insert_pos = after_pane_idx and (after_pane_idx + 1) or (#entry.bufs + 1)
-	table.insert(entry.bufs, insert_pos, bufnr)
+	local at = at_bufnr
+	local found = false
+	for _, buf in ipairs(entry.bufs) do
+		if buf == at then
+			found = true
+			break
+		end
+	end
+	if not found then
+		at = entry.bufs[#entry.bufs]
+	end
+
+	local root, err = frame.split(entry.layout, at, dir, bufnr)
+	if err then
+		-- Not enough room in the saved sizes: equalize at a generous virtual
+		-- size and retry; rendering rescales to the real geometry anyway.
+		frame.equalize(entry.layout, math.max(entry.layout.w, 200), math.max(entry.layout.h, 100))
+		root, err = frame.split(entry.layout, at, dir, bufnr)
+		if err then
+			return
+		end
+	end
+	entry.layout = root
+	M.sync_bufs(entry)
+	entry.focus = bufnr
 	vim.t.term_order = order
+	return true
 end
 
 function M.get_current_tab()
@@ -350,7 +475,7 @@ end
 -- Tab State Helpers
 -------------------------------------------------------------------------------
 
--- Saved view state (widths/focus/modes) lives on the tab entry itself; these
+-- Saved view state (layout/focus/modes) lives on the tab entry itself; these
 -- accessors keep a stable read-modify-write interface over it.
 function M.get_tab_state(tab_idx)
 	local order = M.get_term_order()
@@ -358,7 +483,7 @@ function M.get_tab_state(tab_idx)
 	if not entry then
 		return {}
 	end
-	return { widths = entry.widths, focus = entry.focus, modes = entry.modes }
+	return { layout = entry.layout, focus = entry.focus, modes = entry.modes }
 end
 
 function M.set_tab_state(tab_idx, st)
@@ -367,7 +492,10 @@ function M.set_tab_state(tab_idx, st)
 	if not entry then
 		return
 	end
-	entry.widths = st.widths
+	if st.layout then
+		entry.layout = st.layout
+		M.sync_bufs(entry)
+	end
 	entry.focus = st.focus
 	entry.modes = st.modes
 	vim.t.term_order = order

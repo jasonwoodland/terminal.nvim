@@ -167,9 +167,10 @@ function M.setup(api)
 
 	digraph.setup(keys.digraph)
 
-	map({ "n", "t" }, keys.pane_left, function() panes.navigate(-1) end, { noremap = true })
-	map({ "n", "t" }, keys.pane_right, function() panes.navigate(1) end, { noremap = true })
+	map({ "n", "t" }, keys.pane_left, function() panes.navigate("h") end, { noremap = true })
+	map({ "n", "t" }, keys.pane_right, function() panes.navigate("l") end, { noremap = true })
 	map({ "n", "t" }, keys.vsplit, api.vsplit, { noremap = true })
+	map({ "n", "t" }, keys.split, api.hsplit, { noremap = true })
 	map({ "n", "t" }, keys.break_to_tab, api.break_pane_to_tab, { noremap = true })
 	map({ "n", "t" }, keys.last_pane, panes.goto_last, { noremap = true })
 	map({ "n", "t" }, keys.last_tab, function()
@@ -222,34 +223,46 @@ function M.setup(api)
 
 					if key_match(c, "w", "<C-S-w>") then
 						panes.cycle(count > 1 and count or nil)
+					elseif key_match(c, "W", "<S-W>") then
+						panes.cycle(count > 1 and count or nil, true)
 					elseif key_match(c, "v", "<C-S-v>") then
 						api.vsplit()
+					elseif key_match(c, "s", "<C-S-s>") then
+						api.hsplit()
 					elseif key_match(c, "h", "<C-S-h>") then
-						panes.navigate(-1, count)
+						panes.navigate("h", count)
 					elseif key_match(c, "j", "<NL>", "<S-NL>", "<C-j>", "<C-S-j>") then
-						if not config.is_float_mode() then panes.native_wincmd("j", count) end
+						panes.navigate("j", count)
 					elseif key_match(c, "k", "<C-k>", "<C-S-k>") then
-						if not config.is_float_mode() then panes.native_wincmd("k", count) end
+						panes.navigate("k", count)
 					elseif key_match(c, "l", "<C-S-l>") then
-						panes.navigate(1, count)
+						panes.navigate("l", count)
 					elseif c == ">" then
-						panes.resize(count)
+						panes.resize(count, "w")
 					elseif c == "<" then
-						panes.resize(-count)
+						panes.resize(-count, "w")
+					elseif c == "+" then
+						panes.resize(count, "h")
+					elseif c == "-" then
+						panes.resize(-count, "h")
+					elseif c == "_" then
+						panes.set_size("h", count > 1 and count or nil)
+					elseif c == "|" then
+						panes.set_size("w", count > 1 and count or nil)
 					elseif key_match(c, "H", "<S-H>") then
-						local tab = state.get_current_tab()
-						if tab then
-							panes.move_to(1)
-						end
+						panes.splitmove("left")
 					elseif key_match(c, "L", "<S-L>") then
-						local tab = state.get_current_tab()
-						if tab then
-							panes.move_to(#tab.bufs)
-						end
+						panes.splitmove("right")
+					elseif key_match(c, "K", "<S-K>") then
+						panes.splitmove("top")
+					elseif key_match(c, "J", "<S-J>") then
+						panes.splitmove("bottom")
+					elseif key_match(c, "x", "<C-S-x>") then
+						panes.exchange(count > 1 and count or nil)
 					elseif key_match(c, "r", "<C-R>", "<C-S-R>") then
-						panes.rotate(1)
+						panes.rotate(1, count)
 					elseif key_match(c, "R", "<S-R>") then
-						panes.rotate(-1)
+						panes.rotate(-1, count)
 					elseif c == "=" then
 						float_layout.equalize_panes()
 					elseif key_match(c, "p", "<C-S-p>") then
@@ -259,13 +272,7 @@ function M.setup(api)
 					elseif key_match(c, "t", "<C-S-t>") then
 						api.break_pane_to_tab()
 					elseif key_match(c, "<CR>", "<C-S-CR>") and count > 1 then
-						vim.t.term_height = count
-						local wins = vim.t.term_winids or {}
-						if not config.is_float_mode() and #wins > 0 and state.win_valid(wins[1]) then
-							vim.api.nvim_win_call(wins[1], function()
-								vim.api.nvim_win_set_height(0, count)
-							end)
-						end
+						window.set_drawer_height(count)
 					end
 					return
 				end
@@ -289,24 +296,30 @@ function M.setup(api)
 
 	local cw_actions = {
 		{ { "w", "<C-w>" }, function() panes.cycle(vim.v.count > 0 and vim.v.count or nil) end },
-		{ { "h", "<C-h>" }, function() panes.navigate(-1, vim.v.count1) end },
-		{ { "j", "<C-j>" }, function() if not config.is_float_mode() then panes.native_wincmd("j", vim.v.count1) end end },
-		{ { "k", "<C-k>" }, function() if not config.is_float_mode() then panes.native_wincmd("k", vim.v.count1) end end },
-		{ { "l", "<C-l>" }, function() panes.navigate(1, vim.v.count1) end },
-		{ { ">" },          function() panes.resize(vim.v.count1) end },
-		{ { "<lt>" },       function() panes.resize(-vim.v.count1) end },
+		{ { "W" },          function() panes.cycle(vim.v.count > 0 and vim.v.count or nil, true) end },
+		{ { "h", "<C-h>" }, function() panes.navigate("h", vim.v.count1) end },
+		{ { "j", "<C-j>" }, function() panes.navigate("j", vim.v.count1) end },
+		{ { "k", "<C-k>" }, function() panes.navigate("k", vim.v.count1) end },
+		{ { "l", "<C-l>" }, function() panes.navigate("l", vim.v.count1) end },
+		{ { ">" },          function() panes.resize(vim.v.count1, "w") end },
+		{ { "<lt>" },       function() panes.resize(-vim.v.count1, "w") end },
+		{ { "+" },          function() panes.resize(vim.v.count1, "h") end },
+		{ { "-" },          function() panes.resize(-vim.v.count1, "h") end },
+		{ { "_", "<C-_>" }, function() panes.set_size("h", vim.v.count > 0 and vim.v.count or nil) end },
+		{ { "<Bar>" },      function() panes.set_size("w", vim.v.count > 0 and vim.v.count or nil) end },
 		{ { "=" },          float_layout.equalize_panes },
 		{ { "p", "<C-p>" }, panes.goto_previous },
 		{ { "c", "<C-c>" }, api.delete },
 		{ { "v", "<C-v>" }, api.vsplit },
-		{ { "H" }, function()
-			local g = state.get_current_tab(); if g then panes.move_to(1) end
-		end },
-		{ { "L" }, function()
-			local g = state.get_current_tab(); if g then panes.move_to(#g.bufs) end
-		end },
-		{ { "r", "<C-r>" }, function() panes.rotate(1) end },
-		{ { "R" },          function() panes.rotate(-1) end },
+		{ { "s", "<C-s>" }, api.hsplit },
+		{ { "x", "<C-x>" }, function() panes.exchange(vim.v.count > 0 and vim.v.count or nil) end },
+		{ { "H" },          function() panes.splitmove("left") end },
+		{ { "L" },          function() panes.splitmove("right") end },
+		{ { "K" },          function() panes.splitmove("top") end },
+		{ { "J" },          function() panes.splitmove("bottom") end },
+		{ { "T" },          api.break_pane_to_tab },
+		{ { "r", "<C-r>" }, function() panes.rotate(1, vim.v.count1) end },
+		{ { "R" },          function() panes.rotate(-1, vim.v.count1) end },
 	}
 
 	for _, entry in ipairs(cw_actions) do
@@ -314,6 +327,34 @@ function M.setup(api)
 			nmap_cw(suffix, entry[2])
 		end
 	end
+
+	-- vim's z{height}<CR> for terminal panes (normal mode). Digits followed
+	-- by <CR> set the pane height; any other sequence (zz, zt, folds, plain
+	-- z<CR>, counts) is replayed natively.
+	vim.keymap.set("n", "z", function()
+		local count = vim.v.count
+		local prefix = count > 0 and tostring(count) or ""
+		if not state.is_in_term_window() then
+			vim.api.nvim_feedkeys(prefix .. "z", "n", false)
+			return
+		end
+		local digits = ""
+		while true do
+			local ok, c = pcall(vim.fn.getcharstr)
+			if not ok or c == "" then
+				return
+			end
+			if c >= "0" and c <= "9" then
+				digits = digits .. c
+			elseif (c == "\r" or c == "\n") and #digits > 0 then
+				panes.set_height(tonumber(digits))
+				return
+			else
+				vim.api.nvim_feedkeys(prefix .. "z" .. digits .. c, "n", false)
+				return
+			end
+		end
+	end, { noremap = true })
 end
 
 return M
