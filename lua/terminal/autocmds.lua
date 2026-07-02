@@ -216,7 +216,14 @@ function M.setup(api)
 		callback = function()
 			state.adopt_current_terminal()
 
-			-- Track focus within pane windows
+			-- Track focus within pane windows. Skip while toggling:
+			-- closing panes shifts focus through the survivors, and a
+			-- winbar.update() here would recreate the overlay anchored to
+			-- a window that is about to close (leaving it stranded at the
+			-- top of the screen).
+			if vim.t.term_toggling then
+				return
+			end
 			local current_win = vim.api.nvim_get_current_win()
 			local wins = vim.t.term_winids or {}
 			for _, win in ipairs(wins) do

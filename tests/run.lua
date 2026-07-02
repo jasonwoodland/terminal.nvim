@@ -734,6 +734,28 @@ eq(vim.api.nvim_win_get_height(vim.t.term_winid), 2, "z{height}<CR> resizes a st
 eq(state.drawer_span(), 6, "stacked-pane z{height}<CR> keeps the drawer height")
 
 --------------------------------------------------------------------------------
+-- regression: toggling closed after pane-to-pane navigation must not leave
+-- the winbar overlay stranded (WinEnter during close used to recreate it
+-- anchored to a closing pane, leaving it at the top of the screen)
+--------------------------------------------------------------------------------
+
+panes.navigate("k") -- prev window is now the other pane
+settle()
+terminal.toggle()
+settle()
+do
+	local strays = 0
+	for _, w in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+		local cfg = vim.api.nvim_win_get_config(w)
+		if cfg.relative and cfg.relative ~= "" then
+			strays = strays + 1
+		end
+	end
+	eq(strays, 0, "no stray floats after toggling the drawer closed")
+	ok(vim.t.term_winbar_winid == nil, "winbar overlay is destroyed on close")
+end
+
+--------------------------------------------------------------------------------
 
 print(("\n%d passed, %d failed"):format(passed, failed))
 if failed > 0 then
