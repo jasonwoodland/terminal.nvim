@@ -96,6 +96,7 @@ require("terminal").setup({
     pane_left = "<C-S-h>",
     pane_right = "<C-S-l>",
     vsplit = "<C-S-v>",
+    break_to_tab = "<C-S-t>",
     go_to_tab = "<C-S-%d>",      -- %d is replaced with 1-9
     move_prev = "<C-S-M-[>",
     move_next = "<C-S-M-]>",
@@ -266,6 +267,12 @@ These work anywhere in Normal and/or Terminal mode:
       <td><kbd>&lt;C-S-p&gt;</kbd></td>
       <td>Jump to last-visited pane</td>
     </tr>
+    <tr>
+      <td align="center">✓</td>
+      <td align="center">✓</td>
+      <td><kbd>&lt;C-S-t&gt;</kbd></td>
+      <td>Break the current pane out into its own tab</td>
+    </tr>
     <tr><th colspan="4" align="left">Registers</th></tr>
     <tr>
       <td align="center"></td>
@@ -327,6 +334,10 @@ Press <kbd>&lt;C-S-w&gt;</kbd> followed by a sub-key (works in both Normal and T
       <td><kbd>c</kbd></td>
       <td>Delete current terminal</td>
     </tr>
+    <tr>
+      <td><kbd>t</kbd></td>
+      <td>Break current pane out into its own tab</td>
+    </tr>
     <tr><th colspan="2" align="left">Resize</th></tr>
     <tr>
       <td><kbd>&gt;</kbd></td>
@@ -366,7 +377,7 @@ Press <kbd>&lt;C-S-w&gt;</kbd> followed by a sub-key (works in both Normal and T
 
 ### Normal mode `<C-w>` overrides
 
-When focused in a terminal pane window, `<C-w>` sub-keys are overridden to control panes instead of Vim windows. The same sub-keys from the wincmd table above apply. Outside of terminal pane windows, `<C-w>` behaves normally.
+When focused in a terminal pane window, `<C-w>` sub-keys are overridden to control panes instead of Vim windows. The same sub-keys from the wincmd table above apply, except `t` (break pane to tab), which is only available via `<C-S-w> t` or the `<C-S-t>` shorthand. Outside of terminal pane windows, `<C-w>` behaves normally.
 
 ## Commands
 

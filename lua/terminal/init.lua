@@ -555,6 +555,50 @@ function M.vsplit()
 	end
 end
 
+-- Like CTRL-W_T: move the current pane out of its split into a new terminal
+-- tab of its own. Fails if the pane's tab has only one pane.
+function M.break_pane_to_tab()
+	local bufnr = vim.api.nvim_get_current_buf()
+	local tab_idx, pane_idx = state.find_buf_tab(bufnr)
+	if not tab_idx then
+		return
+	end
+
+	local tabs = state.get_tabs()
+	local tab = tabs[tab_idx]
+	if #tab.bufs < 2 then
+		return
+	end
+
+	state.set_toggling()
+	window.save_tab_state()
+	window.close_pane_windows()
+
+	local order = state.get_term_order()
+	local entry = order[tab_idx]
+
+	table.remove(entry.bufs, pane_idx)
+	local pane_mode
+	if entry.modes then
+		pane_mode = table.remove(entry.modes, pane_idx)
+	end
+	entry.widths = nil
+	if entry.focus and entry.focus > #entry.bufs then
+		entry.focus = #entry.bufs
+	end
+
+	local new_idx = tab_idx + 1
+	table.insert(order, new_idx, {
+		bufs = { bufnr },
+		focus = 1,
+		modes = pane_mode and { pane_mode } or nil,
+	})
+	vim.t.term_order = order
+	vim.t.term_tab_idx = new_idx
+
+	window.reopen_current_tab(new_idx)
+end
+
 function M.next()
 	M.switch(1)
 end

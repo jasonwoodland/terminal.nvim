@@ -35,6 +35,7 @@ M.config = {
 		pane_left = "<C-S-h>",
 		pane_right = "<C-S-l>",
 		vsplit = "<C-S-v>",
+		break_to_tab = "<C-S-t>",
 		-- %d is replaced with 1-9; set to false to disable the go-to-tab maps
 		go_to_tab = "<C-S-%d>",
 		move_prev = "<C-S-M-[>",

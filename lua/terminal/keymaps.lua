@@ -170,6 +170,7 @@ function M.setup(api)
 	map({ "n", "t" }, keys.pane_left, function() panes.navigate(-1) end, { noremap = true })
 	map({ "n", "t" }, keys.pane_right, function() panes.navigate(1) end, { noremap = true })
 	map({ "n", "t" }, keys.vsplit, api.vsplit, { noremap = true })
+	map({ "n", "t" }, keys.break_to_tab, api.break_pane_to_tab, { noremap = true })
 	map({ "n", "t" }, keys.last_pane, panes.goto_last, { noremap = true })
 	map({ "n", "t" }, keys.last_tab, function()
 		local prev_idx = vim.t.term_prev_tab_idx
@@ -255,6 +256,8 @@ function M.setup(api)
 						panes.goto_previous()
 					elseif key_match(c, "c", "<C-S-c>") then
 						api.delete()
+					elseif key_match(c, "t", "<C-S-t>") then
+						api.break_pane_to_tab()
 					elseif key_match(c, "<CR>", "<C-S-CR>") and count > 1 then
 						vim.t.term_height = count
 						local wins = vim.t.term_winids or {}

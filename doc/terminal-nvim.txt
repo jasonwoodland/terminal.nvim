@@ -91,6 +91,7 @@ the full default configuration: >lua
 	pane_left		= "<C-S-h>",
 	pane_right		= "<C-S-l>",
 	vsplit			= "<C-S-v>",
+	break_to_tab		= "<C-S-t>",
 	go_to_tab		= "<C-S-%d>",
 	move_prev		= "<C-S-M-[>",
 	move_next		= "<C-S-M-]>",
@@ -373,6 +374,12 @@ Panes						*terminal.nvim-map-panes*
 <C-S-p>		 Jump to the last-visited pane within the current
 			terminal tab.
 
+						*terminal.nvim-<C-S-t>*
+<C-S-t>		 Break the current pane out of its split into a new
+			terminal tab of its own (like |CTRL-W_T|). No-op if
+			the current tab has only one pane. Calls
+			|terminal.break_pane_to_tab()|.
+
 ------------------------------------------------------------------------------
 Notifications				*terminal.nvim-map-notifications*
 
@@ -426,6 +433,7 @@ PANE MANAGEMENT ~
 
     v	   Split vertically; add a new pane to the right.
     c	   Delete the current pane (with running-process prompt).
+    t	   Break the current pane out into a new terminal tab (like |CTRL-W_T|).
 
 RESIZE ~
 
@@ -446,9 +454,11 @@ MOVE AND ROTATE ~
 
 When the cursor is in a terminal pane in Normal mode, terminal.nvim handles
 selected |CTRL-W| sub-commands using the same sub-keys documented in
-|terminal.nvim-wincmd|. Navigation commands (`h`, `j`, `k`, `l`, `w`, and `p`)
-work like normal Vim window commands, including moving between terminal and
-non-terminal windows when the terminal is open as a drawer.
+|terminal.nvim-wincmd|, except `t` (break pane to tab), which is only
+available via `<C-S-w> t` or the `<C-S-t>` shorthand. Navigation commands
+(`h`, `j`, `k`, `l`, `w`, and `p`) work like normal Vim window commands,
+including moving between terminal and non-terminal windows when the terminal
+is open as a drawer.
 
 Outside a terminal pane the original |CTRL-W| behaviour is preserved. The
 `<C-S-w>` prefix is available in Normal and Terminal mode.
@@ -533,6 +543,12 @@ terminal.move({direction})
 terminal.move_to_vim_tab({direction})
 	Move the current terminal tab to an adjacent Vim |tabpage|.
 	{direction} is `-1` for previous or `1` for next; both wrap.
+
+						*terminal.break_pane_to_tab()*
+terminal.break_pane_to_tab()
+	Move the current pane out of its split into a new terminal tab
+	immediately after the current one, and switch to it. No-op if the
+	current tab has only one pane.
 
 					*terminal.go_to_notification()*
 terminal.go_to_notification()
