@@ -120,21 +120,24 @@ height ~
 						*terminal.nvim-opt-winbar*
 winbar ~
 	When true, enables a clickable terminal-tab strip in the 'winbar' area
-	of the topmost terminal pane. By default it is drawn only when there are
-	two or more terminal tabs; see |terminal.nvim-opt-show_winbar_when_single_tab|.
+	of the topmost terminal pane. By default it is drawn only when there
+	are two or more terminal tabs; see
+	|terminal.nvim-opt-show_winbar_when_single_tab|.
 	Default: `true`.
 
 			*terminal.nvim-opt-show_winbar_when_single_tab*
 show_winbar_when_single_tab ~
-	When true, shows the terminal-tab winbar even while the current Vim tab
-	has only one terminal tab. By default the winbar appears only when there
-	are two or more terminal tabs. Requires `winbar = true`. Default: `false`.
+	When true, shows the terminal-tab winbar even while the current Vim
+	tab has only one terminal tab. By default the winbar appears only when
+	there are two or more terminal tabs. Requires `winbar = true`.
+	Default: `false`.
 
 					*terminal.nvim-opt-set_buffer_name*
 set_buffer_name ~
-	When true, renames terminal buffers to their OSC terminal title. Duplicate
-	titles are made unique by appending ` (2)`, ` (3)`, and so on. Set to
-	`false` to keep Neovim's default terminal buffer names. Default: `true`.
+	When true, renames terminal buffers to their OSC terminal title.
+	Duplicate titles are made unique by appending ` (2)`, ` (3)`, and so
+	on. Set to `false` to keep Neovim's default terminal buffer names.
+	Default: `true`.
 
 						*terminal.nvim-opt-float*
 float ~
@@ -166,11 +169,12 @@ float ~
 	no border. Default: `false`.
 
 	`winblend` sets the pseudo-transparency (|'winblend'|) of the floating
-	terminal panes and winbar (0 = opaque, 100 = transparent). Default `0`.
+	terminal panes and winbar (0 = opaque, 100 = transparent).
+	Default `0`.
 
 	`overlay` toggles a dimming backdrop drawn behind the float to obscure
-	the underlying buffers. Set to `true` for defaults, `false` to disable,
-	or a table to customise: >lua
+	the underlying buffers. Set to `true` for defaults, `false` to
+	disable, or a table to customise: >lua
 
 	    overlay = {
 	      enabled  = true,
@@ -263,31 +267,31 @@ to `false` to disable these maps).
 Toggle and Zoom					*terminal.nvim-map-toggle*
 
 						*terminal.nvim-<C-S-Space>*
-<C-S-Space>	     Toggle the terminal open or closed. When closed,
+<C-S-Space>		Toggle the terminal open or closed. When closed,
 			opens the most recent terminal tab in the current
 			Vim tab. When opening, an optional |count| sets the
 			drawer height in lines. Calls |terminal.toggle()|.
 
 						*terminal.nvim-<C-S-\>*
-<C-S-\>		 Leave Terminal mode and enter Normal mode (sends
+<C-S-\>			Leave Terminal mode and enter Normal mode (sends
 			`<C-\><C-n>`). Terminal mode only.
 
 						*terminal.nvim-<C-S-z>*
-<C-S-z>		 Toggle zoom. In float mode (or when
+<C-S-z>			Toggle zoom. In float mode (or when
 			|terminal.nvim-opt-float_zoom| is true) the current
 			terminal tab fills the editor area; otherwise the
 			drawer expands/contracts to its previous size.
 			Calls |terminal.zoom()|.
 
 						*terminal.nvim-<C-S-f>*
-<C-S-f>		 Toggle between float and drawer mode. Flips the
+<C-S-f>			Toggle between float and drawer mode. Flips the
 			`enabled` flag on |terminal.nvim-opt-float| (or the
 			boolean form of the option) and rebuilds the current
 			tab. Has no effect while a float zoom is active.
 			Calls |terminal.float_toggle()|.
 
 						*terminal.nvim-<C-S-=>*
-<C-S-=>		 Reset the drawer height back to the value of
+<C-S-=>			Reset the drawer height back to the value of
 			|terminal.nvim-opt-height|. Calls
 			|terminal.reset_height()|.
 
@@ -295,20 +299,20 @@ Toggle and Zoom					*terminal.nvim-map-toggle*
 Tabs						*terminal.nvim-map-tabs*
 
 						*terminal.nvim-<C-S-n>*
-<C-S-n>		 Open a new terminal tab after the current one.
+<C-S-n>			Open a new terminal tab after the current one.
 			Calls |terminal.new()|.
 
 						*terminal.nvim-<C-S-c>*
-<C-S-c>		 Delete the current terminal pane (and its tab if it
+<C-S-c>			Delete the current terminal pane (and its tab if it
 			was the last pane), prompting if a job is still
 			running. Calls |terminal.delete()|.
 
 						*terminal.nvim-<C-S-[>*
-<C-S-[>		 Switch to the previous terminal tab (wraps). Calls
+<C-S-[>			Switch to the previous terminal tab (wraps). Calls
 			|terminal.prev()|.
 
 						*terminal.nvim-<C-S-]>*
-<C-S-]>		 Switch to the next terminal tab (wraps). Calls
+<C-S-]>			Switch to the next terminal tab (wraps). Calls
 			|terminal.next()|.
 
 						*terminal.nvim-<C-S-1>*
@@ -318,11 +322,11 @@ Tabs						*terminal.nvim-map-tabs*
 			mapping.
 
 						*terminal.nvim-<C-S-M-[>*
-<C-S-M-[>	       Move the current terminal tab one position to the left
+<C-S-M-[>		Move the current terminal tab one position to the left
 			within its Vim tab. Calls |terminal.move()| with `-1`.
 
 						*terminal.nvim-<C-S-M-]>*
-<C-S-M-]>	       Move the current terminal tab one position to the
+<C-S-M-]>		Move the current terminal tab one position to the
 			right within its Vim tab. Calls |terminal.move()| with
 			`1`.
 
@@ -337,23 +341,22 @@ terminal mode, so switching back into a terminal pane resumes Terminal mode
 automatically.
 
 						*terminal.nvim-<C-PageUp>*
-<C-PageUp>	      Go to the previous Vim tab page (|:tabprevious|).
+<C-PageUp>		Go to the previous Vim tab page (|:tabprevious|).
 
 						*terminal.nvim-<C-PageDown>*
-<C-PageDown>	    Go to the next Vim tab page (|:tabnext|).
+<C-PageDown>		Go to the next Vim tab page (|:tabnext|).
 
 						*terminal.nvim-<C-M-PageUp>*
-<C-M-PageUp>	    Move the current Vim tab page one position to the
+<C-M-PageUp>		Move the current Vim tab page one position to the
 			left.
 
 						*terminal.nvim-<C-M-PageDown>*
-<C-M-PageDown>	  Move the current Vim tab page one position to the
+<C-M-PageDown>		Move the current Vim tab page one position to the
 			right.
 
 						*terminal.nvim-<C-S-M-PageUp>*
-<C-S-M-PageUp>	  Move the current terminal tab to the previous Vim tab
-			page. Calls |terminal.move_to_vim_tab()| with
-			`-1`.
+<C-S-M-PageUp>		Move the current terminal tab to the previous Vim tab
+			page. Calls |terminal.move_to_vim_tab()| with `-1`.
 
 					*terminal.nvim-<C-S-M-PageDown>*
 <C-S-M-PageDown>	Move the current terminal tab to the next Vim tab
@@ -363,26 +366,26 @@ automatically.
 Panes						*terminal.nvim-map-panes*
 
 						*terminal.nvim-<C-S-v>*
-<C-S-v>		 Split the current pane side by side, adding a new pane
+<C-S-v>			Split the current pane side by side, adding a new pane
 			to the right (like |CTRL-W_v|). Calls
 			|terminal.vsplit()|.
 
 						*terminal.nvim-<C-S-s>*
-<C-S-s>		 Split the current pane stacked, adding a new pane
+<C-S-s>			Split the current pane stacked, adding a new pane
 			below (like |CTRL-W_s|). Calls |terminal.hsplit()|.
 
 						*terminal.nvim-<C-S-h>*
-<C-S-h>		 Focus the pane to the left of the current one.
+<C-S-h>			Focus the pane to the left of the current one.
 
 						*terminal.nvim-<C-S-l>*
-<C-S-l>		 Focus the pane to the right of the current one.
+<C-S-l>			Focus the pane to the right of the current one.
 
 						*terminal.nvim-<C-S-p>*
-<C-S-p>		 Jump to the last-visited pane within the current
+<C-S-p>			Jump to the last-visited pane within the current
 			terminal tab.
 
 						*terminal.nvim-<C-S-t>*
-<C-S-t>		 Break the current pane out of its split into a new
+<C-S-t>			Break the current pane out of its split into a new
 			terminal tab of its own (like |CTRL-W_T|). No-op if
 			the current tab has only one pane. Calls
 			|terminal.break_pane_to_tab()|.
@@ -391,7 +394,7 @@ Panes						*terminal.nvim-map-panes*
 Notifications				*terminal.nvim-map-notifications*
 
 						*terminal.nvim-<C-S-a>*
-<C-S-a>		 Jump to the terminal that emitted the most recent
+<C-S-a>			Jump to the terminal that emitted the most recent
 			OSC 9 / OSC 777 notification. Calls
 			|terminal.go_to_notification()|. Requires
 			|terminal.nvim-opt-osc_notifications| to be enabled.
@@ -434,37 +437,39 @@ distribution, the close-space rule, and |E443| when rotating next to a split
 pane. Separators (and the statuslines between stacked drawer panes) can also
 be dragged with the mouse.
 
-NAVIGATION ~
+Navigation
 
-    w	   Cycle to the next window; with [count], go to window N
-	   (like |CTRL-W_w|).
-    W	   Cycle to the previous window; with [count], go to window N.
-    h	   Focus the window to the left (like |CTRL-W_h|).
-    j	   Focus the window below.
-    k	   Focus the window above.
-    l	   Focus the window to the right.
-    p	   Jump to the previous window.
+w		Cycle to the next window; with [count], go to window N (like
+		|CTRL-W_w|).
+W		Cycle to the previous window; with [count], go to window N.
+h		Focus the window to the left (like |CTRL-W_h|).
+j		Focus the window below.
+k		Focus the window above.
+l		Focus the window to the right.
+p		Jump to the previous window.
 
-PANE MANAGEMENT ~
+Pane management
 
-    v	   Split side by side; add a new pane to the right (like |CTRL-W_v|).
-    s	   Split stacked; add a new pane below (like |CTRL-W_s|).
-    c	   Delete the current pane (with running-process prompt). The
-	   neighbouring pane absorbs the freed space, like |CTRL-W_c|.
-    t	   Break the current pane out into a new terminal tab (like |CTRL-W_T|).
+v		Split side by side; add a new pane to the right (like
+		|CTRL-W_v|).
+s		Split stacked; add a new pane below (like |CTRL-W_s|).
+c		Delete the current pane (with running-process prompt). The
+		neighbouring pane absorbs the freed space, like |CTRL-W_c|.
+t		Break the current pane out into a new terminal tab (like 
+		|CTRL-W_T|).
 
-RESIZE ~
+Resize
 
-    >	   Grow current pane width by [count] (default 1).
-    <	   Shrink current pane width by [count] (default 1).
-    +	   Grow current pane height by [count] (default 1).
-    -	   Shrink current pane height by [count] (default 1).
-    _	   Maximise pane height within the terminal; with [count], set the
-	   height (like |CTRL-W__| scoped to the drawer/float).
-    |	   Maximise pane width within the terminal; with [count], set the
-	   width (like |CTRL-W_bar|).
-    =	   Equalise panes (Vim's proportional distribution, |CTRL-W_=|).
-    {count}<CR> Set the drawer height to {count} lines.
+>		Grow current pane width by [count] (default 1).
+<		Shrink current pane width by [count] (default 1).
++		Grow current pane height by [count] (default 1).
+-		Shrink current pane height by [count] (default 1).
+_		Maximise pane height within the terminal; with [count], set
+		the height (like |CTRL-W__| scoped to the drawer/float).
+|		Maximise pane width within the terminal; with [count], set the
+		width (like |CTRL-W_bar|).
+=		Equalise panes (Vim's proportional distribution, |CTRL-W_=|).
+{count}<CR>	Set the drawer height to {count} lines.
 
 Height resizes always redistribute between panes: the drawer keeps its
 height instead of growing into the editor area. Use `{count}<CR>` (or
@@ -472,15 +477,18 @@ height instead of growing into the editor area. Use `{count}<CR>` (or
 
 MOVE, ROTATE AND EXCHANGE ~
 
-    H	   Move the current pane to the far left, full height (|CTRL-W_H|).
-    L	   Move the current pane to the far right, full height (|CTRL-W_L|).
-    K	   Move the current pane to the top, full width (|CTRL-W_K|).
-    J	   Move the current pane to the bottom, full width (|CTRL-W_J|).
-    r	   Rotate the panes of the current row/column forward
-	   (|CTRL-W_r|). Fails with |E443| when a sibling is itself split.
-    R	   Rotate the panes of the current row/column backward.
-    x	   Exchange the current pane with the next one; with [count],
-	   with pane N of the current row/column (|CTRL-W_x|).
+H		Move the current pane to the far left, full height
+		(|CTRL-W_H|).
+L		Move the current pane to the far right, full height
+		(|CTRL-W_L|).
+K		Move the current pane to the top, full width (|CTRL-W_K|).
+J		Move the current pane to the bottom, full width (|CTRL-W_J|).
+r		Rotate the panes of the current row/column forward
+		(|CTRL-W_r|). Fails with |E443| when a sibling is itself
+		split.
+R		Rotate the panes of the current row/column backward.
+x		Exchange the current pane with the next one; with [count],
+		with pane N of the current row/column (|CTRL-W_x|).
 
 ------------------------------------------------------------------------------
 <C-w> Overrides					*terminal.nvim-cw-override*
@@ -493,12 +501,12 @@ including moving between terminal and non-terminal windows when the terminal
 is open as a drawer.
 
 						*terminal.nvim-z<CR>*
-z{height}<CR>		In Normal mode inside a pane, sets the pane's height
-			like Vim's |z<CR>| height form: a full-height (or
-			single) pane resizes the drawer itself; a stacked
-			pane resizes within the drawer. All other `z`
-			commands (`zz`, `zt`, folds, plain `z<CR>`) pass
-			through untouched.
+z{height}<CR>	In Normal mode inside a pane, sets the pane's height
+		like Vim's |z<CR>| height form: a full-height (or
+		single) pane resizes the drawer itself; a stacked
+		pane resizes within the drawer. All other `z`
+		commands (`zz`, `zt`, folds, plain `z<CR>`) pass
+		through untouched.
 
 Outside a terminal pane the original |CTRL-W| and `z` behaviour is preserved.
 The `<C-S-w>` prefix is available in Normal and Terminal mode.
