@@ -29,10 +29,12 @@ Contents					*terminal.nvim-contents*
 1. Introduction					*terminal.nvim-intro*
 
 terminal.nvim turns Neovim into a terminal multiplexer. It organises terminal
-buffers into "terminal tabs", each of which can hold multiple side-by-side
-panes. Terminals can be displayed as a drawer pinned to the bottom of the
-screen or as a centered floating window, and the current tab can be zoomed to
-take over the full editor area.
+buffers into "terminal tabs", each of which can hold multiple panes split
+vertically and horizontally, nesting like Vim windows. The full |CTRL-W|
+command set is available over panes with Vim's exact semantics. Terminals can
+be displayed as a drawer pinned to the bottom of the screen or as a centered
+floating window, and the current tab can be zoomed to take over the full
+editor area.
 
 ==============================================================================
 2. Requirements					*terminal.nvim-requirements*
@@ -91,6 +93,7 @@ the full default configuration: >lua
 	pane_left		= "<C-S-h>",
 	pane_right		= "<C-S-l>",
 	vsplit			= "<C-S-v>",
+	split			= "<C-S-s>",
 	break_to_tab		= "<C-S-t>",
 	go_to_tab		= "<C-S-%d>",
 	move_prev		= "<C-S-M-[>",
@@ -360,9 +363,13 @@ automatically.
 Panes						*terminal.nvim-map-panes*
 
 						*terminal.nvim-<C-S-v>*
-<C-S-v>		 Split the current terminal tab and add a new pane to
-			the right of the focused one. Calls
+<C-S-v>		 Split the current pane side by side, adding a new pane
+			to the right (like |CTRL-W_v|). Calls
 			|terminal.vsplit()|.
+
+						*terminal.nvim-<C-S-s>*
+<C-S-s>		 Split the current pane stacked, adding a new pane
+			below (like |CTRL-W_s|). Calls |terminal.hsplit()|.
 
 						*terminal.nvim-<C-S-h>*
 <C-S-h>		 Focus the pane to the left of the current one.
@@ -420,10 +427,19 @@ Press `<C-S-w>` (analogous to |CTRL-W|) followed by one of the sub-keys
 below to manipulate the current terminal tab's panes. Sub-keys accept an
 optional |count| where indicated.
 
+Panes split into rows and columns that nest like Vim windows, and every
+command below copies Vim's |CTRL-W| semantics exactly: the directional
+navigation descent rules, the resize cascade order, proportional `=`
+distribution, the close-space rule, and |E443| when rotating next to a split
+pane. Separators (and the statuslines between stacked drawer panes) can also
+be dragged with the mouse.
+
 NAVIGATION ~
 
-    w	   Cycle to the next window.
-    h	   Focus the window to the left.
+    w	   Cycle to the next window; with [count], go to window N
+	   (like |CTRL-W_w|).
+    W	   Cycle to the previous window; with [count], go to window N.
+    h	   Focus the window to the left (like |CTRL-W_h|).
     j	   Focus the window below.
     k	   Focus the window above.
     l	   Focus the window to the right.
@@ -431,37 +447,61 @@ NAVIGATION ~
 
 PANE MANAGEMENT ~
 
-    v	   Split vertically; add a new pane to the right.
-    c	   Delete the current pane (with running-process prompt).
+    v	   Split side by side; add a new pane to the right (like |CTRL-W_v|).
+    s	   Split stacked; add a new pane below (like |CTRL-W_s|).
+    c	   Delete the current pane (with running-process prompt). The
+	   neighbouring pane absorbs the freed space, like |CTRL-W_c|.
     t	   Break the current pane out into a new terminal tab (like |CTRL-W_T|).
 
 RESIZE ~
 
     >	   Grow current pane width by [count] (default 1).
     <	   Shrink current pane width by [count] (default 1).
-    =	   Equalise pane widths.
+    +	   Grow current pane height by [count] (default 1).
+    -	   Shrink current pane height by [count] (default 1).
+    _	   Maximise pane height within the terminal; with [count], set the
+	   height (like |CTRL-W__| scoped to the drawer/float).
+    |	   Maximise pane width within the terminal; with [count], set the
+	   width (like |CTRL-W_bar|).
+    =	   Equalise panes (Vim's proportional distribution, |CTRL-W_=|).
     {count}<CR> Set the drawer height to {count} lines.
 
-MOVE AND ROTATE ~
+Height resizes always redistribute between panes: the drawer keeps its
+height instead of growing into the editor area. Use `{count}<CR>` (or
+|terminal.nvim-z<CR>|) to change the drawer height itself.
 
-    H	   Move the current pane to the far left.
-    L	   Move the current pane to the far right.
-    r	   Rotate panes forward.
-    R	   Rotate panes backward.
+MOVE, ROTATE AND EXCHANGE ~
+
+    H	   Move the current pane to the far left, full height (|CTRL-W_H|).
+    L	   Move the current pane to the far right, full height (|CTRL-W_L|).
+    K	   Move the current pane to the top, full width (|CTRL-W_K|).
+    J	   Move the current pane to the bottom, full width (|CTRL-W_J|).
+    r	   Rotate the panes of the current row/column forward
+	   (|CTRL-W_r|). Fails with |E443| when a sibling is itself split.
+    R	   Rotate the panes of the current row/column backward.
+    x	   Exchange the current pane with the next one; with [count],
+	   with pane N of the current row/column (|CTRL-W_x|).
 
 ------------------------------------------------------------------------------
 <C-w> Overrides					*terminal.nvim-cw-override*
 
 When the cursor is in a terminal pane in Normal mode, terminal.nvim handles
-selected |CTRL-W| sub-commands using the same sub-keys documented in
-|terminal.nvim-wincmd|, except `t` (break pane to tab), which is only
-available via `<C-S-w> t` or the `<C-S-t>` shorthand. Navigation commands
+the |CTRL-W| sub-commands using the same sub-keys documented in
+|terminal.nvim-wincmd| (`t` maps to |CTRL-W_T| there). Navigation commands
 (`h`, `j`, `k`, `l`, `w`, and `p`) work like normal Vim window commands,
 including moving between terminal and non-terminal windows when the terminal
 is open as a drawer.
 
-Outside a terminal pane the original |CTRL-W| behaviour is preserved. The
-`<C-S-w>` prefix is available in Normal and Terminal mode.
+						*terminal.nvim-z<CR>*
+z{height}<CR>		In Normal mode inside a pane, sets the pane's height
+			like Vim's |z<CR>| height form: a full-height (or
+			single) pane resizes the drawer itself; a stacked
+			pane resizes within the drawer. All other `z`
+			commands (`zz`, `zt`, folds, plain `z<CR>`) pass
+			through untouched.
+
+Outside a terminal pane the original |CTRL-W| and `z` behaviour is preserved.
+The `<C-S-w>` prefix is available in Normal and Terminal mode.
 
 ==============================================================================
 7. Functions					*terminal.nvim-functions*
@@ -511,10 +551,22 @@ terminal.delete()
 	Delete the current terminal pane. If it is the last pane in the tab,
 	the tab itself is removed. Prompts before terminating a running job.
 
+							*terminal.split()*
+terminal.split({dir})
+	Split the current pane, adding a new terminal pane after it. {dir} is
+	`"row"` for a side-by-side split or `"col"` for a stacked split. The
+	new pane takes half the current pane's space (Vim split sizing). If
+	no terminal is open, a new one is created.
+
 							*terminal.vsplit()*
 terminal.vsplit()
-	Add a new pane to the right of the current pane in the current
-	terminal tab. If no terminal is open, a new one is created.
+	Split the current pane side by side; equivalent to
+	`terminal.split("row")`.
+
+							*terminal.hsplit()*
+terminal.hsplit()
+	Split the current pane stacked; equivalent to
+	`terminal.split("col")`.
 
 							*terminal.next()*
 terminal.next()

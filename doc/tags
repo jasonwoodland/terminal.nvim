@@ -1,9 +1,11 @@
 terminal-nvim.txt	terminal-nvim.txt	/*terminal-nvim.txt*
+terminal.break_pane_to_tab()	terminal-nvim.txt	/*terminal.break_pane_to_tab()*
 terminal.config	terminal-nvim.txt	/*terminal.config*
 terminal.delete()	terminal-nvim.txt	/*terminal.delete()*
 terminal.float_toggle()	terminal-nvim.txt	/*terminal.float_toggle()*
 terminal.go_to()	terminal-nvim.txt	/*terminal.go_to()*
 terminal.go_to_notification()	terminal-nvim.txt	/*terminal.go_to_notification()*
+terminal.hsplit()	terminal-nvim.txt	/*terminal.hsplit()*
 terminal.move()	terminal-nvim.txt	/*terminal.move()*
 terminal.move_to_vim_tab()	terminal-nvim.txt	/*terminal.move_to_vim_tab()*
 terminal.new()	terminal-nvim.txt	/*terminal.new()*
@@ -38,6 +40,8 @@ terminal.nvim-<C-S-o>	terminal-nvim.txt	/*terminal.nvim-<C-S-o>*
 terminal.nvim-<C-S-p>	terminal-nvim.txt	/*terminal.nvim-<C-S-p>*
 terminal.nvim-<C-S-r>	terminal-nvim.txt	/*terminal.nvim-<C-S-r>*
 terminal.nvim-<C-S-r>=	terminal-nvim.txt	/*terminal.nvim-<C-S-r>=*
+terminal.nvim-<C-S-s>	terminal-nvim.txt	/*terminal.nvim-<C-S-s>*
+terminal.nvim-<C-S-t>	terminal-nvim.txt	/*terminal.nvim-<C-S-t>*
 terminal.nvim-<C-S-v>	terminal-nvim.txt	/*terminal.nvim-<C-S-v>*
 terminal.nvim-<C-S-z>	terminal-nvim.txt	/*terminal.nvim-<C-S-z>*
 terminal.nvim-about	terminal-nvim.txt	/*terminal.nvim-about*
@@ -69,10 +73,12 @@ terminal.nvim-opt-show_winbar_when_single_tab	terminal-nvim.txt	/*terminal.nvim-
 terminal.nvim-opt-winbar	terminal-nvim.txt	/*terminal.nvim-opt-winbar*
 terminal.nvim-requirements	terminal-nvim.txt	/*terminal.nvim-requirements*
 terminal.nvim-wincmd	terminal-nvim.txt	/*terminal.nvim-wincmd*
+terminal.nvim-z<CR>	terminal-nvim.txt	/*terminal.nvim-z<CR>*
 terminal.prev()	terminal-nvim.txt	/*terminal.prev()*
 terminal.reset_height()	terminal-nvim.txt	/*terminal.reset_height()*
 terminal.send()	terminal-nvim.txt	/*terminal.send()*
 terminal.setup()	terminal-nvim.txt	/*terminal.setup()*
+terminal.split()	terminal-nvim.txt	/*terminal.split()*
 terminal.switch()	terminal-nvim.txt	/*terminal.switch()*
 terminal.toggle()	terminal-nvim.txt	/*terminal.toggle()*
 terminal.vsplit()	terminal-nvim.txt	/*terminal.vsplit()*
