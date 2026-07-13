@@ -14,6 +14,7 @@ local activity = require("terminal.activity")
 
 local pending_title_bufs = {}
 local title_update_scheduled = false
+local title_update_delay = 100
 
 local function schedule_title_update(bufnr)
 	pending_title_bufs[bufnr] = true
@@ -22,7 +23,7 @@ local function schedule_title_update(bufnr)
 	end
 	title_update_scheduled = true
 
-	vim.schedule(function()
+	vim.defer_fn(function()
 		title_update_scheduled = false
 		local pending = pending_title_bufs
 		pending_title_bufs = {}
@@ -49,7 +50,7 @@ local function schedule_title_update(bufnr)
 			winbar.update()
 			statusline.update()
 		end
-	end)
+	end, title_update_delay)
 end
 
 local function get_term_refocus_target()

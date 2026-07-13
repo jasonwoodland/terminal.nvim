@@ -348,6 +348,8 @@ do
 	local old_statusline_update = statusline_mod.update
 	local winbar_updates = 0
 	local statusline_updates = 0
+	local buffer_count_before = #vim.api.nvim_list_bufs()
+	local alternate_before = vim.fn.bufnr("#")
 	winbar_mod.update = function(...)
 		winbar_updates = winbar_updates + 1
 		return old_winbar_update(...)
@@ -371,6 +373,8 @@ do
 	eq(vim.b[buf].term_buffer_name_title, "title-two", "coalesced title update renames once to the final title")
 	eq(winbar_updates, 1, "title burst renders the winbar once")
 	eq(statusline_updates, 1, "title burst renders the statusline once")
+	eq(#vim.api.nvim_list_bufs(), buffer_count_before, "title rename wipes Neovim's old-name placeholder")
+	eq(vim.fn.bufnr("#"), alternate_before, "title rename preserves the alternate buffer")
 end
 
 -- vsplit pane
