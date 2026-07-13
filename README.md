@@ -2,7 +2,7 @@
 
 Use Neovim as your terminal multiplexer.
 
-<img width="1408" height="1000" alt="Screenshot 2026-03-08 at 12 01 18 am" src="https://github.com/user-attachments/assets/f765ba3b-9f74-4e26-b947-539b2b1b1c43" />
+<img width="1912" height="1242" alt="Screenshot 2026-07-13 at 3 46 15 pm" src="https://github.com/user-attachments/assets/312fa1ca-1be2-48de-ba23-cf7200a8e633" />
 
 ## Features
 
@@ -21,10 +21,6 @@ Use Neovim as your terminal multiplexer.
 - Activity indicator for background terminal tabs
 - Confirm before deleting a terminal with a running process
 - Fully configurable keymaps
-
-## Requirements
-
-- Neovim >= 0.10
 
 ## Installation
 
