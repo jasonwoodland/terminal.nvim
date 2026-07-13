@@ -515,14 +515,6 @@ function M.set_activity(tab_idx, active)
 	end
 	entry.activity = val
 	vim.t.term_order = order
-	-- Drop the per-buffer fast-path flag used by the on_lines activity watcher
-	if not val then
-		for _, buf in ipairs(entry.bufs) do
-			if vim.api.nvim_buf_is_valid(buf) and vim.b[buf].term_activity_flagged then
-				vim.b[buf].term_activity_flagged = nil
-			end
-		end
-	end
 	return true
 end
 

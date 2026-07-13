@@ -315,6 +315,64 @@ settle()
 ok(#tabs() == 2, "new() creates a second tab")
 eq(vim.t.term_tab_idx, 2, "new() focuses the new tab")
 
+-- Activity observation is armed only for background terminal tabs and
+-- detaches itself as soon as the first update has been recorded.
+do
+	local activity = require("terminal.activity")
+	local background_buf = tab_bufs(1)[1]
+	local foreground_buf = tab_bufs(2)[1]
+	ok(activity.is_armed(background_buf), "background terminal has an activity watcher")
+	ok(not activity.is_armed(foreground_buf), "foreground terminal has no armed activity watcher")
+
+	vim.api.nvim_chan_send(vim.b[background_buf].terminal_job_id, "printf 'activity-watch-test\\n'\n")
+	settle()
+	local background_idx = state.find_buf_tab(background_buf)
+	ok(tabs()[background_idx].activity == true, "first background update sets activity")
+	ok(not activity.is_armed(background_buf), "activity watcher detaches after the first update")
+
+	terminal.go_to(1)
+	settle()
+	ok(not tabs()[1].activity, "focusing a terminal clears its activity")
+	ok(activity.is_armed(foreground_buf), "previous terminal is armed when it becomes background")
+	terminal.go_to(2)
+	settle()
+end
+
+-- Neovim owns b:term_title. Multiple title requests in one input burst are
+-- collapsed into one buffer rename and one overlay refresh.
+do
+	local buf = tab_bufs(2)[1]
+	local winbar_mod = require("terminal.winbar")
+	local statusline_mod = require("terminal.statusline")
+	local old_winbar_update = winbar_mod.update
+	local old_statusline_update = statusline_mod.update
+	local winbar_updates = 0
+	local statusline_updates = 0
+	winbar_mod.update = function(...)
+		winbar_updates = winbar_updates + 1
+		return old_winbar_update(...)
+	end
+	statusline_mod.update = function(...)
+		statusline_updates = statusline_updates + 1
+		return old_statusline_update(...)
+	end
+
+	vim.api.nvim_chan_send(
+		vim.b[buf].terminal_job_id,
+		"printf '\\033]0;title-one\\007\\033]0;title-two\\007'\n"
+	)
+	settle()
+	vim.api.nvim_chan_send(vim.b[buf].terminal_job_id, "printf '\\033]0;title-two\\007'\n")
+	settle()
+
+	winbar_mod.update = old_winbar_update
+	statusline_mod.update = old_statusline_update
+	eq(vim.b[buf].term_title, "title-two", "native terminal title keeps the final OSC title")
+	eq(vim.b[buf].term_buffer_name_title, "title-two", "coalesced title update renames once to the final title")
+	eq(winbar_updates, 1, "title burst renders the winbar once")
+	eq(statusline_updates, 1, "title burst renders the statusline once")
+end
+
 -- vsplit pane
 terminal.vsplit()
 settle()

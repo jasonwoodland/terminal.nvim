@@ -63,7 +63,9 @@ function M.set_from_title(buf, title)
 	end
 
 	local name = unique_buffer_name(title, buf)
+	vim.b[buf].term_title_rename = true
 	local ok = pcall(vim.api.nvim_buf_set_name, buf, name)
+	vim.b[buf].term_title_rename = nil
 	if ok then
 		vim.b[buf].term_buffer_name_title = title
 		vim.b[buf].term_buffer_name = vim.api.nvim_buf_get_name(buf)

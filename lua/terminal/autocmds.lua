@@ -10,6 +10,47 @@ local winbar = require("terminal.winbar")
 local statusline = require("terminal.statusline")
 local float_layout = require("terminal.float_layout")
 local bufname = require("terminal.bufname")
+local activity = require("terminal.activity")
+
+local pending_title_bufs = {}
+local title_update_scheduled = false
+
+local function schedule_title_update(bufnr)
+	pending_title_bufs[bufnr] = true
+	if title_update_scheduled then
+		return
+	end
+	title_update_scheduled = true
+
+	vim.schedule(function()
+		title_update_scheduled = false
+		local pending = pending_title_bufs
+		pending_title_bufs = {}
+		local refresh_overlays = false
+		local current_tab = vim.api.nvim_get_current_tabpage()
+
+		for buf in pairs(pending) do
+			if vim.api.nvim_buf_is_valid(buf) and vim.bo[buf].buftype == "terminal" then
+				local title = vim.b[buf].term_title
+				if title and title:match("%S") then
+					title = title:match("^%s*(.-)%s*$")
+					if vim.b[buf].term_title_handled ~= title then
+						vim.b[buf].term_title_handled = title
+						bufname.set_from_title(buf, title)
+						if vim.b[buf].term_owner_tab == current_tab then
+							refresh_overlays = true
+						end
+					end
+				end
+			end
+		end
+
+		if refresh_overlays then
+			winbar.update()
+			statusline.update()
+		end
+	end)
+end
 
 local function get_term_refocus_target()
 	local target = vim.t.term_winid
@@ -75,7 +116,8 @@ function M.setup(api)
 				state.add_term_to_order(bufnr)
 			end
 			vim.b.term_mode = "t"
-			vim.b[bufnr].term_owner_tab = vim.api.nvim_get_current_tabpage()
+			local owner_tab = vim.api.nvim_get_current_tabpage()
+			vim.b[bufnr].term_owner_tab = owner_tab
 			float_layout.setup_mouse_mappings(bufnr, api)
 
 			local is_winbar_visible = config.should_show_winbar(#state.get_tabs())
@@ -89,65 +131,9 @@ function M.setup(api)
 				end)
 			end
 
-			vim.api.nvim_buf_attach(bufnr, false, {
-				on_lines = function(_, buf)
-					if not vim.api.nvim_buf_is_valid(buf) then
-						return true
-					end
-					-- Activity already flagged: skip the order scan until the
-					-- flag is cleared (on_lines fires per output chunk, so this
-					-- is the hot path for busy background terminals)
-					if vim.b[buf].term_activity_flagged then
-						return
-					end
-					-- O(1) owner lookup via buffer variable set on TermOpen
-					local owner_tab = vim.b[buf].term_owner_tab
-					if not owner_tab or not vim.api.nvim_tabpage_is_valid(owner_tab) then
-						return
-					end
-					if vim.t[owner_tab].term_toggling then
-						return
-					end
-					-- Skip if buffer is displayed in a current terminal window
-					local wins = vim.t[owner_tab].term_winids
-					if wins then
-						for _, win in ipairs(wins) do
-							if state.win_valid(win) and vim.api.nvim_win_get_buf(win) == buf then
-								return
-							end
-						end
-					end
-					-- Find the tab entry of this buffer within the owning tabpage
-					local raw_order = vim.t[owner_tab].term_order
-					if not raw_order then
-						return
-					end
-					local order = state.migrate_term_order(raw_order)
-					local gi = nil
-					for i, entry in ipairs(order) do
-						for _, b in ipairs(entry.bufs) do
-							if b == buf then
-								gi = i
-								break
-							end
-						end
-						if gi then break end
-					end
-					local tab_idx = vim.t[owner_tab].term_tab_idx
-					if not gi or gi == (tab_idx or 1) then
-						return
-					end
-					if order[gi].activity then
-						return
-					end
-					order[gi].activity = true
-					vim.b[buf].term_activity_flagged = true
-					vim.t[owner_tab].term_order = order
-					vim.schedule(function()
-						winbar.update()
-					end)
-				end,
-			})
+			vim.schedule(function()
+				activity.sync(owner_tab)
+			end)
 		end,
 	})
 	vim.api.nvim_create_autocmd("ModeChanged", {
@@ -429,8 +415,11 @@ function M.setup(api)
 		vim.api.nvim_create_autocmd({ "TermOpen", "BufEnter", "BufFilePost" }, {
 			pattern = "*",
 			group = "Term",
-			callback = function()
+			callback = function(ev)
 				if vim.t.term_toggling then
+					return
+				end
+				if ev.event == "BufFilePost" and vim.b[ev.buf].term_title_rename then
 					return
 				end
 				if vim.bo[0].buftype == "terminal" then
@@ -444,18 +433,8 @@ function M.setup(api)
 		pattern = "*",
 		group = "Term",
 		callback = function(ev)
-			local seq = ev.data.sequence
-
-			if seq:match("^\x1b%]0;") then
-				local title = seq:match("\x1b%]0;([^\007]+)")
-				if title then title = title:match("^%s*(.-)%s*$") end
-				if title and #title > 0 then
-					local buf = ev.buf
-					vim.b[buf].term_title = title
-					bufname.set_from_title(buf, title)
-					winbar.update()
-					statusline.update()
-				end
+			if ev.data.sequence:match("^\x1b%][02];") then
+				schedule_title_update(ev.buf)
 			end
 		end,
 	})

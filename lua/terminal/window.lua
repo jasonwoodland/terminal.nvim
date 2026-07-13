@@ -10,6 +10,7 @@ local winbar = require("terminal.winbar")
 local statusline = require("terminal.statusline")
 local overlay = require("terminal.overlay")
 local float_layout = require("terminal.float_layout")
+local activity = require("terminal.activity")
 
 local closing_pane_windows = false
 
@@ -166,6 +167,7 @@ local function finalize_tab(wins, bufs, tab_idx, st)
 	vim.t.term_tab_idx = tab_idx
 
 	state.set_activity(tab_idx, false)
+	activity.sync()
 
 	mode.apply(st.modes and bufs[focus_idx] and st.modes[tostring(bufs[focus_idx])])
 
