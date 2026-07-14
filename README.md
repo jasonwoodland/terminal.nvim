@@ -71,8 +71,11 @@ require("terminal").setup({
   -- Hide cmdline when float zoom is active
   float_zoom_hide_cmdline = false,
 
-  -- Rename terminal buffers to their OSC terminal title, adding " (2)" etc. for duplicates
+  -- Name terminal buffers terminal://{terminal job PID}//{OSC title}
   set_buffer_name = true,
+
+  -- Show the OSC title in terminal pane statuslines
+  statusline = true,
 
   -- OSC notification passthrough
   osc_notifications = true,
@@ -176,13 +179,13 @@ These work anywhere in Normal and/or Terminal mode:
       <td align="center">✓</td>
       <td align="center">✓</td>
       <td><kbd>&lt;C-S-[&gt;</kbd></td>
-      <td>Go to the next tab</td>
+      <td>Go to the previous tab</td>
     </tr>
     <tr>
       <td align="center">✓</td>
       <td align="center">✓</td>
       <td><kbd>&lt;C-S-]&gt;</kbd></td>
-      <td>Go to the previous tab</td>
+      <td>Go to the next tab</td>
     </tr>
     <tr>
       <td align="center">✓</td>
