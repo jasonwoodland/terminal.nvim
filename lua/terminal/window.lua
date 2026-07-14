@@ -94,6 +94,7 @@ local function apply_pane_winopts(win, float_winblend, show_winbar)
 	vim.wo[win].scrolloff = 0
 	vim.wo[win].sidescrolloff = 0
 	vim.wo[win].winblend = float_winblend
+	vim.wo[win].statusline = config.config.statusline and statusline.pane_statusline or ""
 	if can_set_winbar(win, show_winbar) then
 		vim.wo[win].winbar = " "
 	else

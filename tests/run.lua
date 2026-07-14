@@ -309,6 +309,40 @@ ok(#tabs() == 1, "toggle from empty creates one tab")
 ok(#open_term_wins() == 1, "toggle opens one pane window")
 ok(vim.bo[vim.api.nvim_get_current_buf()].buftype == "terminal", "focus lands in a terminal buffer")
 
+-- OSC titles use a terminal URI namespace, so a cwd title cannot make
+-- :edit . reopen the hidden terminal.
+do
+	local term_buf = vim.api.nvim_get_current_buf()
+	local pid = vim.fn.jobpid(vim.b[term_buf].terminal_job_id)
+	vim.api.nvim_chan_send(vim.b[term_buf].terminal_job_id, "printf '\\033]0;.\\007'\n")
+	settle()
+	eq(vim.api.nvim_buf_get_name(term_buf), "terminal://" .. pid .. "//.", "job PID and OSC title name the terminal buffer")
+	local rendered = vim.api.nvim_eval_statusline(vim.wo[vim.t.term_winid].statusline, {
+		winid = vim.t.term_winid,
+	})
+	eq(rendered.str, ".", "terminal pane statusline displays the OSC title")
+	terminal.toggle()
+	settle()
+	vim.cmd.edit(".")
+	settle()
+	ok(vim.api.nvim_get_current_buf() ~= term_buf, ":edit . does not reopen a hidden cwd-titled terminal")
+	ok(vim.bo.buftype ~= "terminal", ":edit . opens a normal directory buffer")
+	terminal.toggle()
+	settle()
+
+	terminal.config.statusline = false
+	terminal.toggle()
+	settle()
+	terminal.toggle()
+	settle()
+	eq(vim.wo[vim.t.term_winid].statusline, vim.o.statusline, "statusline=false preserves the global statusline")
+	terminal.config.statusline = true
+	terminal.toggle()
+	settle()
+	terminal.toggle()
+	settle()
+end
+
 -- new tab
 terminal.new()
 settle()
@@ -339,9 +373,10 @@ do
 end
 
 -- Neovim owns b:term_title. Multiple title requests in one input burst are
--- collapsed into one buffer rename and one overlay refresh.
+-- collapsed into one buffer rename and one winbar/statusline refresh.
 do
 	local buf = tab_bufs(2)[1]
+	local pid = vim.fn.jobpid(vim.b[buf].terminal_job_id)
 	local winbar_mod = require("terminal.winbar")
 	local statusline_mod = require("terminal.statusline")
 	local old_winbar_update = winbar_mod.update
@@ -370,11 +405,14 @@ do
 	winbar_mod.update = old_winbar_update
 	statusline_mod.update = old_statusline_update
 	eq(vim.b[buf].term_title, "title-two", "native terminal title keeps the final OSC title")
-	eq(vim.b[buf].term_buffer_name_title, "title-two", "coalesced title update renames once to the final title")
+	eq(vim.api.nvim_buf_get_name(buf), "terminal://" .. pid .. "//title-two", "title update names the terminal buffer")
 	eq(winbar_updates, 1, "title burst renders the winbar once")
 	eq(statusline_updates, 1, "title burst renders the statusline once")
-	eq(#vim.api.nvim_list_bufs(), buffer_count_before, "title rename wipes Neovim's old-name placeholder")
+	eq(#vim.api.nvim_list_bufs(), buffer_count_before, "title rename removes Neovim's old-name placeholder")
 	eq(vim.fn.bufnr("#"), alternate_before, "title rename preserves the alternate buffer")
+	local win = vim.fn.bufwinid(buf)
+	local rendered = vim.api.nvim_eval_statusline(vim.wo[win].statusline, { winid = win })
+	eq(rendered.str, "title-two", "terminal pane statusline displays the final title")
 end
 
 -- vsplit pane
