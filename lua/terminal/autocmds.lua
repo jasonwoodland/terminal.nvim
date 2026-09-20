@@ -202,6 +202,9 @@ function M.setup(api)
 		group = "Term",
 		callback = function()
 			state.adopt_current_terminal()
+			if state.is_in_term_window() and vim.bo.buftype == "terminal" then
+				bufname.sync(vim.api.nvim_get_current_buf())
+			end
 
 			-- Track focus within pane windows. Skip while toggling:
 			-- closing panes shifts focus through the survivors, and a
@@ -394,7 +397,6 @@ function M.setup(api)
 			local is_displayed = is_in_active_tab and state.is_term_open()
 
 			state.remove_term_from_order(bufnr)
-			bufname.clear(bufnr)
 			local is_winbar_visible = config.should_show_winbar(#state.get_tabs())
 			local winbar_visibility_changed = was_winbar_visible ~= is_winbar_visible
 
@@ -413,14 +415,11 @@ function M.setup(api)
 	})
 
 	if config.config.winbar then
-		vim.api.nvim_create_autocmd({ "TermOpen", "BufEnter", "BufFilePost" }, {
+		vim.api.nvim_create_autocmd({ "TermOpen", "BufEnter" }, {
 			pattern = "*",
 			group = "Term",
-			callback = function(ev)
+			callback = function()
 				if vim.t.term_toggling then
-					return
-				end
-				if ev.event == "BufFilePost" and vim.b[ev.buf].term_title_rename then
 					return
 				end
 				if vim.bo[0].buftype == "terminal" then

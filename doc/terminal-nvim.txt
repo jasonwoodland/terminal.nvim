@@ -39,7 +39,7 @@ editor area.
 ==============================================================================
 2. Requirements					*terminal.nvim-requirements*
 
-Neovim 0.10 or newer.
+Neovim 0.11 or newer.
 
 ==============================================================================
 3. Installation					*terminal.nvim-installation*
@@ -79,7 +79,6 @@ the full default configuration: >lua
       float_zoom_show_tabline = true,
       float_zoom_hide_cmdline = false,
       set_buffer_name = true,
-      statusline = true,
       osc_notifications = true,
       keys = {
 	toggle			= "<C-S-Space>",
@@ -135,15 +134,14 @@ show_winbar_when_single_tab ~
 	there are two or more terminal tabs. Requires `winbar = true`.
 	Default: `false`.
 
-					*terminal.nvim-opt-set_buffer_name*
+				*terminal.nvim-opt-set_buffer_name*
 set_buffer_name ~
-	When true, names terminal buffers from their OSC title using the
-	format `terminal://{terminal-job-pid}//{title}`. Default: `true`.
-
-					*terminal.nvim-opt-statusline*
-statusline ~
-	When true, terminal pane statuslines display the OSC title. When
-	false, panes use the user's global 'statusline'. Default: `true`.
+	When true, names terminal buffers from their OSC title using the format
+	`term://{terminal-job-pid}//{title}`. On Neovim versions before 0.13,
+	an inactive terminal's rename is deferred until it is focused, preventing
+	the inactive buffer from changing Neovim's outer title. terminal.nvim does
+	not modify 'title' or 'titlestring'; Neovim's normal title handling follows
+	the renamed active buffer. Default: `true`.
 
 						*terminal.nvim-opt-float*
 float ~

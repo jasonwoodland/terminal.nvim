@@ -70,7 +70,6 @@ terminal.nvim-opt-keys	terminal-nvim.txt	/*terminal.nvim-opt-keys*
 terminal.nvim-opt-osc_notifications	terminal-nvim.txt	/*terminal.nvim-opt-osc_notifications*
 terminal.nvim-opt-set_buffer_name	terminal-nvim.txt	/*terminal.nvim-opt-set_buffer_name*
 terminal.nvim-opt-show_winbar_when_single_tab	terminal-nvim.txt	/*terminal.nvim-opt-show_winbar_when_single_tab*
-terminal.nvim-opt-statusline	terminal-nvim.txt	/*terminal.nvim-opt-statusline*
 terminal.nvim-opt-winbar	terminal-nvim.txt	/*terminal.nvim-opt-winbar*
 terminal.nvim-requirements	terminal-nvim.txt	/*terminal.nvim-requirements*
 terminal.nvim-wincmd	terminal-nvim.txt	/*terminal.nvim-wincmd*

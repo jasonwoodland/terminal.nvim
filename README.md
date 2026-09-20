@@ -24,6 +24,8 @@ Use Neovim as your terminal multiplexer.
 
 ## Installation
 
+Requires Neovim 0.11 or newer.
+
 Using [lazy.nvim](https://github.com/folke/lazy.nvim):
 
 ```lua
@@ -71,11 +73,10 @@ require("terminal").setup({
   -- Hide cmdline when float zoom is active
   float_zoom_hide_cmdline = false,
 
-  -- Name terminal buffers terminal://{terminal job PID}//{OSC title}
+  -- Name terminal buffers term://{terminal job PID}//{OSC title}
+  -- (on Neovim <0.13, inactive renames wait until the terminal is focused)
+  -- Neovim's own title/titlestring handling then follows the active buffer.
   set_buffer_name = true,
-
-  -- Show the OSC title in terminal pane statuslines
-  statusline = true,
 
   -- OSC notification passthrough
   osc_notifications = true,

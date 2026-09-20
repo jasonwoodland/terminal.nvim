@@ -279,6 +279,8 @@ end
 
 local terminal = require("terminal")
 terminal.setup({})
+local original_title = vim.o.title
+local original_titlestring = vim.o.titlestring
 
 -- Shape-agnostic helpers (work for both the v2 list-of-buf-lists model and the
 -- v3 entry-record model)
@@ -314,33 +316,55 @@ ok(vim.bo[vim.api.nvim_get_current_buf()].buftype == "terminal", "focus lands in
 do
 	local term_buf = vim.api.nvim_get_current_buf()
 	local pid = vim.fn.jobpid(vim.b[term_buf].terminal_job_id)
+	local renamed_name = "term://" .. pid .. "//."
 	vim.api.nvim_chan_send(vim.b[term_buf].terminal_job_id, "printf '\\033]0;.\\007'\n")
 	settle()
-	eq(vim.api.nvim_buf_get_name(term_buf), "terminal://" .. pid .. "//.", "job PID and OSC title name the terminal buffer")
-	local rendered = vim.api.nvim_eval_statusline(vim.wo[vim.t.term_winid].statusline, {
-		winid = vim.t.term_winid,
-	})
-	eq(rendered.str, ".", "terminal pane statusline displays the OSC title")
+	eq(vim.api.nvim_buf_get_name(term_buf), renamed_name, "OSC title names the terminal buffer in its URI namespace")
+	eq(vim.o.title, original_title, "buffer rename leaves the title option untouched")
+	eq(vim.o.titlestring, original_titlestring, "buffer rename leaves titlestring untouched")
+	eq(vim.wo[vim.t.term_winid].statusline, vim.o.statusline, "terminal.nvim leaves the terminal pane statusline unchanged")
 	terminal.toggle()
 	settle()
+	eq(vim.o.title, original_title, "closing the drawer leaves the title option untouched")
+	eq(vim.o.titlestring, original_titlestring, "closing the drawer leaves titlestring untouched")
 	vim.cmd.edit(".")
 	settle()
 	ok(vim.api.nvim_get_current_buf() ~= term_buf, ":edit . does not reopen a hidden cwd-titled terminal")
 	ok(vim.bo.buftype ~= "terminal", ":edit . opens a normal directory buffer")
 	terminal.toggle()
 	settle()
+	local editor_win = vim.t.prev_winid
+	vim.api.nvim_set_current_win(editor_win)
+	settle()
+	eq(vim.o.title, original_title, "editor focus leaves the title option untouched")
+	eq(vim.o.titlestring, original_titlestring, "editor focus leaves titlestring untouched")
+	vim.api.nvim_set_current_win(vim.t.term_winid)
+	settle()
+	eq(vim.o.titlestring, original_titlestring, "terminal focus leaves titlestring untouched")
 
-	terminal.config.statusline = false
-	terminal.toggle()
+	vim.api.nvim_set_current_win(editor_win)
 	settle()
-	terminal.toggle()
+	vim.o.title = true
+	vim.o.titlestring = "%t (%{expand('%:p:~:h')}) - Nvim"
+	vim.api.nvim_set_current_win(vim.t.term_winid)
 	settle()
-	eq(vim.wo[vim.t.term_winid].statusline, vim.o.statusline, "statusline=false preserves the global statusline")
-	terminal.config.statusline = true
-	terminal.toggle()
+	eq(vim.o.titlestring, "%t (%{expand('%:p:~:h')}) - Nvim", "terminal.nvim preserves a custom titlestring")
+	local custom_title = vim.api.nvim_eval_statusline(vim.o.titlestring, { winid = vim.t.term_winid, maxwidth = 1000 })
+	ok(custom_title.str:sub(1, 2) == ". ", "Neovim resolves custom titlestring %t from the renamed buffer")
+	vim.api.nvim_set_current_win(editor_win)
 	settle()
-	terminal.toggle()
+	eq(vim.o.titlestring, "%t (%{expand('%:p:~:h')}) - Nvim", "editor focus preserves the custom titlestring")
+	vim.o.title = original_title
+	vim.o.titlestring = original_titlestring
+	vim.api.nvim_set_current_win(vim.t.term_winid)
 	settle()
+
+	terminal.config.set_buffer_name = false
+	local name_before_disabled_title = vim.api.nvim_buf_get_name(term_buf)
+	vim.api.nvim_chan_send(vim.b[term_buf].terminal_job_id, "printf '\\033]0;rename-disabled\\007'\n")
+	settle()
+	eq(vim.api.nvim_buf_get_name(term_buf), name_before_disabled_title, "set_buffer_name=false preserves the buffer name")
+	terminal.config.set_buffer_name = true
 end
 
 -- new tab
@@ -358,25 +382,46 @@ do
 	ok(activity.is_armed(background_buf), "background terminal has an activity watcher")
 	ok(not activity.is_armed(foreground_buf), "foreground terminal has no armed activity watcher")
 
-	vim.api.nvim_chan_send(vim.b[background_buf].terminal_job_id, "printf 'activity-watch-test\\n'\n")
+	local saved_title = vim.o.title
+	local saved_titlestring = vim.o.titlestring
+	vim.o.title = true
+	vim.o.titlestring = "%t - Nvim"
+	local active_title = vim.api.nvim_eval_statusline(vim.o.titlestring, { winid = vim.t.term_winid, maxwidth = 1000 }).str
+	local background_pid = vim.fn.jobpid(vim.b[background_buf].terminal_job_id)
+	local renamed_background = "term://" .. background_pid .. "//background-title"
+	vim.api.nvim_chan_send(vim.b[background_buf].terminal_job_id, "printf '\\033]0;background-title\\007'\n")
 	settle()
+	eq(
+		vim.api.nvim_eval_statusline(vim.o.titlestring, { winid = vim.t.term_winid, maxwidth = 1000 }).str,
+		active_title,
+		"inactive rename leaves the active title rendering unchanged"
+	)
+	eq(vim.api.nvim_buf_get_name(background_buf), renamed_background, "inactive terminal adopts its OSC buffer name")
 	local background_idx = state.find_buf_tab(background_buf)
 	ok(tabs()[background_idx].activity == true, "first background update sets activity")
 	ok(not activity.is_armed(background_buf), "activity watcher detaches after the first update")
 
 	terminal.go_to(1)
 	settle()
+	eq(
+		vim.api.nvim_eval_statusline(vim.o.titlestring, { winid = vim.t.term_winid, maxwidth = 1000 }).str,
+		"background-title - Nvim",
+		"Neovim renders the newly active renamed buffer in titlestring"
+	)
 	ok(not tabs()[1].activity, "focusing a terminal clears its activity")
 	ok(activity.is_armed(foreground_buf), "previous terminal is armed when it becomes background")
 	terminal.go_to(2)
 	settle()
+	vim.o.titlestring = saved_titlestring
+	vim.o.title = saved_title
 end
 
 -- Neovim owns b:term_title. Multiple title requests in one input burst are
--- collapsed into one buffer rename and one winbar/statusline refresh.
+-- collapsed into one buffer rename and winbar/statusline refresh.
 do
 	local buf = tab_bufs(2)[1]
 	local pid = vim.fn.jobpid(vim.b[buf].terminal_job_id)
+	local renamed_name = "term://" .. pid .. "//title-two"
 	local winbar_mod = require("terminal.winbar")
 	local statusline_mod = require("terminal.statusline")
 	local old_winbar_update = winbar_mod.update
@@ -405,14 +450,14 @@ do
 	winbar_mod.update = old_winbar_update
 	statusline_mod.update = old_statusline_update
 	eq(vim.b[buf].term_title, "title-two", "native terminal title keeps the final OSC title")
-	eq(vim.api.nvim_buf_get_name(buf), "terminal://" .. pid .. "//title-two", "title update names the terminal buffer")
+	eq(vim.api.nvim_buf_get_name(buf), renamed_name, "title update renames the terminal buffer")
+	eq(vim.o.titlestring, original_titlestring, "title update leaves titlestring untouched")
 	eq(winbar_updates, 1, "title burst renders the winbar once")
 	eq(statusline_updates, 1, "title burst renders the statusline once")
-	eq(#vim.api.nvim_list_bufs(), buffer_count_before, "title rename removes Neovim's old-name placeholder")
-	eq(vim.fn.bufnr("#"), alternate_before, "title rename preserves the alternate buffer")
+	eq(#vim.api.nvim_list_bufs(), buffer_count_before, "title update creates no placeholder buffers")
+	eq(vim.fn.bufnr("#"), alternate_before, "title update preserves the alternate buffer")
 	local win = vim.fn.bufwinid(buf)
-	local rendered = vim.api.nvim_eval_statusline(vim.wo[win].statusline, { winid = win })
-	eq(rendered.str, "title-two", "terminal pane statusline displays the final title")
+	eq(vim.wo[win].statusline, vim.o.statusline, "title update leaves the terminal pane statusline unchanged")
 end
 
 -- vsplit pane

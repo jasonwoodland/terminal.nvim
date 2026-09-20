@@ -7,10 +7,6 @@ local state = require("terminal.state")
 local stl_ns = vim.api.nvim_create_namespace("terminal_stl")
 local _stl_cache = {} -- [tabpage] = { [pane_win] = { stl_win, stl_buf } }
 
--- Show the clean OSC title in terminal panes; the buffer name keeps its
--- namespaced terminal://pid//title identity for buffer-oriented interfaces.
-M.pane_statusline = "%{trim(get(b:, 'term_title', '')) ==# '' ? expand('%:t') : trim(b:term_title)}"
-
 local function render_stl_overlay(stl_buf, win, width, pad_right)
 	local stl = vim.wo[win].statusline
 	if stl == "" then

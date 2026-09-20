@@ -8,6 +8,7 @@ local frame = require("terminal.frame")
 local mode = require("terminal.mode")
 local winbar = require("terminal.winbar")
 local statusline = require("terminal.statusline")
+local bufname = require("terminal.bufname")
 local overlay = require("terminal.overlay")
 local float_layout = require("terminal.float_layout")
 local activity = require("terminal.activity")
@@ -94,7 +95,6 @@ local function apply_pane_winopts(win, float_winblend, show_winbar)
 	vim.wo[win].scrolloff = 0
 	vim.wo[win].sidescrolloff = 0
 	vim.wo[win].winblend = float_winblend
-	vim.wo[win].statusline = config.config.statusline and statusline.pane_statusline or ""
 	if can_set_winbar(win, show_winbar) then
 		vim.wo[win].winbar = " "
 	else
@@ -166,6 +166,9 @@ local function finalize_tab(wins, bufs, tab_idx, st)
 	vim.t.term_winid = wins[focus_idx] or wins[1]
 	vim.t.term_bufnr = bufs[focus_idx] or bufs[1]
 	vim.t.term_tab_idx = tab_idx
+	if vim.t.term_bufnr then
+		bufname.sync(vim.t.term_bufnr)
+	end
 
 	state.set_activity(tab_idx, false)
 	activity.sync()
