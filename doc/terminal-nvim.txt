@@ -62,6 +62,9 @@ the full default configuration: >lua
 
     require("terminal").setup({
       height = 0.5,
+      drawer = {
+	winpinned = true,
+      },
       winbar = true,
       show_winbar_when_single_tab = false,
       float = {
@@ -118,6 +121,19 @@ height ~
 	Terminal drawer height. An integer is treated as an absolute number of
 	lines; a float between 0 and 1 is treated as a fraction of 'lines'.
 	Default: `0.5` (half the screen).
+
+						*terminal.nvim-opt-drawer*
+drawer ~
+	Options applied to terminal panes while they are in drawer mode: >lua
+
+	    drawer = {
+	      winpinned = true,
+	    }
+<
+	`winpinned` sets |'winpinned'| on drawer panes when that option is
+	available. This prevents |:only| and |:fclose| from closing the drawer.
+	Set it to `false` to retain Neovim's normal window-closing behaviour.
+	It is disabled for floating and zoomed terminal panes. Default: `true`.
 
 						*terminal.nvim-opt-winbar*
 winbar ~

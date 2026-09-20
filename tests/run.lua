@@ -310,6 +310,16 @@ settle()
 ok(#tabs() == 1, "toggle from empty creates one tab")
 ok(#open_term_wins() == 1, "toggle opens one pane window")
 ok(vim.bo[vim.api.nvim_get_current_buf()].buftype == "terminal", "focus lands in a terminal buffer")
+if vim.fn.exists("+winpinned") == 1 then
+	ok(vim.wo[vim.t.term_winid].winpinned, "drawer panes are pinned by default")
+	terminal.config.drawer.winpinned = false
+	require("terminal.window").rebuild_tab()
+	settle()
+	ok(not vim.wo[vim.t.term_winid].winpinned, "drawer.winpinned=false leaves drawer panes unpinned")
+	terminal.config.drawer.winpinned = true
+	require("terminal.window").rebuild_tab()
+	settle()
+end
 
 -- OSC titles use a terminal URI namespace, so a cwd title cannot make
 -- :edit . reopen the hidden terminal.
@@ -612,6 +622,9 @@ settle()
 ok(#open_term_wins() >= 1, "float_toggle rebuilds windows")
 local float_cfg = vim.api.nvim_win_get_config(vim.t.term_winid)
 ok(float_cfg.relative ~= "", "pane window is floating after float_toggle")
+if vim.fn.exists("+winpinned") == 1 then
+	ok(not vim.wo[vim.t.term_winid].winpinned, "floating panes are not pinned")
+end
 
 terminal.zoom()
 settle()

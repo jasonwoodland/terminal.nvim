@@ -44,6 +44,11 @@ require("terminal").setup({
   -- Terminal drawer height. Integer for lines, float for percentage (e.g. 0.5 for 50% height)
   height = 0.5,
 
+  -- Drawer-mode window options
+  drawer = {
+    winpinned = true,              -- Keep drawer panes open during :only and :fclose
+  },
+
   -- Enable terminal tabs in winbar (shown for 2+ terminal tabs by default)
   winbar = true,
 

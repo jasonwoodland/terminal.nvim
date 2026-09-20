@@ -4,6 +4,9 @@ local M = {}
 
 M.config = {
 	height = 0.5,
+	drawer = {
+		winpinned = true,
+	},
 	winbar = true,
 	show_winbar_when_single_tab = false,
 	float = {
@@ -138,12 +141,16 @@ end
 function M.setup(user_config)
 	local default_keys = M.config.keys
 	local default_float = M.config.float
+	local default_drawer = M.config.drawer
 	M.config = vim.tbl_extend("force", M.config, user_config or {})
 	if M.config.keys ~= false then
 		M.config.keys = vim.tbl_extend("force", default_keys, M.config.keys or {})
 	end
 	if type(M.config.float) == "table" and type(default_float) == "table" then
 		M.config.float = vim.tbl_deep_extend("force", default_float, M.config.float)
+	end
+	if type(M.config.drawer) == "table" and type(default_drawer) == "table" then
+		M.config.drawer = vim.tbl_deep_extend("force", default_drawer, M.config.drawer)
 	end
 end
 

@@ -88,6 +88,9 @@ local function apply_pane_winopts(win, float_winblend, show_winbar)
 	-- grows a winfixheight window instead of halving it, which would push
 	-- the drawer into the editor area.
 	vim.wo[win].winfixheight = true
+	if vim.fn.exists("+winpinned") == 1 then
+		vim.wo[win].winpinned = not config.is_float_mode() and config.config.drawer.winpinned
+	end
 	vim.wo[win].signcolumn = "no"
 	vim.wo[win].foldcolumn = "0"
 	vim.wo[win].number = false
