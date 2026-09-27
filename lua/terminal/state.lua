@@ -384,14 +384,8 @@ end
 -- Split the pane holding at_bufnr in a tab, inserting bufnr as the new pane.
 -- dir is "row" (vsplit) or "col" (split). Falls back to appending at the top
 -- level when at_bufnr isn't in the entry.
-function M.split_buf_in_tab(bufnr, tab_idx, at_bufnr, dir)
-	local order = M.get_term_order()
-
-	local entry = order[tab_idx]
-	if not entry then
-		return
-	end
-
+function M.split_entry(entry, bufnr, at_bufnr, dir)
+	assert(dir == "row" or dir == "col", "split direction must be row or col")
 	for _, buf in ipairs(entry.bufs) do
 		if buf == bufnr then
 			return
@@ -423,6 +417,13 @@ function M.split_buf_in_tab(bufnr, tab_idx, at_bufnr, dir)
 	entry.layout = root
 	M.sync_bufs(entry)
 	entry.focus = bufnr
+	return true
+end
+
+function M.split_buf_in_tab(bufnr, tab_idx, at_bufnr, dir)
+	local order = M.get_term_order()
+	local entry = order[tab_idx]
+	if not entry or not M.split_entry(entry, bufnr, at_bufnr, dir) then return false end
 	vim.t.term_order = order
 	return true
 end

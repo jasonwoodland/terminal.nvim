@@ -67,11 +67,10 @@ function M.toggle(opts)
 		vim.t.prev_winid = vim.api.nvim_get_current_win()
 
 		local tab, tab_idx = state.get_current_tab()
+		if height > 1 then vim.t.term_height = height end
+		if not window.check_size(tab, math.max(#state.get_tabs(), 1)) then return false end
 
 		if tab and #tab.bufs > 0 then
-			if height > 1 then
-				vim.t.term_height = height
-			end
 			window.open_tab_windows(tab, tab_idx)
 		else
 			-- Create a new terminal and open it via open_tab_windows
@@ -98,12 +97,14 @@ function M.zoom()
 	end
 
 	if config.is_float_config_enabled() then
-		vim.t.term_zoom = (not vim.t.term_zoom) and true or nil
-		window.rebuild_tab()
+		local previous_zoom = vim.t.term_zoom
+		vim.t.term_zoom = (not previous_zoom) and true or nil
+		if not window.rebuild_tab() then vim.t.term_zoom = previous_zoom end
 		return
 	end
 
 	if config.config.float_zoom then
+		local previous_zoom = vim.t.term_zoom
 		window.save_tab_state()
 
 		if not vim.t.term_zoom then
@@ -113,8 +114,7 @@ function M.zoom()
 			vim.t.term_zoom = nil
 		end
 
-		window.close_pane_windows()
-		window.reopen_current_tab()
+		if not window.rebuild_tab() then vim.t.term_zoom = previous_zoom end
 		return
 	end
 
@@ -147,6 +147,9 @@ function M.float_toggle()
 	local force_on = (not state.is_term_open()) or (vim.t.term_zoom ~= nil)
 	local target = force_on or (not config.is_float_config_enabled())
 
+	window.save_tab_state()
+	local previous_float = vim.deepcopy(config.config.float)
+	local previous_zoom, previous_height = vim.t.term_zoom, vim.t.term_prev_height
 	vim.t.term_zoom = nil
 	vim.t.term_prev_height = nil
 
@@ -156,6 +159,11 @@ function M.float_toggle()
 		config.config.float = target
 	end
 
+	if not window.check_size(state.get_current_tab()) then
+		config.config.float = previous_float
+		vim.t.term_zoom, vim.t.term_prev_height = previous_zoom, previous_height
+		return false
+	end
 	if state.is_term_open() then
 		window.rebuild_tab()
 	else
@@ -465,6 +473,7 @@ function M.delete()
 end
 
 function M.new()
+	if not window.check_size(nil, #state.get_tabs() + 1) then return false end
 	state.set_toggling()
 
 	local _, current_idx = state.get_current_tab()
@@ -504,6 +513,9 @@ function M.split(dir)
 	local _, current_pane_idx = state.find_buf_tab(current_bufnr)
 
 	window.save_tab_state()
+	local preview = state.get_term_order()[tab_idx]
+	if not state.split_entry(preview, -1, current_bufnr, dir or "row")
+		or not window.check_size(preview) then return false end
 	window.close_pane_windows()
 
 	local bufnr = vim.api.nvim_create_buf(false, true)
@@ -547,6 +559,7 @@ function M.break_pane_to_tab()
 	if #tab.bufs < 2 then
 		return
 	end
+	if not window.check_size(nil, #tabs + 1) then return false end
 
 	state.set_toggling()
 	window.save_tab_state()

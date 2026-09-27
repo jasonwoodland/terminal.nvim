@@ -56,12 +56,6 @@ function M.get_float_win_config()
 	}
 end
 
-local function open_window(win_config)
-	local scratch = vim.api.nvim_create_buf(false, true)
-	local win = vim.api.nvim_open_win(scratch, true, win_config)
-	return win, scratch
-end
-
 -- Setting vim.wo[win].winbar requires the window to have >= 2 lines (1 for
 -- winbar, 1 for content); otherwise Neovim raises E36 "Not enough room".
 -- This matters when the user shrinks the app window to a very small size in
@@ -175,26 +169,34 @@ local function finalize_tab(wins, bufs, tab_idx, st)
 	winbar.update()
 end
 
--- Whether the current screen is large enough to host a float-mode rebuild.
--- In float zoom mode the pane window needs one content row plus any visible
--- native winbar slot, and 1 row for the statusline overlay. If the screen is
--- smaller than that, skip the rebuild and let Neovim's auto-clamp keep the
--- existing floats alive.
+-- Check the whole tree before replacing a view. Below its minimum, keep the
+-- existing windows until there is enough room again.
+function M.can_open_tab(entry, tab_count)
+	local layout = entry and entry.layout or { t = "leaf" }
+	tab_count = tab_count or #state.get_tabs()
+	local width, height
+	if config.is_float_mode() then
+		local cfg = M.get_float_win_config()
+		width = cfg.width
+		height = cfg.height - (vim.t.term_zoom and 1 or 0)
+	else
+		width = vim.o.columns
+		local tabline = (vim.o.showtabline == 2 or (vim.o.showtabline == 1 and #vim.api.nvim_list_tabpages() > 1)) and 1 or 0
+		-- Keep at least one editor row, its separator, and the bottom statusline.
+		local available = vim.o.lines - vim.o.cmdheight - tabline - 2 - (vim.o.laststatus > 0 and 1 or 0)
+		height = math.min(vim.t.term_height or config.get_term_height(), available)
+	end
+	return frame.fits(layout, width, height - config.get_winbar_height(tab_count))
+end
+
 function M.can_rebuild_float()
-	if not config.is_float_mode() then
-		return true
-	end
-	local cfg = M.get_float_win_config()
-	local tab_count = #state.get_tabs()
-	local min_pane_height = config.get_winbar_height(tab_count) + 1
-	local stl_height = vim.t.term_zoom and 1 or 0
-	if cfg.height - stl_height < min_pane_height then
-		return false
-	end
-	if cfg.width < 1 then
-		return false
-	end
-	return true
+	return not config.is_float_mode() or M.can_open_tab(state.get_current_tab())
+end
+
+function M.check_size(entry, tab_count)
+	if M.can_open_tab(entry, tab_count) then return true end
+	vim.notify("E36: Not enough room for terminal panes", vim.log.levels.WARN)
+	return false
 end
 
 -- Open a terminal in a temporary window so the PTY starts with correct
@@ -229,8 +231,13 @@ function M.termopen_with_size(bufnr, num_panes, tab_count)
 		col = 0,
 		noautocmd = true,
 	})
-	vim.fn.termopen(vim.env.SHELL or vim.o.shell)
-	vim.api.nvim_win_close(tmp_win, true)
+	local ok, job = pcall(vim.fn.termopen, vim.env.SHELL or vim.o.shell)
+	if state.win_valid(tmp_win) then vim.api.nvim_win_close(tmp_win, true) end
+	if not ok or job <= 0 then
+		state.remove_term_from_order(bufnr)
+		if vim.api.nvim_buf_is_valid(bufnr) then vim.api.nvim_buf_delete(bufnr, { force = true }) end
+		error(ok and "Could not start terminal job" or job, 0)
+	end
 end
 
 function M.save_tab_state()
@@ -359,42 +366,61 @@ function M.save_layout_sizes()
 end
 
 function M.close_pane_windows()
-	if closing_pane_windows then
-		return
-	end
+	if closing_pane_windows then return end
 	closing_pane_windows = true
-
-	state.restore_cmdheight()
-	state.restore_ruler()
-	winbar.destroy()
-	statusline.close()
-	overlay.destroy()
-	float_layout.close_canvas()
-
 	local wins = vim.t.term_winids or {}
-	for _, win in ipairs(wins) do
-		if state.win_valid(win) then
-			local cfg = vim.api.nvim_win_get_config(win)
-			if cfg.relative and cfg.relative ~= "" then
-				vim.api.nvim_win_close(win, true)
-			else
-				if vim.api.nvim_get_current_win() == win then
-					vim.cmd("wincmd p")
+	-- WinEnter/BufWinEnter must not treat windows being retired as panes.
+	vim.t.term_winids = {}
+	vim.t.term_winid = nil
+	local ok, err = pcall(function()
+		state.restore_cmdheight()
+		state.restore_ruler()
+		winbar.destroy()
+		statusline.close()
+		overlay.destroy()
+		float_layout.close_canvas()
+		for _, win in ipairs(wins) do
+			if state.win_valid(win) then
+				local cfg = vim.api.nvim_win_get_config(win)
+				local ordinary = 0
+				for _, w in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+					if vim.api.nvim_win_get_config(w).relative == "" then ordinary = ordinary + 1 end
 				end
-				local winnr = vim.fn.win_id2win(win)
-				if winnr > 0 then
-					vim.cmd(winnr .. "close")
+				if cfg.relative == "" and ordinary == 1 then
+					-- Neovim cannot close its last ordinary window. Retire the
+					-- pane by leaving an empty editor buffer in that window.
+					vim.api.nvim_win_set_buf(win, vim.api.nvim_create_buf(true, false))
+					vim.wo[win].winfixheight = false
+					vim.wo[win].winbar = ""
+					if vim.fn.exists("+winpinned") == 1 then vim.wo[win].winpinned = false end
+				else
+					vim.api.nvim_win_close(win, true)
 				end
 			end
 		end
-	end
-
-	vim.t.term_winids = {}
-	vim.t.term_winid = nil
+	end)
 	closing_pane_windows = false
+	if not ok then
+		local survivors = {}
+		for _, win in ipairs(wins) do
+			if state.win_valid(win) and vim.bo[vim.api.nvim_win_get_buf(win)].buftype == "terminal" then
+				survivors[#survivors + 1] = win
+			end
+		end
+		vim.t.term_winids = survivors
+		vim.t.term_winid = survivors[1]
+		error(err, 0)
+	end
 end
 
-function M.open_tab_windows(entry, tab_idx)
+local function open_tab_windows(entry, tab_idx, created, scratches)
+	local function open_window(win_config)
+		local scratch = vim.api.nvim_create_buf(false, true)
+		scratches[#scratches + 1] = scratch
+		local win = vim.api.nvim_open_win(scratch, true, win_config)
+		created[#created + 1] = win
+		return win
+	end
 	if not entry or not entry.bufs or #entry.bufs == 0 then
 		return
 	end
@@ -410,7 +436,6 @@ function M.open_tab_windows(entry, tab_idx)
 	local show_winbar = config.should_show_winbar(tab_count)
 
 	local wins = {}
-	local scratches = {}
 	local height = vim.t.term_height or config.get_term_height()
 
 	local has_stl = false
@@ -443,21 +468,19 @@ function M.open_tab_windows(entry, tab_idx)
 				border = "none",
 				zindex = (i == focus_idx) and 31 or 30,
 			}
-			local win, scratch = open_window(win_cfg)
+			local win = open_window(win_cfg)
 			table.insert(wins, win)
-			table.insert(scratches, scratch)
 		end
 	else
 		-- Drawer: one full-width bottom split, then real splits following the
 		-- layout tree. Recursion order yields windows in DFS (bufs) order.
 		-- winfixheight is applied later (apply_pane_winopts): splitting a
 		-- fixed-height window makes vim grow it into the editor area.
-		local first_win, first_scratch = open_window({
+		local first_win = open_window({
 			split = "below",
 			win = -1,
 			height = height,
 		})
-		table.insert(scratches, first_scratch)
 
 		local layout = vim.deepcopy(st.layout)
 		frame.rescale(layout, vim.api.nvim_win_get_width(first_win), vim.api.nvim_win_get_height(first_win))
@@ -491,8 +514,7 @@ function M.open_tab_windows(entry, tab_idx)
 				else
 					cfg.height = tail[i]
 				end
-				local w, scratch = open_window(cfg)
-				table.insert(scratches, scratch)
+				local w = open_window(cfg)
 				child_wins[i] = w
 			end
 			for i, child in ipairs(node.children) do
@@ -553,6 +575,35 @@ function M.open_tab_windows(entry, tab_idx)
 	M.save_layout_sizes()
 end
 
+-- Every allocated pane/scratch is registered before the next fallible step,
+-- including intermediate drawer windows not yet present in DFS order.
+function M.open_tab_windows(entry, tab_idx)
+	if not entry or not M.check_size(entry) then return false end
+	local previous_win = vim.api.nvim_get_current_win()
+	local created, scratches = {}, {}
+	local ok, err = pcall(open_tab_windows, entry, tab_idx, created, scratches)
+	if not ok then
+		vim.t.term_winids = {}
+		vim.t.term_winid = nil
+		vim.t.term_bufnr = nil
+		pcall(winbar.destroy)
+		pcall(statusline.close)
+		pcall(overlay.destroy)
+		pcall(float_layout.close_canvas)
+		for i = #created, 1, -1 do
+			if state.win_valid(created[i]) then pcall(vim.api.nvim_win_close, created[i], true) end
+		end
+		for _, buf in ipairs(scratches) do
+			if vim.api.nvim_buf_is_valid(buf) then pcall(vim.api.nvim_buf_delete, buf, { force = true }) end
+		end
+		state.restore_cmdheight()
+		state.restore_ruler()
+		if state.win_valid(previous_win) then vim.api.nvim_set_current_win(previous_win) end
+		error(err, 0)
+	end
+	return true
+end
+
 function M.reopen_current_tab(target_idx, tabs)
 	tabs = tabs or state.get_tabs()
 	if #tabs == 0 then
@@ -567,9 +618,12 @@ function M.reopen_current_tab(target_idx, tabs)
 end
 
 function M.rebuild_tab(target_idx, tabs)
+	local entry = (tabs or state.get_tabs())[target_idx or vim.t.term_tab_idx or 1]
+	if entry and not M.check_size(entry) then return false end
 	M.save_tab_state()
 	M.close_pane_windows()
 	M.reopen_current_tab(target_idx, tabs)
+	return true
 end
 
 function M.swap_tab_buffers(target_entry, target_idx)
@@ -631,6 +685,8 @@ function M.swap_tab_buffers(target_entry, target_idx)
 end
 
 function M.switch_to_tab(target_idx)
+	local target = state.get_tabs()[target_idx]
+	if not target or not M.check_size(target) then return false end
 	local current_idx = vim.t.term_tab_idx
 	if current_idx and current_idx ~= target_idx then
 		vim.t.term_prev_tab_idx = current_idx

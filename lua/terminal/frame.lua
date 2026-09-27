@@ -25,6 +25,10 @@ local function other_axis(t)
 	return t == "row" and "col" or "row"
 end
 
+function M.fits(node, w, h)
+	return w >= M.min_size(node, "w") and h >= M.min_size(node, "h")
+end
+
 -- Axis helpers: dimension governed by a branch type.
 -- A row divides width among children; a col divides height.
 local function axis_dim(t)
@@ -406,6 +410,7 @@ end
 -- Distribute w x h among the subtree equally (CTRL-W =): proportional to
 -- leaf-window count, round-to-nearest, last child absorbs the remainder.
 function M.equalize(node, w, h)
+	assert(M.fits(node, w, h), "E36: Not enough room")
 	node.w = w
 	node.h = h
 	if node.t == "leaf" then
@@ -781,6 +786,8 @@ end
 -- Proportionally resize the whole tree to new outer dimensions (used when the
 -- saved layout is reopened at a different terminal size).
 function M.rescale(node, w, h)
+	-- Validate before mutation so rejected resizes leave the saved tree intact.
+	assert(M.fits(node, w, h), "E36: Not enough room")
 	if node.t == "leaf" then
 		node.w = w
 		node.h = h
@@ -793,9 +800,15 @@ function M.rescale(node, w, h)
 		old_avail = old_avail + child[dim]
 	end
 	local new_avail = (dim == "w" and w or h) - (#node.children - 1)
+	local mins, remaining_min = {}, 0
+	for i, child in ipairs(node.children) do
+		mins[i] = M.min_size(child, dim)
+		remaining_min = remaining_min + mins[i]
+	end
 
 	local used = 0
 	for i, child in ipairs(node.children) do
+		remaining_min = remaining_min - mins[i]
 		local size
 		if i == #node.children then
 			size = new_avail - used
@@ -804,7 +817,7 @@ function M.rescale(node, w, h)
 		else
 			size = math.max(MIN, math.floor(new_avail / #node.children))
 		end
-		size = math.min(size, new_avail - used - (#node.children - i))
+		size = math.max(mins[i], math.min(size, new_avail - used - remaining_min))
 		used = used + size
 		if dim == "w" then
 			M.rescale(child, size, h)

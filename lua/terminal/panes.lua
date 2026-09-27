@@ -236,6 +236,7 @@ local function structural_op(fn)
 		return
 	end
 
+	if not window.check_size(probe) then return end
 	state.set_toggling()
 	window.save_tab_state()
 	window.close_pane_windows()
