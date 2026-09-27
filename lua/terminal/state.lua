@@ -243,13 +243,30 @@ function M.migrate_term_order(order)
 	return v3
 end
 
-function M.get_term_order()
-	local order = vim.t.term_order or {}
+function M.get_term_order(tabpage)
+	local order = vim.t[tabpage or 0].term_order or {}
 	return M.migrate_term_order(order)
 end
 
-function M.get_tabs()
-	local order = M.get_term_order()
+-- Filtering must preserve entry identity, not its former numeric position.
+-- The entries in both lists are the same Lua objects, even after tree edits.
+local function save_filtered_order(old_order, new_order, tabpage)
+	local vars = vim.t[tabpage or 0]
+	local old_idx = vars.term_tab_idx or 1
+	local selected = old_order[old_idx]
+	local previous = old_order[vars.term_prev_tab_idx or 0]
+	local selected_idx, previous_idx
+	for i, entry in ipairs(new_order) do
+		if entry == selected then selected_idx = i end
+		if entry == previous then previous_idx = i end
+	end
+	vars.term_order = new_order
+	vars.term_tab_idx = selected_idx or M.clamp(old_idx, 1, math.max(#new_order, 1))
+	vars.term_prev_tab_idx = previous_idx
+end
+
+function M.get_tabs(tabpage)
+	local order = M.get_term_order(tabpage)
 
 	local valid_order = {}
 	local changed = false
@@ -275,12 +292,13 @@ function M.get_tabs()
 	end
 
 	if changed then
-		vim.t.term_order = valid_order
+		save_filtered_order(order, valid_order, tabpage)
 	end
 
-	local new_idx = M.clamp(vim.t.term_tab_idx or 1, 1, math.max(#valid_order, 1))
-	if (vim.t.term_tab_idx or 1) ~= new_idx then
-		vim.t.term_tab_idx = new_idx
+	local vars = vim.t[tabpage or 0]
+	local new_idx = M.clamp(vars.term_tab_idx or 1, 1, math.max(#valid_order, 1))
+	if (vars.term_tab_idx or 1) ~= new_idx then
+		vars.term_tab_idx = new_idx
 	end
 
 	return valid_order
@@ -328,8 +346,8 @@ end
 -- Remove a buffer from whichever entry holds it, applying vim's close-space
 -- rule to the entry's layout. Returns the buf of the absorbing pane (nil when
 -- the whole entry went away).
-function M.remove_term_from_order(bufnr)
-	local order = M.get_term_order()
+function M.remove_term_from_order(bufnr, tabpage)
+	local order = M.get_term_order(tabpage)
 	local absorb_buf = nil
 
 	local new_order = {}
@@ -359,8 +377,7 @@ function M.remove_term_from_order(bufnr)
 		end
 	end
 
-	vim.t.term_order = new_order
-	vim.t.term_tab_idx = M.clamp(vim.t.term_tab_idx or 1, 1, math.max(#new_order, 1))
+	save_filtered_order(order, new_order, tabpage)
 	return absorb_buf
 end
 

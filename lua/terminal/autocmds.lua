@@ -366,7 +366,13 @@ function M.setup(api)
 		callback = function()
 			vim.schedule(function()
 				state.adopt_current_terminal()
-				update_float_win_config()
+				if vim.t.term_needs_rebuild then
+					vim.t.term_needs_rebuild = nil
+					state.set_toggling()
+					window.rebuild_tab()
+				else
+					update_float_win_config()
+				end
 				winbar.update()
 				if vim.bo.buftype == "terminal" then
 					mode.restore_current()
@@ -388,24 +394,40 @@ function M.setup(api)
 		group = "Term",
 		callback = function(ev)
 			local bufnr = ev.buf
-			local was_winbar_visible = config.should_show_winbar(#state.get_tabs())
-			local tab_idx_closed = state.find_buf_tab(bufnr)
+			local owner = vim.b[bufnr].term_owner_tab
+			if not owner or not vim.api.nvim_tabpage_is_valid(owner) then
+				return
+			end
+			local vars = vim.t[owner]
+			local was_winbar_visible = config.should_show_winbar(#state.get_tabs(owner))
+			local is_displayed, is_open = false, false
+			for _, win in ipairs(vars.term_winids or {}) do
+				if state.win_valid(win) then
+					is_open = true
+					is_displayed = is_displayed or vim.api.nvim_win_get_buf(win) == bufnr
+				end
+			end
 
-			local current_tab_idx = vim.t.term_tab_idx or 1
-			local is_in_active_tab = tab_idx_closed == current_tab_idx
-
-			local is_displayed = is_in_active_tab and state.is_term_open()
-
-			state.remove_term_from_order(bufnr)
-			local is_winbar_visible = config.should_show_winbar(#state.get_tabs())
-			local winbar_visibility_changed = was_winbar_visible ~= is_winbar_visible
+			state.remove_term_from_order(bufnr, owner)
+			local is_winbar_visible = config.should_show_winbar(#state.get_tabs(owner))
+			local rebuild = is_displayed or (was_winbar_visible ~= is_winbar_visible and is_open)
 
 			vim.schedule(function()
 				if vim.api.nvim_buf_is_valid(bufnr) then
 					vim.api.nvim_buf_delete(bufnr, { force = true })
 				end
 
-				if is_displayed or (winbar_visibility_changed and state.is_term_open()) then
+				if not vim.api.nvim_tabpage_is_valid(owner) then
+					return
+				end
+				if vim.api.nvim_get_current_tabpage() ~= owner then
+					-- Never rebuild whichever tab happens to be current when
+					-- this callback runs. Repair the owner when it is entered.
+					if rebuild then vim.t[owner].term_needs_rebuild = true end
+					return
+				end
+				if rebuild then
+					state.set_toggling()
 					window.rebuild_tab()
 				else
 					winbar.update()
