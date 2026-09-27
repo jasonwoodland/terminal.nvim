@@ -359,7 +359,6 @@ end
 
 local function begin_drag(entry, sep, click_pane)
 	drag_state = { layout = entry.layout, sep = sep, click_pane = click_pane, view = state.capture_view() }
-	state.defer_view(drag_state.view, function() vim.cmd("stopinsert") end)
 end
 
 -- Mouse handlers take the mouse position (getmousepos() shape) and return
