@@ -9,6 +9,7 @@ local window = require("terminal.window")
 local float_layout = require("terminal.float_layout")
 local panes = require("terminal.panes")
 local digraph = require("terminal.digraph")
+local paste = require("terminal.paste")
 local utils = require("terminal.utils")
 
 function M.setup(api)
@@ -120,45 +121,8 @@ function M.setup(api)
 	end, { noremap = true })
 
 	for _, key in ipairs(utils.key_list(keys.paste_register)) do
-		vim.keymap.set("t", key, function()
-			local ok, char = pcall(vim.fn.getchar)
-			if not ok or type(char) ~= "number" or char < 0 then
-				return
-			end
-			local reg = vim.fn.nr2char(char)
-			local txt = vim.fn.getreg(reg)
-
-			local job = vim.b.terminal_job_id
-			if not job then
-				vim.notify("Not in a terminal buffer!", vim.log.levels.WARN)
-				return
-			end
-			vim.api.nvim_chan_send(job, txt)
-		end, { noremap = true, silent = true })
-
-		vim.keymap.set("t", key .. "=", function()
-			local expr = vim.fn.input("=")
-			if expr == "" then
-				return
-			end
-
-			local ok, result = pcall(vim.fn.eval, expr)
-			if not ok then
-				vim.notify("Invalid expression: " .. result, vim.log.levels.ERROR)
-				return
-			end
-
-			local txt = tostring(result)
-			local opener = "\027[200~"
-			local closer = "\027[201~"
-
-			local job = vim.b.terminal_job_id
-			if not job then
-				vim.notify("Not in a terminal buffer!", vim.log.levels.WARN)
-				return
-			end
-			vim.api.nvim_chan_send(job, opener .. txt .. closer)
-		end, { noremap = true, silent = true })
+		map("t", key, paste.register, { noremap = true, silent = true })
+		map("t", key .. "=", paste.expression, { noremap = true, silent = true })
 	end
 
 	digraph.setup(keys.digraph)
