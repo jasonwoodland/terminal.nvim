@@ -33,10 +33,12 @@ function M.setup()
 			end
 
 			-- Pass through to terminal
-			write_tty(seq)
+			-- TermRequest excludes the terminator. Older Neovim versions do
+			-- not expose it separately; ST is valid for all OSC requests.
+			write_tty(seq .. (ev.data.terminator or "\x1b\\"))
 
 			-- OSC 9;4 is progress reporting -- pass through but don't notify
-			if seq:sub(1, 5) == "\x1b]9;4" then
+			if seq == "\x1b]9;4" or seq:sub(1, 6) == "\x1b]9;4;" then
 				return
 			end
 
