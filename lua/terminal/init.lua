@@ -421,17 +421,20 @@ function M.go_to_notification()
 	end
 end
 
-local function term_has_foreground_process(bufnr)
+local function confirm_terminal_close(bufnr)
 	local job_id = vim.b[bufnr].terminal_job_id
 	if not job_id then
-		return false
+		return true
 	end
 	local ok, pid = pcall(vim.fn.jobpid, job_id)
 	if not ok or not pid then
-		return false
+		return true -- Job already exited.
 	end
-	local result = vim.fn.system("pgrep -P " .. pid)
-	return vim.v.shell_error == 0 and result ~= ""
+	local inspected, children = pcall(vim.api.nvim_get_proc_children, pid)
+	if inspected and #children == 0 then return true end
+	local message = inspected and "Terminal has child processes. Close anyway?"
+		or "Could not inspect terminal child processes. Close anyway?"
+	return vim.fn.confirm(message, "&Yes\n&No", 2) == 1
 end
 
 function M.delete()
@@ -443,14 +446,8 @@ function M.delete()
 
 	local bufnr = vim.api.nvim_get_current_buf()
 
-	if term_has_foreground_process(bufnr) then
-		if vim.fn.confirm("Terminal has a running process. Close anyway?", "&Yes\n&No", 2) ~= 1 then
-			return
-		end
-	end
-
 	local tab_idx, _ = state.find_buf_tab(bufnr)
-	if not tab_idx then
+	if not tab_idx or not confirm_terminal_close(bufnr) then
 		return
 	end
 
@@ -462,6 +459,42 @@ function M.delete()
 	state.remove_term_from_order(bufnr)
 	vim.api.nvim_buf_delete(bufnr, { force = true })
 	window.reopen_current_tab()
+end
+
+function M.reset()
+	local old = vim.api.nvim_get_current_buf()
+	if vim.bo[old].buftype ~= "terminal" then return end
+	local tab_idx = state.find_buf_tab(old)
+	if not tab_idx or not confirm_terminal_close(old) then return end
+	state.set_toggling()
+	window.save_tab_state()
+	local order = state.get_term_order()
+	local selected = vim.t.term_tab_idx
+	local replacement = vim.api.nvim_create_buf(false, true)
+	-- Start before discarding the old job. TermOpen temporarily adopts the new
+	-- buffer; replace that provisional order with the original pane tree below.
+	local ok, err = pcall(window.termopen_with_size, replacement, #order[tab_idx].bufs, #order)
+	if not ok then
+		state.set_term_order(order)
+		vim.t.term_tab_idx = selected
+		error(err, 0)
+	end
+	local entry = order[tab_idx]
+	for _, leaf in ipairs(require("terminal.frame").leaf_nodes(entry.layout)) do
+		if leaf.buf == old then leaf.buf = replacement end
+	end
+	if entry.focus == old then entry.focus = replacement end
+	if entry.modes then
+		entry.modes[tostring(replacement)] = entry.modes[tostring(old)]
+		entry.modes[tostring(old)] = nil
+	end
+	state.sync_bufs(entry)
+	state.set_term_order(order)
+	vim.t.term_tab_idx = selected
+	if vim.t.term_bufnr == old then vim.t.term_bufnr = replacement end
+	if not window.swap_tab_buffers(entry, tab_idx) then window.rebuild_tab() end
+	vim.api.nvim_buf_delete(old, { force = true })
+	return replacement
 end
 
 function M.new()

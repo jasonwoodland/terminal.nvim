@@ -13,7 +13,7 @@ function M.setup(api)
 	vim.api.nvim_create_user_command("TermDelete", function()
 		api.delete()
 	end, {})
-	vim.api.nvim_create_user_command("TermReset", 'exe "te" | bd!# | let t:term_bufnr = bufnr("%")', {})
+	vim.api.nvim_create_user_command("TermReset", api.reset, {})
 
 	utils.alias("tsplit", "TermSplit")
 	utils.alias("tvsplit", "TermVsplit")
