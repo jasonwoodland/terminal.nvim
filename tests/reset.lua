@@ -45,5 +45,13 @@ vim.fn.termopen = termopen
 assert(vim.api.nvim_buf_is_valid(replaced) and state.get_current_tab().focus == replaced,
 	"failed reset preserves the original job and pane state")
 assert(vim.deep_equal(wins, vim.t.term_winids) and #state.get_tabs() == 1, "failed reset does not disturb windows or create a tab")
+local native_open = vim.api.nvim_open_win
+local buffer_count = #vim.api.nvim_list_bufs()
+vim.api.nvim_open_win = function() error("injected startup window failure") end
+assert(not pcall(terminal.reset), "startup window errors are reported")
+vim.api.nvim_open_win = native_open
+assert(#vim.api.nvim_list_bufs() == buffer_count, "failed startup window does not leak replacement buffer")
+assert(vim.api.nvim_buf_is_valid(replaced) and state.get_current_tab().focus == replaced,
+	"failed startup window keeps the original terminal")
 vim.api.nvim_get_proc_children, vim.fn.confirm = inspect, confirm
 print("Reset and confirmation regressions passed")

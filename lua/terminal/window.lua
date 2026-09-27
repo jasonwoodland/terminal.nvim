@@ -223,15 +223,18 @@ function M.termopen_with_size(bufnr, num_panes, tab_count)
 		width = math.floor(vim.o.columns / num_panes)
 	end
 
-	local tmp_win = vim.api.nvim_open_win(bufnr, true, {
-		relative = "editor",
-		width = math.max(width, 1),
-		height = math.max(height, 1),
-		row = 0,
-		col = 0,
-		noautocmd = true,
-	})
-	local ok, job = pcall(vim.fn.termopen, vim.env.SHELL or vim.o.shell)
+	local tmp_win
+	local ok, job = pcall(function()
+		tmp_win = vim.api.nvim_open_win(bufnr, true, {
+			relative = "editor",
+			width = math.max(width, 1),
+			height = math.max(height, 1),
+			row = 0,
+			col = 0,
+			noautocmd = true,
+		})
+		return vim.fn.termopen(vim.env.SHELL or vim.o.shell)
+	end)
 	if state.win_valid(tmp_win) then vim.api.nvim_win_close(tmp_win, true) end
 	if not ok or job <= 0 then
 		state.remove_term_from_order(bufnr)
