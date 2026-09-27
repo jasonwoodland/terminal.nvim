@@ -16,7 +16,7 @@ local pending_title_bufs = {}
 local title_update_scheduled = false
 local title_update_delay = 100
 
-local function schedule_title_update(bufnr)
+function M.title_changed(bufnr)
 	pending_title_bufs[bufnr] = true
 	if title_update_scheduled then
 		return
@@ -112,6 +112,14 @@ function M.setup(api)
 			vim.b.term_mode = "t"
 			local owner_tab = vim.api.nvim_get_current_tabpage()
 			vim.b[bufnr].term_owner_tab = owner_tab
+			-- Neovim 0.11 does not emit TermRequest for handled OSC titles.
+			-- Watch the native variable instead; this also catches title-only
+			-- output with no text changes. The watcher dies with the buffer.
+			if not vim.b[bufnr].term_title_watched then
+				vim.cmd(("call dictwatcheradd(b:, 'term_title', "
+					.. [[{dict, key, change -> luaeval("require('terminal.autocmds').title_changed(_A)", %d)})]]):format(bufnr))
+				vim.b[bufnr].term_title_watched = true
+			end
 			float_layout.setup_mouse_mappings(bufnr, api)
 
 			local is_winbar_visible = config.should_show_winbar(#state.get_tabs())
@@ -450,15 +458,6 @@ function M.setup(api)
 		})
 	end
 
-	vim.api.nvim_create_autocmd("TermRequest", {
-		pattern = "*",
-		group = "Term",
-		callback = function(ev)
-			if ev.data.sequence:match("^\x1b%][02];") then
-				schedule_title_update(ev.buf)
-			end
-		end,
-	})
 end
 
 return M

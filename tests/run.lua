@@ -399,6 +399,7 @@ do
 	local active_title = vim.api.nvim_eval_statusline(vim.o.titlestring, { winid = vim.t.term_winid, maxwidth = 1000 }).str
 	local background_pid = vim.fn.jobpid(vim.b[background_buf].terminal_job_id)
 	local renamed_background = "term://" .. background_pid .. "//background-title"
+	local previous_background_name = vim.api.nvim_buf_get_name(background_buf)
 	vim.api.nvim_chan_send(vim.b[background_buf].terminal_job_id, "printf '\\033]0;background-title\\007'\n")
 	settle()
 	eq(
@@ -406,7 +407,11 @@ do
 		active_title,
 		"inactive rename leaves the active title rendering unchanged"
 	)
-	eq(vim.api.nvim_buf_get_name(background_buf), renamed_background, "inactive terminal adopts its OSC buffer name")
+	if vim.fn.has("nvim-0.13") == 1 then
+		eq(vim.api.nvim_buf_get_name(background_buf), renamed_background, "inactive terminal adopts its OSC buffer name")
+	else
+		eq(vim.api.nvim_buf_get_name(background_buf), previous_background_name, "inactive terminal defers rename until focus on older Neovim")
+	end
 	local background_idx = state.find_buf_tab(background_buf)
 	ok(tabs()[background_idx].activity == true, "first background update sets activity")
 	ok(not activity.is_armed(background_buf), "activity watcher detaches after the first update")
