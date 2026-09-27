@@ -367,6 +367,7 @@ end
 
 function M.close_pane_windows()
 	if closing_pane_windows then return end
+	state.invalidate_view()
 	closing_pane_windows = true
 	local wins = vim.t.term_winids or {}
 	-- WinEnter/BufWinEnter must not treat windows being retired as panes.
@@ -579,6 +580,7 @@ end
 -- including intermediate drawer windows not yet present in DFS order.
 function M.open_tab_windows(entry, tab_idx)
 	if not entry or not M.check_size(entry) then return false end
+	state.invalidate_view()
 	local previous_win = vim.api.nvim_get_current_win()
 	local created, scratches = {}, {}
 	local ok, err = pcall(open_tab_windows, entry, tab_idx, created, scratches)
@@ -658,6 +660,7 @@ function M.swap_tab_buffers(target_entry, target_idx)
 	end
 
 	-- Swap buffers in all pane windows (single eventignore/pcall block)
+	state.invalidate_view()
 	local top = top_row_wins(wins)
 	local old_eventignore = vim.o.eventignore
 	vim.o.eventignore = "BufEnter,BufLeave,BufWinEnter"

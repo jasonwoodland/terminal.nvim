@@ -69,29 +69,21 @@ local function get_term_refocus_target()
 end
 
 local function refocus_term_overlay(overlay_win, target_win, target_mode, after)
-	if not state.win_valid(target_win) then
-		return
-	end
-
+	if not state.win_valid(target_win) then return end
+	local view = state.capture_view(target_win)
+	local token = (vim.t.term_refocus_generation or 0) + 1
+	vim.t.term_refocus_generation = token
 	vim.t.term_overlay_refocus = true
 	vim.schedule(function()
-		if vim.api.nvim_get_current_win() ~= overlay_win then
-			vim.schedule(function()
-				vim.t.term_overlay_refocus = false
-			end)
-			return
-		end
-
-		if state.win_valid(target_win) then
+		if state.view_matches(view) and vim.api.nvim_get_current_win() == overlay_win then
 			vim.api.nvim_set_current_win(target_win)
 			mode.restore_scheduled(target_win, target_mode)
-			if after then
-				after()
-			end
+			if after then after() end
 		end
-
 		vim.schedule(function()
-			vim.t.term_overlay_refocus = false
+			if vim.api.nvim_tabpage_is_valid(view.tab) and vim.t[view.tab].term_refocus_generation == token then
+				vim.t[view.tab].term_overlay_refocus = nil
+			end
 		end)
 	end)
 end
@@ -124,7 +116,7 @@ function M.setup(api)
 
 			local is_winbar_visible = config.should_show_winbar(#state.get_tabs())
 			if was_winbar_visible ~= is_winbar_visible and state.is_term_open() and not vim.t.term_toggling then
-				vim.schedule(function()
+				state.defer_view(state.capture_view(), function()
 					if state.is_term_open() then
 						window.rebuild_tab()
 					else
@@ -153,7 +145,7 @@ function M.setup(api)
 		callback = function()
 			local bufnr = vim.api.nvim_get_current_buf()
 			local winid = vim.api.nvim_get_current_win()
-			vim.schedule(function()
+			state.defer_view(state.capture_view(winid), function()
 				if vim.t.term_overlay_refocus then
 					return
 				end
@@ -296,15 +288,13 @@ function M.setup(api)
 				return nil
 			end
 			local target = find_target()
-
-			vim.schedule(function()
-				if state.win_valid(win) and vim.api.nvim_buf_is_valid(term_buf) then
-					pcall(vim.api.nvim_win_set_buf, win, term_buf)
-				end
-				if target and vim.api.nvim_buf_is_valid(buf) then
-					pcall(vim.api.nvim_win_set_buf, target, buf)
-					pcall(vim.api.nvim_set_current_win, target)
-				end
+			local target_buf = target and vim.api.nvim_win_get_buf(target)
+			state.defer_view(state.capture_view(win), function()
+				if vim.api.nvim_get_current_win() ~= win or not vim.api.nvim_buf_is_valid(term_buf)
+					or not state.win_valid(target) or vim.api.nvim_win_get_buf(target) ~= target_buf then return end
+				vim.api.nvim_win_set_buf(win, term_buf)
+				vim.api.nvim_win_set_buf(target, buf)
+				vim.api.nvim_set_current_win(target)
 			end)
 		end,
 	})
@@ -323,11 +313,7 @@ function M.setup(api)
 				state.save_term_height()
 			end
 			if not vim.t.term_toggling and config.is_float_mode() and state.is_term_related_window(vim.api.nvim_get_current_win()) then
-				local tab = vim.api.nvim_get_current_tabpage()
-				vim.schedule(function()
-					if vim.api.nvim_get_current_tabpage() ~= tab then
-						return
-					end
+				state.defer_view(state.capture_view(), function()
 					local cur_win = vim.api.nvim_get_current_win()
 					if not state.is_term_related_window(cur_win) then
 						local ok, cfg = pcall(vim.api.nvim_win_get_config, cur_win)
@@ -365,12 +351,11 @@ function M.setup(api)
 	vim.api.nvim_create_autocmd("TabEnter", {
 		group = "Term",
 		callback = function()
-			vim.schedule(function()
+			state.defer_view(state.capture_view(), function()
 				state.adopt_current_terminal()
 				if vim.t.term_needs_rebuild then
-					vim.t.term_needs_rebuild = nil
 					state.set_toggling()
-					window.rebuild_tab()
+					if window.rebuild_tab() then vim.t.term_needs_rebuild = nil end
 				else
 					update_float_win_config()
 				end
@@ -384,7 +369,7 @@ function M.setup(api)
 	vim.api.nvim_create_autocmd("TabClosed", {
 		group = "Term",
 		callback = function()
-			vim.schedule(function()
+			state.defer_view(state.capture_view(), function()
 				update_float_win_config()
 				winbar.update()
 			end)

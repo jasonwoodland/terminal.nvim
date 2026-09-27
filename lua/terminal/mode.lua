@@ -82,7 +82,7 @@ function M.restore_scheduled(winid, mode)
 	local restore_mode = mode or vim.b[bufnr].term_mode
 	if restore_mode == "t" or restore_mode == nil then
 		vim.b[bufnr].term_mode = "t"
-		vim.schedule(function()
+		state.defer_view(state.capture_view(winid), function()
 			if not state.win_valid(winid) or vim.api.nvim_get_current_win() ~= winid then
 				return
 			end

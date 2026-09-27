@@ -345,6 +345,23 @@ end
 
 local click_api = nil
 
+local function schedule_focus(win)
+	if not state.win_valid(win) then return end
+	local view = state.capture_view(win)
+	local saved_mode = mode.of_win(win)
+	mode.record()
+	state.defer_view(view, function()
+		vim.api.nvim_set_current_win(win)
+		mode.restore(win, saved_mode)
+		statusline.update()
+	end)
+end
+
+local function begin_drag(entry, sep, click_pane)
+	drag_state = { layout = entry.layout, sep = sep, click_pane = click_pane, view = state.capture_view() }
+	state.defer_view(drag_state.view, function() vim.cmd("stopinsert") end)
+end
+
 -- Mouse handlers take the mouse position (getmousepos() shape) and return
 -- the key to feed ("" = consumed). Extracted from the mappings so tests can
 -- drive them with synthetic positions.
@@ -360,9 +377,11 @@ function M.on_left_mouse(mouse)
 		local col = mouse.column - 1
 		for _, range in ipairs(winbar.get_click_ranges()) do
 			if col >= range.start_col and col < range.end_col then
-				vim.schedule(function()
-					if click_api then
-						click_api.go_to(range.tab_idx)
+				local entry = state.get_term_order()[range.tab_idx]
+				local id = entry and entry.id
+				state.defer_view(state.capture_view(), function()
+					for i, target in ipairs(state.get_tabs()) do
+						if target.id == id and click_api then click_api.go_to(i); break end
 					end
 				end)
 				break
@@ -379,21 +398,10 @@ function M.on_left_mouse(mouse)
 		local stl_pane = vim.b[stl_buf].terminal_stl_pane
 		local sep, entry = sep_at_mouse(mouse)
 		if sep then
-			drag_state = { layout = entry.layout, sep = sep, click_pane = stl_pane, moved = false }
-			vim.schedule(function()
-				vim.cmd("stopinsert")
-			end)
+			begin_drag(entry, sep, stl_pane)
 			return ""
 		end
-		if stl_pane and state.win_valid(stl_pane) then
-			local m = mode.of_win(stl_pane)
-			mode.record()
-			vim.schedule(function()
-				vim.api.nvim_set_current_win(stl_pane)
-				mode.restore(stl_pane, m)
-				statusline.update()
-			end)
-		end
+		schedule_focus(stl_pane)
 		return ""
 	end
 
@@ -404,7 +412,7 @@ function M.on_left_mouse(mouse)
 		local wins = vim.t.term_winids or {}
 		for _, win in ipairs(wins) do
 			if mouse.winid == win and state.win_valid(win) then
-				stl_click = true
+				stl_click = state.capture_view()
 				mode.record()
 				return "<LeftMouse>"
 			end
@@ -414,17 +422,14 @@ function M.on_left_mouse(mouse)
 	-- Grab a canvas separator for dragging
 	local sep, entry = sep_at_mouse(mouse)
 	if sep then
-		drag_state = { layout = entry.layout, sep = sep }
-		-- Match Neovim's behaviour of exiting to normal mode when resizing
-		vim.schedule(function()
-			vim.cmd("stopinsert")
-		end)
+		begin_drag(entry, sep)
 		return ""
 	end
 	return "<LeftMouse>"
 end
 
 function M.on_left_drag(mouse)
+	if stl_click and not state.view_matches(stl_click) then stl_click = false end
 	if stl_click then
 		-- native statusline drag (drawer): let vim resize
 		return "<LeftDrag>"
@@ -434,6 +439,10 @@ function M.on_left_drag(mouse)
 			return ""
 		end
 		return "<LeftDrag>"
+	end
+	if not state.view_matches(drag_state.view) then
+		drag_state = nil
+		return ""
 	end
 	drag_state.moved = true
 
@@ -464,12 +473,15 @@ function M.on_left_drag(mouse)
 		if order[tab_idx] then
 			order[tab_idx].layout = drag_state.layout
 			state.set_term_order(order)
-			vim.schedule(function()
-				local cur = state.get_term_order()[tab_idx]
-				if cur then
-					M.apply_layout(cur)
-				end
-			end)
+			local drag = drag_state
+			if not drag.pending then
+				drag.pending = true
+				state.defer_view(drag.view, function()
+					drag.pending = false
+					local cur = state.get_current_tab()
+					if cur then M.apply_layout(cur) end
+				end)
+			end
 		end
 	end
 	return ""
@@ -477,29 +489,22 @@ end
 
 function M.on_left_release(mouse)
 	if drag_state then
-		-- plain click (no movement) on a zoom statusline: focus that pane
-		local click_pane = not drag_state.moved and drag_state.click_pane or nil
+		local drag = drag_state
 		drag_state = nil
-		if click_pane and state.win_valid(click_pane) then
-			local m = mode.of_win(click_pane)
-			mode.record()
-			vim.schedule(function()
-				vim.api.nvim_set_current_win(click_pane)
-				mode.restore(click_pane, m)
-				statusline.update()
-			end)
+		if not state.view_matches(drag.view) then return "" end
+		if not drag.moved and drag.click_pane then
+			schedule_focus(drag.click_pane)
 		else
-			vim.schedule(function()
+			state.defer_view(drag.view, function()
 				require("terminal.window").save_layout_sizes()
 			end)
 		end
 		return ""
 	end
 	if stl_click then
-		-- end of a native statusline click/drag (drawer): let vim finish it,
-		-- then restore the terminal mode and record the resized layout
+		local view = stl_click
 		stl_click = false
-		vim.schedule(function()
+		state.defer_view(view, function()
 			require("terminal.window").save_layout_sizes()
 			mode.restore_current()
 		end)
@@ -512,7 +517,7 @@ function M.on_left_release(mouse)
 		local was_terminal = tabline_click_mode == "t"
 		tabline_click_mode = nil
 		if was_terminal and vim.bo.buftype == "terminal" then
-			vim.schedule(mode.restore_current)
+			mode.restore_scheduled(vim.api.nvim_get_current_win())
 		end
 		return ""
 	end

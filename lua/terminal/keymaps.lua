@@ -81,8 +81,9 @@ function M.setup(api)
 		else
 			vim.cmd("tabprevious")
 		end
-		vim.schedule(function()
-			if vim.bo.buftype == "terminal" then
+		local target = vim.api.nvim_get_current_win()
+		state.defer_view(state.capture_view(target), function()
+			if vim.api.nvim_get_current_win() == target and vim.bo.buftype == "terminal" then
 				mode.restore_current()
 			end
 		end)

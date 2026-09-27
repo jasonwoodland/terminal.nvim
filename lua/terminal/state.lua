@@ -19,6 +19,40 @@ function M.win_valid(win)
 	return win ~= nil and vim.api.nvim_win_is_valid(win)
 end
 
+function M.invalidate_view()
+	vim.t.term_view_generation = (vim.t.term_view_generation or 0) + 1
+	vim.t.term_overlay_refocus = nil
+end
+
+-- Deferred UI work belongs to a particular tab, entry, window generation,
+-- and (optionally) window buffer. A matching numeric tab index is not enough.
+function M.capture_view(win)
+	local order = vim.t.term_order or {}
+	local entry = order[vim.t.term_tab_idx or 1]
+	return {
+		tab = vim.api.nvim_get_current_tabpage(),
+		id = entry and entry.id,
+		generation = vim.t.term_view_generation or 0,
+		win = win,
+		buf = M.win_valid(win) and vim.api.nvim_win_get_buf(win) or nil,
+	}
+end
+
+function M.view_matches(view)
+	if vim.api.nvim_get_current_tabpage() ~= view.tab
+		or (vim.t.term_view_generation or 0) ~= view.generation then return false end
+	local order = vim.t.term_order or {}
+	local entry = order[vim.t.term_tab_idx or 1]
+	if (entry and entry.id) ~= view.id then return false end
+	return not view.win or (M.win_valid(view.win) and vim.api.nvim_win_get_buf(view.win) == view.buf)
+end
+
+function M.defer_view(view, callback)
+	vim.schedule(function()
+		if M.view_matches(view) then callback() end
+	end)
+end
+
 function M.set_toggling()
 	vim.t.term_toggling = true
 	local gen = (vim.t.term_toggling_gen or 0) + 1
@@ -151,7 +185,7 @@ end
 --
 -- term_order: list of tab entries, each owning its panes and saved state:
 --   {
-	--     id = <number>,          -- stable across reordering and Vim-tab moves
+--     id = <number>,          -- stable across reordering and Vim-tab moves
 --     layout = <frame tree>,   -- source of truth for pane structure/sizes
 --                              -- (see frame.lua; sizes rescaled on reopen)
 --     bufs = {buf1, buf2},     -- DERIVED: DFS leaf order of layout; kept in
