@@ -457,7 +457,11 @@ Notifications				*terminal.nvim-map-notifications*
 ------------------------------------------------------------------------------
 Registers					*terminal.nvim-map-registers*
 
-These mappings are active in Terminal mode only.
+These mappings are active in Terminal mode only. Register and expression paste
+use |nvim_paste()|, so bracketed-paste markers follow the child application's mode
+and native terminal paste filters apply where supported. If the prompt or
+expression switches away from its originating terminal, the result is discarded.
+|terminal.send()| remains a raw channel send.
 
 						*terminal.nvim-<C-S-r>*
 <C-S-r>{register}	Insert the contents of {register} into the terminal.

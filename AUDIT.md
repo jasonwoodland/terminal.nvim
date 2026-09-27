@@ -1,11 +1,13 @@
 # Implementation audit — 2026-09-27
 
-Reviewed all 21 Lua modules, README, help, and the existing regression suite.
+Reviewed all Lua modules (21 initially, plus the new paste module), README, help,
+and regression suites.
 The starting revision was `5518e1c`. Neovim verification used the local checkout
 at `../../neovim/neovim`, revision `521edde`, and the matching installed
 `v0.13.0-dev-1738+g521edde` executable. Selected compatibility contracts were
-also checked in the local `v0.11.0` source tag. This is not a runtime certification
-of every supported Neovim version or terminal emulator.
+also checked in the local `v0.11.0` source tag. The latest pass additionally ran
+all 17 suites on downloaded macOS arm64 releases 0.11.0 and 0.12.0. This does not
+certify every supported patch release, operating system, or terminal emulator.
 
 ## Changes made
 
@@ -61,11 +63,34 @@ single module-level snapshot was insufficient when returning to a zoomed tab.
 Setup now has an explicit one-time contract: empty subsequent calls are harmless,
 but options on subsequent calls raise before altering configuration or mappings.
 
+## Input, compatibility and measured performance follow-up
+
+| Commit | Change | Validation |
+| --- | --- | --- |
+| `83ff68a` | Share native paste handling for registers/expressions; preserve originating buffer/job across prompts | `tests/input.lua`: attached UI, raw/bracketed PTY byte capture, digraphs, cancellation, stale expressions and shell execution |
+| `c8db03f` | Watch native `b:term_title` changes instead of relying on OSC TermRequest delivery | Original title/coalescing suite on Neovim 0.11.0, 0.12.0 and local 0.13 development build |
+| `0a6baee` | Keep Terminal mode during custom float dragging | `tests/ui.lua`: real input events, mode restoration, mouse resize and winbar click |
+| `7826021` | Add Linux/macOS version matrix and a runner that detects timeouts/asynchronous Lua errors | Runner executed locally on all three binaries; workflow YAML parsed; remote CI awaits push |
+| `44d1246` | Cache canvas artwork by drawing inputs and skip unchanged configuration writes | `tests/render.lua` invalidation cases; [benchmark results](benchmarks/README.md) |
+
+Runtime testing reproduced two compatibility/input defects that source-only and
+headless checks had missed. Neovim 0.11 updates `b:term_title` without issuing
+TermRequest for its handled title OSCs. A dictionary watcher now follows that
+native variable on all supported versions, retaining 100 ms coalescing and
+pre-0.13 inactive-rename deferral. A custom float drag called `stopinsert` without
+restoring the user's mode; custom dragging no longer changes mode unnecessarily.
+
+The attached-UI input test also reproduced forced bracketed-paste markers reaching
+a raw reader. Both paste actions now use `nvim_paste()`; actual captured bytes
+confirm that bracketed markers follow the child's mode, and multiline text still
+works in a shell. Public `send()` intentionally remains a raw channel send.
+
 ## Remaining limitations and recommendations
 
-- **Interactive/version coverage:** add an attached-UI suite and supported-version
-  CI matrix. Headless tests cannot establish real Terminal-mode input, emulator
-  mouse protocols, statusline integrations or Neovim 0.11 runtime compatibility.
+- **Coverage boundaries:** the attached RPC UI exercises real Neovim input and
+  mode transitions, but not a host terminal emulator's keyboard/mouse protocol
+  encoding or rendering. Broader statusline-provider integration and Windows
+  coverage remain open. The new remote CI matrix has not run in this workspace.
 - **Process confirmation:** `nvim_get_proc_children()` is synchronous and may
   itself fall back to `pgrep`. It detects direct children, including background
   jobs, rather than the PTY foreground process group. Inspection failure now
@@ -74,9 +99,6 @@ but options on subsequent calls raise before altering configuration or mappings.
 - **Borders:** the float canvas supports common rectangular borders; shortened
   arrays, partial borders, shadow and per-side highlights do not have native
   `nvim_open_win()` semantics. Docs explicitly narrow support.
-- **Input semantics:** register paste sends raw text; expression paste always
-  adds bracketed-paste markers, without querying the child's mode. Add shell/raw
-  reader and attached-UI tests before promising native paste parity.
 - **Ownership policy:** ordinary terminal buffers from other plugins are adopted,
   and setup replaces Neovim's default terminal-exit handler. Their buffers are
   deleted on exit regardless of status. This is now explicit documentation;
@@ -101,14 +123,14 @@ not that every combination is proven correct.
 | Rotate and exchange | Order, focus and E443 covered. Buffer IDs move through fixed slots; native Neovim moves windows with their sizes. Docs corrected. |
 | Drawer, float, zoom and reset-height | Core transitions and drawer-height preservation covered. Partial float defaults and tabline precedence fixed. Undersized-operation rejection and cross-tab mode/zoom option lifecycles now have dedicated coverage. |
 | Drawer pinning | Feature-detected `winpinned`, disabled for floats; enabled/disabled cases covered on the installed development build. Older versions omit it. |
-| Winbar and activity | Focused-pane title, saved focus and one-shot background watchers covered. Event-driven activity avoids per-output redraw after the first update. Click dispatch needs more real-UI coverage. |
-| Float canvas and mouse resizing | Synthetic horizontal separator dragging and native drawer pass-through covered; nested drag growth direction fixed. View lifetime checks and burst coalescing now have synthetic callback coverage. |
-| Mode restoration | Central module validates windows and, for scheduled restore, buffer identity. Smoke tests cannot prove interactive Terminal-mode restoration in every focus path; an attached-UI suite is needed. |
+| Winbar and activity | Focused-pane title, saved focus and one-shot background watchers covered. Event-driven activity avoids per-output redraw after the first update. Attached-UI tests now cover winbar click dispatch and restoration of the selected tab's mode. |
+| Float canvas and mouse resizing | Synthetic horizontal separator dragging and native drawer pass-through covered; nested drag growth direction fixed. View lifetime checks and burst coalescing have synthetic callback coverage; attached-UI mouse input verifies resizing and Terminal-mode preservation. |
+| Mode restoration | Central module validates windows and, for scheduled restore, buffer identity. Attached-UI tests cover hide/reopen, tab switching, float transitions, splits, dragging and winbar clicks in Terminal/Normal modes. All combinations are not exhaustive. |
 | Move to Vim tab and break pane to tab | Entry state and buffer ownership travel together by inspection. History tests cover break-to-tab and cross-Vim-tab transfer, including shifted indices. |
-| Registers and digraphs | Basic implementation reviewed against native digraph lookup. No full interactive input suite. Digraph cancellation, non-ASCII/special input, resource cleanup and stale completion are now covered. |
+| Registers and digraphs | Native paste and digraph input now have attached-UI/PTY coverage. Callback tests additionally cover non-ASCII/special input, resource cleanup and stale completion. |
 | OSC notifications, bell and notification jump | Termination/progress filtering fixed and tested with synthetic events/TTY writes. Jump uses owner search and saved focus. OSC 99 is forwarded but its rich metadata is not fully parsed for `vim.notify`. No host-emulator delivery test. |
-| OSC titles and terminal buffer naming | Coalesced title refresh, terminal URI namespace, alternate-buffer preservation and placeholder cleanup covered by smoke tests. Pre-0.13 inactive-rename deferral is source-reviewed, not runtime-tested here. |
-| Overlay and statusline | Separate rendering modules and cached statusline buffers are sensible; zoom smoke coverage exists. Colorscheme, arbitrary statusline providers and true mouse focus need UI tests. |
+| OSC titles and terminal buffer naming | Coalesced title refresh, terminal URI namespace, alternate-buffer preservation and placeholder cleanup covered by smoke tests. Native title watching, coalescing and pre-0.13 inactive-rename deferral are now runtime-tested on 0.11.0 and 0.12.0. |
+| Overlay and statusline | Separate rendering modules and cached statusline buffers are sensible; zoom smoke coverage exists. Arbitrary statusline providers and colorscheme changes need more integration coverage; attached-UI mouse input is now exercised. |
 | Convenience commands and job/Fugitive helpers | Commands inspected and documented. Jobs now have independent ownership and retained failures; reset preserves its pane and shares delete confirmation. |
 | Public API and configurable keymaps | Exported functions checked against docs. Count handling, stale sends, atomic one-time setup and list-valued keys are covered. |
 
@@ -132,7 +154,7 @@ in open/swap. Consolidate only after adding behavior tests; their failure paths
 and fallback behavior are not identical. This audit already centralizes float
 defaults and size capture. Cosmetic module splits would not address these risks.
 
-Performance observations from code inspection:
+Performance observations and measurements:
 
 - Title updates are coalesced over 100 ms, activity watches detach after their
   first relevant change, and matching-geometry switches reuse windows. Retain
@@ -142,16 +164,21 @@ Performance observations from code inspection:
   operation before adding a cache with invalidation complexity.
 - Canvas generation allocates an entire width × height text grid on every
   update. Drag events now share one pending render, verified with a burst of
-  synthetic events. Skipping unchanged canvas/config writes is a possible next
-  optimization, subject to measurement.
+  synthetic events. The new artwork cache keys separator geometry, border,
+  title and fillchars, with changedtick invalidation for external edits. It skips
+  unchanged buffer/configuration writes without caching terminal-tab state.
 - Structural operations rebuild every pane and overlay, causing allocations,
   autocommands and PTY resizes. Optimize only with an attached UI benchmark and
   correctness tests; replacing this with buffer swaps changes mode/view semantics.
 - Startup dimensions divide width by pane count even for stacked/nested splits.
   A new child may see a different initial PTY size from its eventual rectangle.
   Derive startup dimensions from the prospective layout if this affects TUIs.
-- No latency or throughput benchmark was performed. These are complexity and
-  allocation observations, not measured performance regressions.
+- The [attached-UI microbenchmark](benchmarks/README.md) measured 160 × 50,
+  four-pane views on macOS arm64. Across three alternating baseline/candidate
+  runs, the median of per-run medians for unchanged canvas refreshes fell from
+  0.545 ms to 0.264 ms. Each run eliminated all 110 redundant buffer writes.
+  Tab-switch timing was essentially unchanged. These are synchronous operation
+  timings including redraw generation, not host-emulator latency or throughput.
 
 ## Neovim source checks
 
@@ -171,25 +198,29 @@ checkout. Re-check against another Neovim version before treating details as sta
 | Border arrays | [api.txt](../../neovim/neovim/runtime/doc/api.txt), `nvim_open_win` | Neovim supports repeating short arrays and per-side details absent from the canvas. |
 | Child enumeration | [api/vim.c](../../neovim/neovim/src/nvim/api/vim.c), `nvim_get_proc_children`; [os/proc.c](../../neovim/neovim/src/nvim/os/proc.c); [editor.lua](../../neovim/neovim/runtime/lua/vim/_core/editor.lua), `_os_proc_children` | Native enumeration where available, synchronous pgrep fallback elsewhere; not a foreground-process API. |
 | Command-line height across tabs | `window.c`, `leave_tabpage` / `enter_tabpage` / `use_tabpage` and `tp_ch_used` | Neovim stores per-tab height; plugin retains each zoomed tab's original height until unzoom. |
+| Native paste | `api/vim.c`, `nvim_paste`; `terminal.c`, `terminal_paste`; Lua `vim.paste` | Routes terminal input through Neovim/libvterm paste handling. Captured bytes verify conditional bracketed markers on all three tested versions. |
+| Title notifications on 0.11 | v0.11.0 `terminal.c`, `term_settermprop` / `buf_set_term_title`; `api/private/helpers.c`, `dict_set_var` | Handled titles do not reach the OSC fallback, but native title-variable writes notify dictionary watchers. |
 | Compatibility helpers | v0.11.0 `runtime/lua/vim/shared.lua` and `_editor.lua` | `vim._with({keepalt=true})` and on_key empty-string suppression exist. `_with` remains a private API dependency. |
 
 ## Validation and next work
 
-Run all suites with:
+Run all suites with Neovim and Python 3 installed:
 
 ```sh
-for test in tests/*.lua; do
-  nvim --clean --headless -l "$test" || exit 1
-done
+python3 scripts/test.py
+python3 scripts/test.py --nvim /path/to/another/nvim
 ```
 
-All 14 test scripts passed in the full follow-up run, including all 194
-assertions in the original suite. The subsequent startup-window cleanup passed
-the reset and layout-safety suites again. Expected E36/E443 warnings exercise rejected
-operations; missing-Fugitive handling is also intentional. No unexpected scheduled
-callback errors appeared in the captured test output. Help tags were regenerated,
-and `git diff --check` passed.
+All 17 scripts passed on macOS arm64 with Neovim 0.11.0, 0.12.0 and local
+`v0.13.0-dev-1738+g521edde`. The original suite passes 191 assertions on the older
+releases and 194 on the development build; the additional assertions depend on
+`winpinned` support. Expected E36/E443 warnings exercise rejected operations;
+missing-Fugitive handling is also intentional. The runner detects unexpected Lua
+tracebacks and scheduled-callback errors, including errors with a zero exit code.
+Help tags were regenerated and `git diff --check` passed.
 
-Prioritize supported-version CI and an attached-UI suite for real key/mouse/mode
-behavior. Tests still include fixed waits, assume `/bin/sh`, and do not establish
-Windows support. Prefer condition-based waits with bounded timeouts as tests expand.
+The committed CI workflow runs Linux/macOS with 0.11.0, 0.12.0, stable and nightly.
+It was syntax-checked locally but has not run remotely. New attached-UI tests use
+condition-based waits and require only standard Python for the PTY byte reader.
+Older headless tests still use some fixed waits. Tests assume `/bin/sh` and do not
+establish Windows or host-emulator protocol compatibility.

@@ -10,15 +10,15 @@ The harness starts an embedded Neovim with a 160 × 50 RPC UI, two terminal tabs
 four panes per tab, rounded borders, and no dimming overlay. Each operation has
 10 warmup iterations, followed by 40–100 timed iterations. Timings include
 synchronous plugin work and redraw generation. They exclude host terminal
-rendering, user input latency, and asynchronous shell/PTTY work.
+rendering, user input latency, and asynchronous shell/PTY work.
 
 ## Measurement — 2026-09-27
 
 macOS arm64, Neovim `v0.13.0-dev-1738+g521edde`. Three alternating baseline/candidate
 runs used the same script; the baseline was an isolated snapshot of `7826021`,
 and the candidate added the canvas content/configuration cache. The table reports
-the median of three per-run medians, in milliseconds. Individual samples and
-per-run p95 values are in [results.json](results.json).
+the median of three per-run medians, in milliseconds. Per-run medians and
+p95 values are in [results.json](results.json).
 
 | Operation | Before | After |
 | --- | ---: | ---: |

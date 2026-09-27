@@ -19,7 +19,7 @@ Use Neovim as your terminal multiplexer.
 - Insert the contents of registers while in Terminal mode
 - OSC notification passthrough and bell
 - Activity indicator for background terminal tabs
-- Confirm before deleting a terminal with a running process
+- Confirm before deleting or resetting a terminal with child processes
 - Fully configurable keymaps
 
 ## Installation
@@ -520,6 +520,12 @@ While in Terminal mode, you can press `<C-S-r> "` to insert the contents of the 
 - `-`: the last small (less than a line) delete register
 - `=`: the expression register: you are prompted to enter an expression (see `:help expression`)
 
+Register and expression paste use Neovim's native paste handling. Bracketed-paste
+markers are sent only when the terminal application requests them; native paste
+filters apply where supported. Results are discarded if the prompt or expression
+switches away from the originating terminal. `terminal.send()` remains a raw
+channel send.
+
 See `:help registers` for more information.
 
 ## Appendix
@@ -536,13 +542,19 @@ This assumes your configuration already calls `terminal.setup()`. It opens the t
 
 ## Contributing
 
-All issues and PRs are welcome. Run the headless regression suites from the repo root:
+All issues and PRs are welcome. Run the regression suites from the repo root
+with Neovim and Python 3 installed:
 
 ```sh
-for test in tests/*.lua; do
-  nvim --clean --headless -l "$test" || exit 1
-done
+python3 scripts/test.py
+# Test a specific binary or suite:
+python3 scripts/test.py --nvim /path/to/nvim tests/input.lua tests/ui.lua
 ```
 
-See [the implementation audit](AUDIT.md) for verified behavior, remaining issues,
-and suggested follow-up work.
+The runner checks exit codes, timeouts, and asynchronous Lua errors. Input/mouse
+suites attach an RPC UI to an embedded Neovim and use real input events and PTYs;
+no GUI, Python packages, or external Neovim test framework is needed. Other suites
+run headlessly. CI covers Linux/macOS on Neovim 0.11.0, 0.12.0, stable, and nightly.
+
+See [the implementation audit](AUDIT.md) for verified behavior and remaining
+limits, and [the benchmark](benchmarks/README.md) for reproducible measurements.
