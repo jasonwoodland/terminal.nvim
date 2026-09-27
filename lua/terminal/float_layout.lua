@@ -298,7 +298,7 @@ function M.equalize_panes()
 		return
 	end
 	frame.equalize(entry.layout, entry.layout.w, entry.layout.h)
-	vim.t.term_order = order
+	state.set_term_order(order)
 
 	M.apply_layout(entry)
 end
@@ -463,7 +463,7 @@ function M.on_left_drag(mouse)
 		local order = state.get_term_order()
 		if order[tab_idx] then
 			order[tab_idx].layout = drag_state.layout
-			vim.t.term_order = order
+			state.set_term_order(order)
 			vim.schedule(function()
 				local cur = state.get_term_order()[tab_idx]
 				if cur then

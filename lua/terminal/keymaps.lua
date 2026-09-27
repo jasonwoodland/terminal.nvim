@@ -174,7 +174,7 @@ function M.setup(api)
 	map({ "n", "t" }, keys.break_to_tab, api.break_pane_to_tab, { noremap = true })
 	map({ "n", "t" }, keys.last_pane, panes.goto_last, { noremap = true })
 	map({ "n", "t" }, keys.last_tab, function()
-		local prev_idx = vim.t.term_prev_tab_idx
+		local prev_idx = state.previous_tab_index()
 		if not prev_idx then
 			return
 		end

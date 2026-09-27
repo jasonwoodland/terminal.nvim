@@ -77,7 +77,7 @@ function M.toggle(opts)
 			local bufnr = vim.api.nvim_create_buf(false, true)
 			local order = state.get_term_order()
 			table.insert(order, state.new_entry(bufnr))
-			vim.t.term_order = order
+			state.set_term_order(order)
 			vim.t.term_tab_idx = #order
 			window.termopen_with_size(bufnr, nil, #order)
 			window.reopen_current_tab()
@@ -257,7 +257,7 @@ function M.move(direction)
 	local order = state.get_term_order()
 	local entry = table.remove(order, current_idx)
 	table.insert(order, new_idx, entry)
-	vim.t.term_order = order
+	state.set_term_order(order)
 
 	vim.t.term_tab_idx = new_idx
 
@@ -298,18 +298,14 @@ function M.move_to_vim_tab(direction)
 	-- focus/modes (and widths/activity) into the target Vim tab.
 	local order = state.get_term_order()
 	local entry = table.remove(order, tab_idx)
-	vim.t.term_order = order
+	state.set_term_order(order)
 
 	-- Add tab to target tab before opening remaining tabs, so
 	-- adopt_current_terminal() (triggered by WinEnter) doesn't re-adopt
 	-- the moved buffers into the source tab.
-	local target_order = vim.t[target_tab].term_order
-	if not target_order then
-		target_order = {}
-	end
-	target_order = state.migrate_term_order(target_order)
+	local target_order = state.get_term_order(target_tab)
 	table.insert(target_order, entry)
-	vim.t[target_tab].term_order = target_order
+	state.set_term_order(target_order, target_tab)
 	for _, buf in ipairs(entry.bufs) do
 		vim.b[buf].term_owner_tab = target_tab
 	end
@@ -332,6 +328,7 @@ function M.move_to_vim_tab(direction)
 	vim.api.nvim_set_current_tabpage(target_tab)
 	state.setup_vars()
 
+	state.remember_current_tab()
 	local target_tabs = state.get_tabs()
 	local target_tab_idx = #target_tabs
 
@@ -474,6 +471,7 @@ end
 
 function M.new()
 	if not window.check_size(nil, #state.get_tabs() + 1) then return false end
+	state.remember_current_tab()
 	state.set_toggling()
 
 	local _, current_idx = state.get_current_tab()
@@ -488,7 +486,7 @@ function M.new()
 	local insert_idx = #order == 0 and 1 or (current_idx or #order) + 1
 	local entry = state.new_entry(bufnr)
 	table.insert(order, insert_idx, entry)
-	vim.t.term_order = order
+	state.set_term_order(order)
 	vim.t.term_tab_idx = insert_idx
 
 	window.termopen_with_size(bufnr, nil, #order)
@@ -560,6 +558,7 @@ function M.break_pane_to_tab()
 		return
 	end
 	if not window.check_size(nil, #tabs + 1) then return false end
+	state.remember_current_tab()
 
 	state.set_toggling()
 	window.save_tab_state()
@@ -576,7 +575,7 @@ function M.break_pane_to_tab()
 	local entry = state.new_entry(bufnr)
 	entry.modes = pane_mode and { [tostring(bufnr)] = pane_mode } or nil
 	table.insert(order, new_idx, entry)
-	vim.t.term_order = order
+	state.set_term_order(order)
 	vim.t.term_tab_idx = new_idx
 
 	window.reopen_current_tab(new_idx)

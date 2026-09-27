@@ -61,7 +61,7 @@ local function arm(bufnr)
 			end
 
 			entry.activity = true
-			vim.t[owner_tab].term_order = order
+			state.set_term_order(order, owner_tab)
 			vim.schedule(function()
 				if
 					vim.api.nvim_tabpage_is_valid(owner_tab)

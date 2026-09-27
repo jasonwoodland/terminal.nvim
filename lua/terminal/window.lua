@@ -362,7 +362,7 @@ function M.save_layout_sizes()
 		sizes[i] = { w = vim.api.nvim_win_get_width(win), h = vim.api.nvim_win_get_height(win) }
 	end
 	frame.set_leaf_sizes(entry.layout, sizes)
-	vim.t.term_order = order
+	state.set_term_order(order)
 end
 
 function M.close_pane_windows()
@@ -689,7 +689,7 @@ function M.switch_to_tab(target_idx)
 	if not target or not M.check_size(target) then return false end
 	local current_idx = vim.t.term_tab_idx
 	if current_idx and current_idx ~= target_idx then
-		vim.t.term_prev_tab_idx = current_idx
+		state.remember_current_tab()
 	end
 
 	M.save_tab_state()

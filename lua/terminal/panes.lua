@@ -156,7 +156,7 @@ function M.resize(delta, dim)
 	end
 	local cur = path[#path].node[dim]
 	frame.set_size(entry.layout, bufnr, dim, cur + delta)
-	vim.t.term_order = order
+	state.set_term_order(order)
 
 	float_layout.apply_layout(entry)
 end
@@ -181,7 +181,7 @@ function M.set_size(dim, size)
 		size = entry.layout[dim] -- clamped by the cascade to what's available
 	end
 	frame.set_size(entry.layout, bufnr, dim, size)
-	vim.t.term_order = order
+	state.set_term_order(order)
 
 	if config.is_float_mode() then
 		float_layout.apply_layout(entry)
@@ -245,7 +245,7 @@ local function structural_op(fn)
 	local entry = order[tab_idx]
 	fn(entry, bufnr, false)
 	state.sync_bufs(entry)
-	vim.t.term_order = order
+	state.set_term_order(order)
 
 	window.reopen_current_tab(tab_idx)
 end

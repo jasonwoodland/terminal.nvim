@@ -151,6 +151,7 @@ end
 --
 -- term_order: list of tab entries, each owning its panes and saved state:
 --   {
+	--     id = <number>,          -- stable across reordering and Vim-tab moves
 --     layout = <frame tree>,   -- source of truth for pane structure/sizes
 --                              -- (see frame.lua; sizes rescaled on reopen)
 --     bufs = {buf1, buf2},     -- DERIVED: DFS leaf order of layout; kept in
@@ -175,8 +176,16 @@ end
 
 -- Fresh single-pane entry. Sizes are placeholders; rendering rescales the
 -- tree to the real terminal geometry.
+local function new_entry_id()
+	-- Survives module reloads and is shared across Vim tabpages.
+	local id = (vim.g.terminal_next_entry_id or 0) + 1
+	vim.g.terminal_next_entry_id = id
+	return id
+end
+
 function M.new_entry(bufnr)
 	return {
+		id = new_entry_id(),
 		layout = { t = "leaf", buf = bufnr, w = 1, h = 1 },
 		bufs = { bufnr },
 		focus = bufnr,
@@ -244,25 +253,55 @@ function M.migrate_term_order(order)
 end
 
 function M.get_term_order(tabpage)
-	local order = vim.t[tabpage or 0].term_order or {}
-	return M.migrate_term_order(order)
+	local vars = vim.t[tabpage or 0]
+	local order = M.migrate_term_order(vars.term_order or {})
+	local changed = false
+	for _, entry in ipairs(order) do
+		if not entry.id then
+			entry.id = new_entry_id()
+			changed = true
+		end
+	end
+	if changed then vars.term_order = order end
+	-- One-time upgrade of the old positional history.
+	if vars.term_prev_tab_idx then
+		local previous = order[vars.term_prev_tab_idx]
+		vars.term_prev_tab_id = previous and previous.id or nil
+		vars.term_prev_tab_idx = nil
+	end
+	return order
 end
 
--- Filtering must preserve entry identity, not its former numeric position.
--- The entries in both lists are the same Lua objects, even after tree edits.
-local function save_filtered_order(old_order, new_order, tabpage)
+-- All order changes preserve selection/history by stable entry identity.
+function M.set_term_order(order, tabpage)
 	local vars = vim.t[tabpage or 0]
+	local old_order = M.get_term_order(tabpage)
 	local old_idx = vars.term_tab_idx or 1
 	local selected = old_order[old_idx]
-	local previous = old_order[vars.term_prev_tab_idx or 0]
-	local selected_idx, previous_idx
-	for i, entry in ipairs(new_order) do
-		if entry == selected then selected_idx = i end
-		if entry == previous then previous_idx = i end
+	local previous_id = vars.term_prev_tab_id
+	local selected_idx, previous_exists
+	for i, entry in ipairs(order) do
+		entry.id = entry.id or new_entry_id()
+		if selected and entry.id == selected.id then selected_idx = i end
+		if entry.id == previous_id then previous_exists = true end
 	end
-	vars.term_order = new_order
-	vars.term_tab_idx = selected_idx or M.clamp(old_idx, 1, math.max(#new_order, 1))
-	vars.term_prev_tab_idx = previous_idx
+	vars.term_order = order
+	vars.term_tab_idx = selected_idx or M.clamp(old_idx, 1, math.max(#order, 1))
+	if not previous_exists then vars.term_prev_tab_id = nil end
+end
+
+function M.remember_current_tab()
+	local entry = M.get_term_order()[vim.t.term_tab_idx or 1]
+	vim.t.term_prev_tab_id = entry and entry.id or nil
+end
+
+function M.previous_tab_index()
+	local order = M.get_tabs()
+	local id = vim.t.term_prev_tab_id
+	for i, entry in ipairs(order) do
+		if entry.id == id then return i end
+	end
+	return nil
 end
 
 function M.get_tabs(tabpage)
@@ -292,7 +331,7 @@ function M.get_tabs(tabpage)
 	end
 
 	if changed then
-		save_filtered_order(order, valid_order, tabpage)
+		M.set_term_order(valid_order, tabpage)
 	end
 
 	local vars = vim.t[tabpage or 0]
@@ -332,7 +371,7 @@ function M.add_term_to_order(bufnr, after_bufnr)
 			for _, buf in ipairs(entry.bufs) do
 				if buf == after_bufnr then
 					table.insert(order, i + 1, M.new_entry(bufnr))
-					vim.t.term_order = order
+					M.set_term_order(order)
 					return
 				end
 			end
@@ -340,7 +379,7 @@ function M.add_term_to_order(bufnr, after_bufnr)
 	end
 
 	table.insert(order, M.new_entry(bufnr))
-	vim.t.term_order = order
+	M.set_term_order(order)
 end
 
 -- Remove a buffer from whichever entry holds it, applying vim's close-space
@@ -377,7 +416,7 @@ function M.remove_term_from_order(bufnr, tabpage)
 		end
 	end
 
-	save_filtered_order(order, new_order, tabpage)
+	M.set_term_order(new_order, tabpage)
 	return absorb_buf
 end
 
@@ -424,7 +463,7 @@ function M.split_buf_in_tab(bufnr, tab_idx, at_bufnr, dir)
 	local order = M.get_term_order()
 	local entry = order[tab_idx]
 	if not entry or not M.split_entry(entry, bufnr, at_bufnr, dir) then return false end
-	vim.t.term_order = order
+	M.set_term_order(order)
 	return true
 end
 
@@ -516,7 +555,7 @@ function M.set_tab_state(tab_idx, st)
 	end
 	entry.focus = st.focus
 	entry.modes = st.modes
-	vim.t.term_order = order
+	M.set_term_order(order)
 end
 
 -- Set/clear the activity flag on a tab entry. Returns true when the flag
@@ -532,7 +571,7 @@ function M.set_activity(tab_idx, active)
 		return false
 	end
 	entry.activity = val
-	vim.t.term_order = order
+	M.set_term_order(order)
 	return true
 end
 
