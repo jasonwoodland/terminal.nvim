@@ -85,10 +85,10 @@ function M.get_winbar_height(tab_count)
 	return M.should_show_winbar(tab_count) and 1 or 0
 end
 
--- True when the float config is set and not opted out via `enabled = false`.
--- Lets users define `float = { enabled = false, padding = ... }` so the config
--- is preset for `float_toggle` without starting in float mode.
+-- Configuration supplies the initial mode. Runtime toggles belong to a Vim
+-- tabpage, so changing one view does not reinterpret other open drawers.
 function M.is_float_config_enabled()
+	if vim.t.term_float_enabled ~= nil then return vim.t.term_float_enabled end
 	local f = M.config.float
 	if type(f) == "table" then
 		return f.enabled ~= false

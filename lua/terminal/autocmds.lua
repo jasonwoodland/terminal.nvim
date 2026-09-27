@@ -303,6 +303,7 @@ function M.setup(api)
 		group = "Term",
 		callback = function()
 			vim.t.term_height = config.get_term_height()
+			state.init_tab_options()
 		end,
 	})
 	vim.api.nvim_create_autocmd("WinLeave", {
@@ -351,6 +352,7 @@ function M.setup(api)
 	vim.api.nvim_create_autocmd("TabEnter", {
 		group = "Term",
 		callback = function()
+			state.sync_zoom_options()
 			state.defer_view(state.capture_view(), function()
 				state.adopt_current_terminal()
 				if vim.t.term_needs_rebuild then
@@ -364,6 +366,16 @@ function M.setup(api)
 					mode.restore_current()
 				end
 			end)
+		end,
+	})
+	vim.api.nvim_create_autocmd("TabLeave", {
+		group = "Term",
+		callback = state.leave_tab,
+	})
+	vim.api.nvim_create_autocmd("WinClosed", {
+		group = "Term",
+		callback = function()
+			state.defer_view(state.capture_view(), state.sync_zoom_options)
 		end,
 	})
 	vim.api.nvim_create_autocmd("TabClosed", {

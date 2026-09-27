@@ -110,6 +110,7 @@ window.close_pane_windows()
 assert(not state.is_term_open(), "a failed close does not poison the reentrancy guard")
 
 terminal.config.float.enabled = false
+vim.t.term_float_enabled = nil
 before_wins, before_bufs = vim.api.nvim_list_wins(), vim.api.nvim_list_bufs()
 calls = 0
 vim.api.nvim_open_win = function(buf, enter, cfg)

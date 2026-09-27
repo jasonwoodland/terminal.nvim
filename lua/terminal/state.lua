@@ -5,7 +5,7 @@ local M = {}
 local config = require("terminal.config")
 local frame = require("terminal.frame")
 
-local saved_cmdheight = nil
+local leaving_cmdheight = nil
 local saved_ruler = nil
 local last_notification_bufnr = nil
 
@@ -104,17 +104,32 @@ function M.set_zoom_cmdheight()
 	if not config.config.float_zoom_hide_cmdline then
 		return
 	end
-	if saved_cmdheight == nil then
-		saved_cmdheight = vim.o.cmdheight
+	if vim.t.term_saved_cmdheight == nil then
+		vim.t.term_saved_cmdheight = vim.o.cmdheight
 	end
 	vim.o.cmdheight = 0
 end
 
-function M.restore_cmdheight()
-	if saved_cmdheight ~= nil then
-		vim.o.cmdheight = saved_cmdheight
-		saved_cmdheight = nil
+function M.restore_cmdheight(preserve)
+	local saved = vim.t.term_saved_cmdheight
+	if saved ~= nil then
+		vim.o.cmdheight = saved
+		if not preserve then vim.t.term_saved_cmdheight = nil end
 	end
+end
+
+function M.leave_tab()
+	M.invalidate_view()
+	leaving_cmdheight = vim.t.term_saved_cmdheight
+	-- Neovim remembers cmdheight per tab. Keep the original value until
+	-- unzoom, even if its native tab context restores the zoomed value.
+	M.restore_cmdheight(true)
+	M.restore_ruler()
+end
+
+function M.init_tab_options()
+	-- :tabnew can copy the zoomed cmdheight before TabLeave restores it.
+	if leaving_cmdheight ~= nil then vim.o.cmdheight = leaving_cmdheight end
 end
 
 function M.set_zoom_ruler()
@@ -128,6 +143,16 @@ function M.restore_ruler()
 	if saved_ruler ~= nil then
 		vim.o.ruler = saved_ruler
 		saved_ruler = nil
+	end
+end
+
+function M.sync_zoom_options()
+	if vim.t.term_zoom and M.is_term_open() then
+		M.set_zoom_cmdheight()
+		M.set_zoom_ruler()
+	else
+		M.restore_cmdheight()
+		M.restore_ruler()
 	end
 end
 
@@ -151,6 +176,7 @@ function M.drawer_span()
 end
 
 function M.save_term_height()
+	if config.is_float_mode() then return end
 	if vim.t.term_bufnr ~= nil and vim.t.term_prev_height == nil and not vim.t.term_zoom then
 		local span = M.drawer_span()
 		if span and span > 0 then

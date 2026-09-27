@@ -148,19 +148,15 @@ function M.float_toggle()
 	local target = force_on or (not config.is_float_config_enabled())
 
 	window.save_tab_state()
-	local previous_float = vim.deepcopy(config.config.float)
+	local previous_float = vim.t.term_float_enabled
 	local previous_zoom, previous_height = vim.t.term_zoom, vim.t.term_prev_height
 	vim.t.term_zoom = nil
 	vim.t.term_prev_height = nil
 
-	if type(config.config.float) == "table" then
-		config.config.float.enabled = target
-	else
-		config.config.float = target
-	end
+	vim.t.term_float_enabled = target
 
 	if not window.check_size(state.get_current_tab()) then
-		config.config.float = previous_float
+		vim.t.term_float_enabled = previous_float
 		vim.t.term_zoom, vim.t.term_prev_height = previous_zoom, previous_height
 		return false
 	end
