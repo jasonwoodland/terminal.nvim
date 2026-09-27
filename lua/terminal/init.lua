@@ -455,7 +455,6 @@ function M.delete()
 	end
 
 	window.save_tab_state()
-	window.save_layout_sizes()
 	window.close_pane_windows()
 
 	-- Applies vim's close rule: the neighboring pane absorbs the space and
@@ -505,7 +504,6 @@ function M.split(dir)
 	local _, current_pane_idx = state.find_buf_tab(current_bufnr)
 
 	window.save_tab_state()
-	window.save_layout_sizes()
 	window.close_pane_windows()
 
 	local bufnr = vim.api.nvim_create_buf(false, true)
@@ -552,7 +550,6 @@ function M.break_pane_to_tab()
 
 	state.set_toggling()
 	window.save_tab_state()
-	window.save_layout_sizes()
 	window.close_pane_windows()
 
 	local order = state.get_term_order()

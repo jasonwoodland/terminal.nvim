@@ -238,7 +238,6 @@ local function structural_op(fn)
 
 	state.set_toggling()
 	window.save_tab_state()
-	window.save_layout_sizes()
 	window.close_pane_windows()
 
 	local order = state.get_term_order()

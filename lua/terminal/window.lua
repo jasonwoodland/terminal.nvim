@@ -234,6 +234,7 @@ function M.termopen_with_size(bufnr, num_panes, tab_count)
 end
 
 function M.save_tab_state()
+	M.save_layout_sizes()
 	local _, tab_idx = state.get_current_tab()
 	if not tab_idx then
 		return
@@ -549,6 +550,7 @@ function M.open_tab_windows(entry, tab_idx)
 	end
 
 	finalize_tab(wins, bufs, tab_idx, st)
+	M.save_layout_sizes()
 end
 
 function M.reopen_current_tab(target_idx, tabs)
@@ -634,7 +636,8 @@ function M.switch_to_tab(target_idx)
 		vim.t.term_prev_tab_idx = current_idx
 	end
 
-	-- Fast path: swap buffers in place when the layout shapes match
+	M.save_tab_state()
+	-- Fast path: reuse windows only when both shape and saved sizes match.
 	local tabs = state.get_tabs()
 	local current_tab = tabs[current_idx or 1]
 	local target_tab = tabs[target_idx]
@@ -643,9 +646,8 @@ function M.switch_to_tab(target_idx)
 		and target_tab
 		and current_tab.layout
 		and target_tab.layout
-		and frame.same_shape(current_tab.layout, target_tab.layout)
+		and frame.same_geometry(current_tab.layout, target_tab.layout)
 	then
-		M.save_tab_state()
 		state.set_toggling()
 		if M.swap_tab_buffers(target_tab, target_idx) then
 			return
@@ -654,7 +656,10 @@ function M.switch_to_tab(target_idx)
 	end
 
 	state.set_toggling()
-	M.rebuild_tab(target_idx, tabs)
+	-- State was saved before attempting the swap. A failed partial swap
+	-- must not overwrite it with buffers from the target tab.
+	M.close_pane_windows()
+	M.reopen_current_tab(target_idx, tabs)
 end
 
 return M

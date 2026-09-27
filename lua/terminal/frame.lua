@@ -846,9 +846,11 @@ function M.set_leaf_sizes(node, sizes, counter)
 	return node.w, node.h
 end
 
--- Structural equality ignoring bufs and sizes (fast-path tab switching).
-function M.same_shape(a, b)
+local function same_layout(a, b, sizes)
 	if a.t ~= b.t then
+		return false
+	end
+	if sizes and (a.w ~= b.w or a.h ~= b.h) then
 		return false
 	end
 	if a.t == "leaf" then
@@ -858,11 +860,21 @@ function M.same_shape(a, b)
 		return false
 	end
 	for i = 1, #a.children do
-		if not M.same_shape(a.children[i], b.children[i]) then
+		if not same_layout(a.children[i], b.children[i], sizes) then
 			return false
 		end
 	end
 	return true
+end
+
+-- Structural equality ignoring bufs and sizes.
+function M.same_shape(a, b)
+	return same_layout(a, b, false)
+end
+
+-- Only identical geometry can reuse windows without resizing them.
+function M.same_geometry(a, b)
+	return same_layout(a, b, true)
 end
 
 -- Build a single-row tree from a flat buf list (v3 migration and new tabs).
