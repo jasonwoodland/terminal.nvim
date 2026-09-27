@@ -3,11 +3,15 @@ local job = require("terminal.job")
 local M = {}
 
 local function reload_fugitive_buffers()
-	vim.fn["FugitiveDidChange"]()
+	if vim.fn.exists("*FugitiveDidChange") == 1 then vim.fn["FugitiveDidChange"]() end
 end
 
 function M.run(cmd)
-	job.run(cmd, reload_fugitive_buffers)
+	if vim.fn.exists("*FugitiveDidChange") ~= 1 then
+		vim.notify("FugitiveJob requires vim-fugitive", vim.log.levels.WARN)
+		return
+	end
+	return job.run(cmd, reload_fugitive_buffers)
 end
 
 function M.setup()

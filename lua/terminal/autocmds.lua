@@ -111,6 +111,7 @@ function M.setup(api)
 			vim.opt_local.winblend = 0
 
 			local bufnr = vim.api.nvim_get_current_buf()
+			if vim.b[bufnr].terminal_job_runner then return end
 			local was_winbar_visible = config.should_show_winbar(#state.get_tabs())
 			local known_tab = state.find_buf_tab(bufnr)
 			if not known_tab then
@@ -394,6 +395,7 @@ function M.setup(api)
 		group = "Term",
 		callback = function(ev)
 			local bufnr = ev.buf
+			if vim.b[bufnr].terminal_job_runner then return end
 			local owner = vim.b[bufnr].term_owner_tab
 			if not owner or not vim.api.nvim_tabpage_is_valid(owner) then
 				return

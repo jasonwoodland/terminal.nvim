@@ -478,6 +478,7 @@ end
 
 function M.adopt_current_terminal()
 	local bufnr = vim.api.nvim_get_current_buf()
+	if vim.b[bufnr].terminal_job_runner then return false end
 	if not vim.api.nvim_buf_is_valid(bufnr) or vim.bo[bufnr].buftype ~= "terminal" then
 		return false
 	end
@@ -495,7 +496,7 @@ end
 function M.adopt_orphaned_terminals()
 	local orphans = {}
 	for _, buf in ipairs(vim.api.nvim_list_bufs()) do
-		if vim.api.nvim_buf_is_valid(buf) and vim.bo[buf].buftype == "terminal" then
+		if vim.api.nvim_buf_is_valid(buf) and vim.bo[buf].buftype == "terminal" and not vim.b[buf].terminal_job_runner then
 			local owner_tab = vim.b[buf].term_owner_tab
 			if not owner_tab or not vim.api.nvim_tabpage_is_valid(owner_tab) then
 				table.insert(orphans, buf)
