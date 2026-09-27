@@ -1,0 +1,306 @@
+{
+  "baseline_revision": "7826021f8a2a6683d8995a7bf55741875e8631f3",
+  "candidate": "canvas geometry/content cache",
+  "runs": [
+    {
+      "panes": 4,
+      "system": {
+        "release": "27.0.0",
+        "machine": "arm64",
+        "version": "Darwin Kernel Version 27.0.0: Tue Aug 11 21:22:49 PDT 2026; root:xnu-13432.1.9~1/RELEASE_ARM64_T6000",
+        "sysname": "Darwin"
+      },
+      "version": {
+        "api_compatible": 0,
+        "build": "g521edde",
+        "major": 0,
+        "prerelease": "dev",
+        "minor": 13,
+        "patch": 0,
+        "api_level": 15,
+        "api_prerelease": true
+      },
+      "width": 160,
+      "height": 50,
+      "results": [
+        {
+          "iterations": 100,
+          "buffer_changes": 110,
+          "median_ms": 0.544791,
+          "p95_ms": 0.840583,
+          "operation": "unchanged canvas"
+        },
+        {
+          "p95_ms": 1.002542,
+          "iterations": 60,
+          "operation": "matching geometry tab switch",
+          "median_ms": 0.750209
+        },
+        {
+          "p95_ms": 3.125917,
+          "iterations": 40,
+          "operation": "four-pane rebuild",
+          "median_ms": 2.37175
+        },
+        {
+          "p95_ms": 1.286,
+          "iterations": 60,
+          "operation": "changing pane geometry",
+          "median_ms": 0.938875
+        }
+      ],
+      "variant": "before",
+      "run": 1
+    },
+    {
+      "height": 50,
+      "results": [
+        {
+          "iterations": 100,
+          "buffer_changes": 0,
+          "median_ms": 0.269292,
+          "p95_ms": 0.343042,
+          "operation": "unchanged canvas"
+        },
+        {
+          "median_ms": 0.828916,
+          "p95_ms": 1.1665,
+          "iterations": 60,
+          "operation": "matching geometry tab switch"
+        },
+        {
+          "median_ms": 2.01675,
+          "p95_ms": 2.760375,
+          "iterations": 40,
+          "operation": "four-pane rebuild"
+        },
+        {
+          "median_ms": 0.866291,
+          "p95_ms": 1.369375,
+          "iterations": 60,
+          "operation": "changing pane geometry"
+        }
+      ],
+      "system": {
+        "sysname": "Darwin",
+        "version": "Darwin Kernel Version 27.0.0: Tue Aug 11 21:22:49 PDT 2026; root:xnu-13432.1.9~1/RELEASE_ARM64_T6000",
+        "machine": "arm64",
+        "release": "27.0.0"
+      },
+      "version": {
+        "major": 0,
+        "api_prerelease": true,
+        "minor": 13,
+        "api_compatible": 0,
+        "patch": 0,
+        "build": "g521edde",
+        "prerelease": "dev",
+        "api_level": 15
+      },
+      "panes": 4,
+      "width": 160,
+      "variant": "after",
+      "run": 1
+    },
+    {
+      "version": {
+        "prerelease": "dev",
+        "major": 0,
+        "minor": 13,
+        "api_level": 15,
+        "api_compatible": 0,
+        "patch": 0,
+        "build": "g521edde",
+        "api_prerelease": true
+      },
+      "height": 50,
+      "results": [
+        {
+          "buffer_changes": 110,
+          "iterations": 100,
+          "operation": "unchanged canvas",
+          "median_ms": 0.522,
+          "p95_ms": 0.822084
+        },
+        {
+          "operation": "matching geometry tab switch",
+          "iterations": 60,
+          "median_ms": 0.826417,
+          "p95_ms": 1.200208
+        },
+        {
+          "operation": "four-pane rebuild",
+          "iterations": 40,
+          "median_ms": 2.606458,
+          "p95_ms": 3.27375
+        },
+        {
+          "operation": "changing pane geometry",
+          "iterations": 60,
+          "median_ms": 0.944459,
+          "p95_ms": 1.31075
+        }
+      ],
+      "width": 160,
+      "panes": 4,
+      "system": {
+        "machine": "arm64",
+        "release": "27.0.0",
+        "sysname": "Darwin",
+        "version": "Darwin Kernel Version 27.0.0: Tue Aug 11 21:22:49 PDT 2026; root:xnu-13432.1.9~1/RELEASE_ARM64_T6000"
+      },
+      "variant": "before",
+      "run": 2
+    },
+    {
+      "version": {
+        "minor": 13,
+        "prerelease": "dev",
+        "api_compatible": 0,
+        "build": "g521edde",
+        "api_level": 15,
+        "major": 0,
+        "api_prerelease": true,
+        "patch": 0
+      },
+      "system": {
+        "version": "Darwin Kernel Version 27.0.0: Tue Aug 11 21:22:49 PDT 2026; root:xnu-13432.1.9~1/RELEASE_ARM64_T6000",
+        "release": "27.0.0",
+        "sysname": "Darwin",
+        "machine": "arm64"
+      },
+      "width": 160,
+      "height": 50,
+      "panes": 4,
+      "results": [
+        {
+          "iterations": 100,
+          "median_ms": 0.264,
+          "p95_ms": 0.344042,
+          "buffer_changes": 0,
+          "operation": "unchanged canvas"
+        },
+        {
+          "iterations": 60,
+          "median_ms": 0.842333,
+          "p95_ms": 1.256291,
+          "operation": "matching geometry tab switch"
+        },
+        {
+          "iterations": 40,
+          "median_ms": 2.132459,
+          "p95_ms": 2.77125,
+          "operation": "four-pane rebuild"
+        },
+        {
+          "iterations": 60,
+          "median_ms": 0.951375,
+          "p95_ms": 1.399542,
+          "operation": "changing pane geometry"
+        }
+      ],
+      "variant": "after",
+      "run": 2
+    },
+    {
+      "width": 160,
+      "version": {
+        "api_level": 15,
+        "build": "g521edde",
+        "api_compatible": 0,
+        "major": 0,
+        "minor": 13,
+        "patch": 0,
+        "api_prerelease": true,
+        "prerelease": "dev"
+      },
+      "results": [
+        {
+          "median_ms": 0.566041,
+          "p95_ms": 0.8565,
+          "operation": "unchanged canvas",
+          "iterations": 100,
+          "buffer_changes": 110
+        },
+        {
+          "p95_ms": 1.198916,
+          "median_ms": 0.874667,
+          "iterations": 60,
+          "operation": "matching geometry tab switch"
+        },
+        {
+          "p95_ms": 5.320292,
+          "median_ms": 3.656084,
+          "iterations": 40,
+          "operation": "four-pane rebuild"
+        },
+        {
+          "p95_ms": 3.950667,
+          "median_ms": 1.218334,
+          "iterations": 60,
+          "operation": "changing pane geometry"
+        }
+      ],
+      "height": 50,
+      "system": {
+        "release": "27.0.0",
+        "sysname": "Darwin",
+        "version": "Darwin Kernel Version 27.0.0: Tue Aug 11 21:22:49 PDT 2026; root:xnu-13432.1.9~1/RELEASE_ARM64_T6000",
+        "machine": "arm64"
+      },
+      "panes": 4,
+      "variant": "before",
+      "run": 3
+    },
+    {
+      "results": [
+        {
+          "operation": "unchanged canvas",
+          "iterations": 100,
+          "median_ms": 0.263125,
+          "p95_ms": 0.330416,
+          "buffer_changes": 0
+        },
+        {
+          "median_ms": 0.787417,
+          "p95_ms": 1.153416,
+          "operation": "matching geometry tab switch",
+          "iterations": 60
+        },
+        {
+          "median_ms": 2.144,
+          "p95_ms": 2.825459,
+          "operation": "four-pane rebuild",
+          "iterations": 40
+        },
+        {
+          "median_ms": 0.905875,
+          "p95_ms": 1.368,
+          "operation": "changing pane geometry",
+          "iterations": 60
+        }
+      ],
+      "width": 160,
+      "height": 50,
+      "version": {
+        "prerelease": "dev",
+        "minor": 13,
+        "patch": 0,
+        "api_level": 15,
+        "api_prerelease": true,
+        "api_compatible": 0,
+        "build": "g521edde",
+        "major": 0
+      },
+      "panes": 4,
+      "system": {
+        "sysname": "Darwin",
+        "machine": "arm64",
+        "release": "27.0.0",
+        "version": "Darwin Kernel Version 27.0.0: Tue Aug 11 21:22:49 PDT 2026; root:xnu-13432.1.9~1/RELEASE_ARM64_T6000"
+      },
+      "variant": "after",
+      "run": 3
+    }
+  ]
+}

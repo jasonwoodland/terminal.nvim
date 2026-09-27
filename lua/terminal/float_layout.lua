@@ -20,6 +20,7 @@ local drag_state = nil
 local tabline_click_mode = nil
 local stl_click = false
 local canvas_bufnr = nil
+local canvas_content, canvas_tick = nil, nil
 
 local string_borders = {
 	rounded = { "╭", "─", "╮", "│", "╯", "─", "╰", "│" },
@@ -78,8 +79,7 @@ end
 -- cells. Interior separators come from the layout tree; junctions are picked
 -- by connectivity, so ├ ┤ ┬ ┴ ┼ appear where separators meet each other or
 -- the outer border.
-local function build_canvas_lines(layout, base, off)
-	local chars = canvas_chars()
+local function build_canvas_lines(layout, base, off, seps, chars)
 	local W = layout.w + 2 * off
 	local H = layout.h + 2 * off
 
@@ -123,7 +123,6 @@ local function build_canvas_lines(layout, base, off)
 	end
 
 	-- interior separators + endpoint connectivity into neighbors
-	local _, seps = frame.rects(layout, off, off)
 	for _, sep in ipairs(seps) do
 		if sep.axis == "v" then
 			for r = sep.row, sep.row + sep.len - 1 do
@@ -199,7 +198,7 @@ end
 -- Create or refresh the canvas float under the panes.
 function M.update_canvas(layout, base)
 	local off = M.has_border(base) and 1 or 0
-	local _, seps = frame.rects(layout, 0, 0)
+	local _, seps = frame.rects(layout, off, off)
 	if off == 0 and #seps == 0 then
 		M.close_canvas()
 		return
@@ -207,12 +206,26 @@ function M.update_canvas(layout, base)
 
 	if not canvas_bufnr or not vim.api.nvim_buf_is_valid(canvas_bufnr) then
 		canvas_bufnr = vim.api.nvim_create_buf(false, true)
+		canvas_content, canvas_tick = nil, nil
 		vim.bo[canvas_bufnr].bufhidden = "hide"
 		vim.bo[canvas_bufnr].buftype = "nofile"
 	end
 
-	local lines = build_canvas_lines(layout, base, off)
-	vim.api.nvim_buf_set_lines(canvas_bufnr, 0, -1, false, lines)
+	-- Text depends on separator geometry and drawing characters, not buffer
+	-- identities, focus or screen position. Cache only this derived content;
+	-- a changedtick check also repairs external edits to the scratch buffer.
+	local chars = canvas_chars()
+	local content = { w = layout.w, h = layout.h, off = off, title = base.title,
+		border = resolve_border(base.border), chars = chars, separators = {} }
+	for _, sep in ipairs(seps) do
+		content.separators[#content.separators + 1] = { sep.axis, sep.row, sep.col, sep.len }
+	end
+	if canvas_tick ~= vim.api.nvim_buf_get_changedtick(canvas_bufnr) or not vim.deep_equal(content, canvas_content) then
+		local lines = build_canvas_lines(layout, base, off, seps, chars)
+		vim.api.nvim_buf_set_lines(canvas_bufnr, 0, -1, false, lines)
+		canvas_content = vim.deepcopy(content)
+		canvas_tick = vim.api.nvim_buf_get_changedtick(canvas_bufnr)
+	end
 
 	local cfg = {
 		relative = "editor",
@@ -229,9 +242,17 @@ function M.update_canvas(layout, base)
 
 	local win = vim.t.term_canvas_winid
 	if state.win_valid(win) then
-		cfg.noautocmd = nil
-		vim.api.nvim_win_set_config(win, cfg)
-		vim.api.nvim_win_set_buf(win, canvas_bufnr)
+		local current = vim.api.nvim_win_get_config(win)
+		for _, key in ipairs({ "relative", "row", "col", "width", "height", "zindex", "focusable" }) do
+			if current[key] ~= cfg[key] then
+				cfg.noautocmd = nil
+				vim.api.nvim_win_set_config(win, cfg)
+				break
+			end
+		end
+		if vim.api.nvim_win_get_buf(win) ~= canvas_bufnr then
+			vim.api.nvim_win_set_buf(win, canvas_bufnr)
+		end
 	else
 		win = vim.api.nvim_open_win(canvas_bufnr, false, cfg)
 		vim.t.term_canvas_winid = win
