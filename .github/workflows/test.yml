@@ -1,0 +1,58 @@
+name: Tests
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-14]
+        neovim: [v0.11.0, v0.12.0, stable, nightly]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Install Neovim release
+        env:
+          NVIM_RELEASE: ${{ matrix.neovim }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$(uname -s)" in
+            Linux) platform=linux ;;
+            Darwin) platform=macos ;;
+          esac
+          case "$(uname -m)" in
+            x86_64) arch=x86_64 ;;
+            arm64|aarch64) arch=arm64 ;;
+          esac
+          archive="nvim-${platform}-${arch}"
+          install_dir="${RUNNER_TEMP}/neovim"
+          mkdir -p "$install_dir"
+          cd "$install_dir"
+          base="https://github.com/neovim/neovim/releases/download/${NVIM_RELEASE}"
+          curl --fail --location --retry 3 "$base/$archive.tar.gz" -o "$archive.tar.gz"
+          curl --fail --location --retry 3 "$base/shasum.txt" -o shasum.txt
+          python3 - "$archive.tar.gz" <<'PY'
+          import hashlib
+          from pathlib import Path
+          import sys
+          archive = Path(sys.argv[1])
+          entries = [line.split() for line in Path("shasum.txt").read_text().splitlines()]
+          expected = next(digest for digest, name in entries if Path(name.lstrip("*")).name == archive.name)
+          assert hashlib.sha256(archive.read_bytes()).hexdigest() == expected, "checksum mismatch"
+          PY
+          tar -xzf "$archive.tar.gz"
+          echo "$install_dir/$archive/bin" >> "$GITHUB_PATH"
+      - name: Run headless and attached-UI suites
+        run: |
+          nvim --version
+          python3 scripts/test.py
+      - name: Check generated help tags
+        run: |
+          nvim --clean --headless '+helptags doc' +qa
+          git diff --exit-code -- doc/tags
