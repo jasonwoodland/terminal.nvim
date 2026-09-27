@@ -2,6 +2,18 @@
 
 local M = {}
 
+local default_float = {
+	enabled = false,
+	padding = { x = 24, y = 4 },
+	border = false,
+	winblend = 0,
+	overlay = {
+		enabled = true,
+		winblend = 75,
+		hl = "TerminalOverlay",
+	},
+}
+
 M.config = {
 	height = 0.5,
 	drawer = {
@@ -9,15 +21,7 @@ M.config = {
 	},
 	winbar = true,
 	show_winbar_when_single_tab = false,
-	float = {
-		enabled = false,
-		border = false,
-		overlay = {
-			enabled = true,
-			winblend = 75,
-			hl = "TerminalOverlay",
-		},
-	},
+	float = vim.deepcopy(default_float),
 	float_zoom = true,
 	float_zoom_show_tabline = true,
 	float_zoom_hide_cmdline = false,
@@ -102,18 +106,18 @@ function M.is_plain_float_mode()
 	return M.is_float_config_enabled() and not vim.t.term_zoom
 end
 
-local function float_table()
+function M.get_float_config()
 	if type(M.config.float) == "table" then
 		return M.config.float
 	end
-	return {}
+	return default_float
 end
 
 function M.get_float_winblend()
 	if not M.is_plain_float_mode() then
 		return 0
 	end
-	local v = float_table().winblend
+	local v = M.get_float_config().winblend
 	return type(v) == "number" and v or 0
 end
 
@@ -121,7 +125,7 @@ function M.get_float_overlay()
 	if not M.is_plain_float_mode() then
 		return nil
 	end
-	local overlay = float_table().overlay
+	local overlay = M.get_float_config().overlay
 	if overlay == false or overlay == nil then
 		return nil
 	end

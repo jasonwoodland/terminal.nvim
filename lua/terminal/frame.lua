@@ -756,7 +756,7 @@ function M.drag(root, sep, delta)
 
 	local grow = parent.children[grow_from]
 	-- grow at the edge facing the separator
-	M.new_size(grow, dim, grow[dim] + delta, step == 1 and false or true)
+	M.new_size(grow, dim, grow[dim] + delta, step ~= 1)
 
 	local remaining = delta
 	i = shrink_from

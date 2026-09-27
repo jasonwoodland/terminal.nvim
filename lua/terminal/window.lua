@@ -19,8 +19,8 @@ function M.get_float_win_config()
 	if vim.t.term_zoom then
 		local tabline_height = 0
 		if
-			config.config.float_zoom_show_tabline and vim.o.showtabline == 2
-			or (vim.o.showtabline == 1 and #vim.api.nvim_list_tabpages() > 1)
+			config.config.float_zoom_show_tabline
+			and (vim.o.showtabline == 2 or (vim.o.showtabline == 1 and #vim.api.nvim_list_tabpages() > 1))
 		then
 			tabline_height = 1
 		end
@@ -34,14 +34,7 @@ function M.get_float_win_config()
 		}
 	end
 
-	local float_config = {
-		padding = { x = 24, y = 4 },
-		border = false,
-	}
-
-	if type(config.config.float) == "table" then
-		float_config = vim.tbl_extend("force", float_config, config.config.float)
-	end
+	local float_config = config.get_float_config()
 
 	local has_border = float_config.border and float_config.border ~= "none"
 	local border = has_border and float_config.border or "none"
