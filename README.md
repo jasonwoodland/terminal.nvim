@@ -447,29 +447,42 @@ Basic convenience commands for manipulating standard terminal buffers
     <tr>
       <td><code>:TermReset</code></td>
       <td></td>
-      <td>Reset the terminal (open new, delete old)</td>
+      <td>Replace the current terminal job, preserving its pane</td>
     </tr>
   </tbody>
 </table>
 
 `:TermJob {command}` runs a command in a temporary terminal split;
-`:TermJobClose` closes the most recent such buffer. `:FugitiveJob {command}`
-also calls Fugitive's refresh hook on success and requires vim-fugitive.
-These auxiliary commands currently share the plugin's terminal-exit cleanup;
-see the audit for their lifecycle limitations.
+`:TermJobClose` closes the newest remaining job buffer, including a running job.
+Successful jobs close automatically; failed output remains visible, with the exit
+status in `b:terminal_job_status`. These jobs are separate from managed terminal
+tabs. `:FugitiveJob {command}` also calls Fugitive's refresh hook on success and
+requires vim-fugitive.
 
 Keyboard configuration does not disable the terminal mouse handlers. The normal
 `<C-w>` and `z` overrides are installed whenever `keys` is not `false`.
-`paste_register`, `digraph`, and `go_to_tab` currently require a single string
-(or `false`); other actions can also take lists of key strings.
+Each action accepts a string, a list of strings, or `false`; `go_to_tab` strings
+must include an integer placeholder such as `%d`.
 
-Process-close confirmation uses `pgrep -P` to look for direct children of the
-terminal job. It can include background jobs and is not a portable foreground
-process check.
+Delete and reset use `nvim_get_proc_children()` to check for direct children of the
+terminal job and ask before closing them, or if inspection fails. This includes
+background jobs and does not detect the PTY foreground process group. The check
+is synchronous; Neovim may fall back to `pgrep` on some platforms.
+
+Display-mode toggles affect the current Vim tab only; `float.enabled` defines the
+initial mode for new Vim tabs. Zoom restores command-line/ruler options when you
+leave its tab or close its panes. Operations that cannot fit the recursive pane
+minimums are rejected before replacing the current view.
+
+Ordinary terminal buffers, including those opened by other plugins, are adopted
+into terminal tabs. Their exit deletes the buffer regardless of status; setup
+replaces Neovim's default terminal-exit handler. The auxiliary job commands above
+are excluded from this ownership and cleanup policy.
 
 ## Public API
 
-Call `setup()` once before using the plugin. These functions are available for custom keymaps:
+Call `setup()` once before using the plugin. Later calls with options raise an error;
+empty calls are harmless. These functions are available for custom keymaps:
 
 ```lua
 local terminal = require("terminal")
@@ -480,6 +493,7 @@ terminal.toggle({ open = false })   -- Only close
 terminal.zoom()                     -- Toggle zoom
 terminal.float_toggle()             -- Toggle between float and drawer mode
 terminal.reset_height()             -- Reset terminal height to default
+terminal.reset()                    -- Replace the current job, preserving its pane
 terminal.new()                      -- Create new terminal tab
 terminal.delete()                   -- Delete current terminal
 terminal.vsplit()                   -- Split the current pane side by side
@@ -493,7 +507,7 @@ terminal.go_to(index)               -- Go to tab by index (1-based)
 terminal.move(direction)            -- Move current tab (-1 = left, 1 = right)
 terminal.move_to_vim_tab(direction) -- Move current tab to adjacent Vim tab (-1 = prev, 1 = next)
 terminal.go_to_notification()       -- Jump to terminal with last OSC notification
-terminal.send(text)                 -- Send text to the current terminal
+terminal.send(text)                 -- Send text; ignore stale windows/channels
 ```
 
 ## Inserting registers

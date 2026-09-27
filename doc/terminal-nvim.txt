@@ -161,8 +161,8 @@ set_buffer_name ~
 
 						*terminal.nvim-opt-float*
 float ~
-	Floating window mode. Set to `false` to disable entirely (drawer
-	mode), `true` to enable with default layout, or provide a table to
+	Initial window mode. Set to `false` to start in drawer
+	mode, `true` to enable with default layout, or provide a table to
 	customise. The default is a table with `enabled = false`, so the float
 	layout is preconfigured but starts in drawer mode; toggle to float
 	with |terminal.float_toggle()| (mapped to `<C-S-f>` by default): >lua
@@ -179,9 +179,12 @@ float ~
 	      },
 	    }
 <
-	`enabled` controls whether float mode is active. When `false`, the
-	terminal opens as a drawer; |terminal.float_toggle()| flips this at
-	runtime while preserving the rest of the table.
+	`enabled` defines the initial mode for new Vim tabs. When `false`, the
+	terminal opens as a drawer. |terminal.float_toggle()| changes only the
+	current Vim tab's mode, leaving configuration and other tabs unchanged.
+	Zoom restores command-line/ruler options when leaving the tab or closing
+	its panes. Operations that cannot fit all recursive pane minimums are
+	rejected before replacing the current view.
 
 	`padding` is the gap from the editor edges in columns/rows.
 
@@ -240,8 +243,8 @@ keys ~
 	`false` to disable that mapping, or set `keys = false` to disable
 	every default keyboard mapping. Mouse handlers remain enabled.
 	See |terminal.nvim-mappings| for the meaning of each action. Values
-	may also be lists of keys, except `paste_register`, `digraph`, and
-	`go_to_tab`, which require a single string or `false`.
+	may also be lists of keys. Each `go_to_tab` string must contain an
+	integer placeholder such as `%d`.
 	Normal-mode <C-w> and z overrides are installed whenever keys is not
 	false; their prefixes are not independently configurable.
 
@@ -268,28 +271,38 @@ These commands are convenience wrappers around |:terminal| and the public
 
 						*terminal.nvim-:TermDelete*
 :TermDelete	or	Force-delete the current terminal buffer, prompting
-`:tdelete`	or	first if a job is still running.
+`:tdelete`	or	first if the job has child processes.
 `:td`
 
 						*terminal.nvim-:TermReset*
 :TermReset		Replace the current terminal buffer with a fresh one.
-			(equivalent to `:terminal | bd!#`)
-			This bypasses the running-process confirmation.
+			Keeps the tab identity, pane position and geometry.
+			Uses the same confirmation as TermDelete; a startup
+			failure leaves the original job intact.
 
 						*terminal.nvim-:TermJob*
 :TermJob {command}	Run a command in a temporary terminal split. A
-			successful exit closes the buffer. The global
-			TermClose handler also deletes failed-job buffers.
+			successful exit closes the buffer. Failed output
+			remains, with the exit status in b:terminal_job_status.
+			These jobs are separate from managed terminal tabs.
 
 						*terminal.nvim-:TermJobClose*
-:TermJobClose		Close the most recently created TermJob buffer.
+:TermJobClose		Close the newest remaining TermJob buffer, including
+			a running job. Repeated calls reach older jobs.
 
 						*terminal.nvim-:FugitiveJob*
 :FugitiveJob {command}	Like TermJob, calling FugitiveDidChange() on success.
 			Requires vim-fugitive.
 
-The close confirmation uses `pgrep -P` to detect direct children of the shell.
-It can include background jobs; it is not a portable foreground-process check.
+Delete and reset use nvim_get_proc_children() to detect direct children of the
+terminal job and ask before closing them, or when inspection fails. Background
+jobs count; this does not detect the PTY foreground process group. The check is
+synchronous, and Neovim may fall back to pgrep on some platforms.
+
+Ordinary terminal buffers, including those opened by other plugins, are adopted
+into terminal tabs and deleted on exit regardless of status. Setup replaces
+Neovim's default terminal-exit handler. Auxiliary TermJob/FugitiveJob buffers are
+excluded from this ownership and cleanup policy.
 
 ==============================================================================
 6. Mappings					*terminal.nvim-mappings*
@@ -464,6 +477,9 @@ Digraphs					*terminal.nvim-map-digraph*
 			shown while waiting for the second character. For an
 			undefined ASCII pair, Neovim's digraph_get() returns
 			the second character, which is sent to the terminal.
+			Non-ASCII pairs also send the second character.
+			Escape, leaving the buffer or leaving Terminal mode
+			cancels the session and releases its indicator.
 
 ------------------------------------------------------------------------------
 Window Commands						*terminal.nvim-wincmd*
@@ -568,7 +584,8 @@ terminal.setup({config})
 	Initialise the plugin and apply {config} on top of the defaults
 	described in |terminal.nvim-configuration|. Must be called before any
 	of the keymaps or commands are usable. Call once during initialization;
-	later calls merge configuration but do not reinstall maps/autocommands.
+	later calls with options raise an error before changing configuration.
+	Calls without options (or with an empty table) are harmless.
 
 							*terminal.toggle()*
 terminal.toggle([{opts}])
@@ -586,9 +603,9 @@ terminal.zoom()
 
 						*terminal.float_toggle()*
 terminal.float_toggle()
-	Toggle between float and drawer mode. Flips the `enabled` flag on
-	|terminal.nvim-opt-float| (or the boolean form of the option) and
-	rebuilds the current tab so the new layout takes effect immediately.
+	Toggle between float and drawer mode in the current Vim tab, rebuilding
+	its view immediately. Configuration defines the initial mode only;
+	other Vim tabs retain their display modes.
 	When closed or zoomed, opens in float mode and clears the zoom state.
 
 						*terminal.reset_height()*
@@ -603,7 +620,14 @@ terminal.new()
 							*terminal.delete()*
 terminal.delete()
 	Delete the current terminal pane. If it is the last pane in the tab,
-	the tab itself is removed. Prompts before terminating a running job.
+	the tab itself is removed. Prompts when the job has child processes
+	or process inspection fails.
+
+							*terminal.reset()*
+terminal.reset()
+	Replace the current managed terminal job, keeping its pane and tab.
+	Uses the same process confirmation as terminal.delete(). A startup
+	failure keeps the old job. Returns the replacement buffer on success.
 
 							*terminal.split()*
 terminal.split({dir})
@@ -665,7 +689,9 @@ terminal.go_to_notification()
 							*terminal.send()*
 terminal.send({text})
 	Send {text} to the job channel of the currently focused terminal.
-	Does nothing if no terminal is open or the buffer has no job.
+	Does nothing if no terminal is open or the buffer has no job. Stale
+	windows and closed channels are tolerated. Returns true after a send,
+	false plus an error for a failed channel send, or nil when no job exists.
 
 							*terminal.config*
 terminal.config

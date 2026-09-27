@@ -79,6 +79,7 @@ terminal.nvim-requirements	terminal-nvim.txt	/*terminal.nvim-requirements*
 terminal.nvim-wincmd	terminal-nvim.txt	/*terminal.nvim-wincmd*
 terminal.nvim-z<CR>	terminal-nvim.txt	/*terminal.nvim-z<CR>*
 terminal.prev()	terminal-nvim.txt	/*terminal.prev()*
+terminal.reset()	terminal-nvim.txt	/*terminal.reset()*
 terminal.reset_height()	terminal-nvim.txt	/*terminal.reset_height()*
 terminal.send()	terminal-nvim.txt	/*terminal.send()*
 terminal.setup()	terminal-nvim.txt	/*terminal.setup()*
