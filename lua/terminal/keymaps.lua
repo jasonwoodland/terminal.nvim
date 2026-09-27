@@ -217,14 +217,13 @@ function M.setup(api)
 				if c >= "0" and c <= "9" then
 					count = count * 10 + tonumber(c)
 				else
-					if count == 0 then
-						count = 1
-					end
+					local explicit_count = count > 0 and count or nil
+					count = math.max(count, 1)
 
 					if key_match(c, "w", "<C-S-w>") then
-						panes.cycle(count > 1 and count or nil)
+						panes.cycle(explicit_count)
 					elseif key_match(c, "W", "<S-W>") then
-						panes.cycle(count > 1 and count or nil, true)
+						panes.cycle(explicit_count, true)
 					elseif key_match(c, "v", "<C-S-v>") then
 						api.vsplit()
 					elseif key_match(c, "s", "<C-S-s>") then
@@ -246,9 +245,9 @@ function M.setup(api)
 					elseif c == "-" then
 						panes.resize(-count, "h")
 					elseif c == "_" then
-						panes.set_size("h", count > 1 and count or nil)
+						panes.set_size("h", explicit_count)
 					elseif c == "|" then
-						panes.set_size("w", count > 1 and count or nil)
+						panes.set_size("w", explicit_count)
 					elseif key_match(c, "H", "<S-H>") then
 						panes.splitmove("left")
 					elseif key_match(c, "L", "<S-L>") then
@@ -258,7 +257,7 @@ function M.setup(api)
 					elseif key_match(c, "J", "<S-J>") then
 						panes.splitmove("bottom")
 					elseif key_match(c, "x", "<C-S-x>") then
-						panes.exchange(count > 1 and count or nil)
+						panes.exchange(explicit_count)
 					elseif key_match(c, "r", "<C-R>", "<C-S-R>") then
 						panes.rotate(1, count)
 					elseif key_match(c, "R", "<S-R>") then
@@ -271,7 +270,7 @@ function M.setup(api)
 						api.delete()
 					elseif key_match(c, "t", "<C-S-t>") then
 						api.break_pane_to_tab()
-					elseif key_match(c, "<CR>", "<C-S-CR>") and count > 1 then
+					elseif key_match(c, "<CR>", "<C-S-CR>") and explicit_count then
 						window.set_drawer_height(count)
 					end
 					return
@@ -289,7 +288,8 @@ function M.setup(api)
 				action()
 			else
 				local fallback = vim.api.nvim_replace_termcodes("<C-w>" .. suffix, true, true, true)
-				vim.api.nvim_feedkeys(fallback, "n", false)
+				local prefix = vim.v.count > 0 and tostring(vim.v.count) or ""
+				vim.api.nvim_feedkeys(prefix .. fallback, "n", false)
 			end
 		end, { noremap = true })
 	end
