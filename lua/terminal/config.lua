@@ -61,6 +61,8 @@ M.config = {
 	},
 }
 
+local defaults = vim.deepcopy(M.config)
+
 function M.get_term_height()
 	if M.config.height < 1 then
 		return math.floor(vim.o.lines * M.config.height)
@@ -143,19 +145,25 @@ function M.get_float_overlay()
 end
 
 function M.setup(user_config)
-	local default_keys = M.config.keys
-	local default_float = M.config.float
-	local default_drawer = M.config.drawer
-	M.config = vim.tbl_extend("force", M.config, user_config or {})
-	if M.config.keys ~= false then
-		M.config.keys = vim.tbl_extend("force", default_keys, M.config.keys or {})
+	assert(user_config == nil or type(user_config) == "table", "terminal configuration must be a table")
+	local candidate = vim.tbl_deep_extend("force", vim.deepcopy(defaults), user_config or {})
+	assert(candidate.keys == false or type(candidate.keys) == "table", "keys must be a table or false")
+	if candidate.keys ~= false then
+		for name, value in pairs(candidate.keys) do
+			assert(defaults.keys[name] ~= nil, "unknown terminal key: " .. name)
+			assert(value == false or type(value) == "string" or (type(value) == "table" and vim.islist(value)),
+				"key " .. name .. " must be a string, list of strings, or false")
+			for _, key in ipairs(require("terminal.utils").key_list(value)) do
+				assert(type(key) == "string" and key ~= "", "key " .. name .. " must contain nonempty strings")
+				if name == "go_to_tab" then
+					local ok, first = pcall(string.format, key, 1)
+					local ok_last, last = pcall(string.format, key, 9)
+					assert(ok and ok_last and first ~= last, "go_to_tab keys must contain an integer placeholder such as %d")
+				end
+			end
+		end
 	end
-	if type(M.config.float) == "table" and type(default_float) == "table" then
-		M.config.float = vim.tbl_deep_extend("force", default_float, M.config.float)
-	end
-	if type(M.config.drawer) == "table" and type(default_drawer) == "table" then
-		M.config.drawer = vim.tbl_deep_extend("force", default_drawer, M.config.drawer)
-	end
+	M.config = candidate
 end
 
 return M

@@ -59,7 +59,6 @@ function M.toggle(opts)
 		if state.win_valid(vim.t.term_winid) then
 			vim.t.term_bufnr = vim.api.nvim_win_get_buf(vim.t.term_winid)
 			vim.t.term_mode = vim.api.nvim_get_mode().mode
-			vim.b[vim.t.term_bufnr].term_view = vim.fn.winsaveview()
 		end
 		window.close_pane_windows()
 	else
@@ -587,7 +586,7 @@ end
 
 function M.send(text)
 	local winid = vim.t.term_winid
-	if not winid or winid == 0 then
+	if not state.win_valid(winid) then
 		return
 	end
 	local bufnr = vim.api.nvim_win_get_buf(winid)
@@ -595,16 +594,18 @@ function M.send(text)
 	if not job then
 		return
 	end
-	vim.api.nvim_chan_send(job, text)
+	return pcall(vim.api.nvim_chan_send, job, text)
 end
 
 function M.setup(user_config)
-	config.setup(user_config)
-	M.config = config.config
-
 	if loaded then
+		if user_config and next(user_config) then
+			error("terminal.setup() accepts configuration only on its first call", 2)
+		end
 		return
 	end
+	config.setup(user_config)
+	M.config = config.config
 
 	state.setup_vars()
 

@@ -9,6 +9,7 @@ local window = require("terminal.window")
 local float_layout = require("terminal.float_layout")
 local panes = require("terminal.panes")
 local digraph = require("terminal.digraph")
+local utils = require("terminal.utils")
 
 function M.setup(api)
 	local keys = config.config.keys
@@ -17,16 +18,9 @@ function M.setup(api)
 	end
 
 	local function map(modes, key, action, opts)
-		if key == false then
-			return
+		for _, lhs in ipairs(utils.key_list(key)) do
+			vim.keymap.set(modes, lhs, action, opts or {})
 		end
-		if type(key) == "table" then
-			for _, k in ipairs(key) do
-				map(modes, k, action, opts)
-			end
-			return
-		end
-		vim.keymap.set(modes, key, action, opts or {})
 	end
 
 	map({ "n", "t" }, keys.toggle, api.toggle)
@@ -58,11 +52,9 @@ function M.setup(api)
 		api.move_to_vim_tab(1)
 	end)
 
-	map({ "n", "t" }, keys.last_notification, api.go_to_notification, { noremap = true })
-
-	if type(keys.go_to_tab) == "string" then
+	for _, pattern in ipairs(utils.key_list(keys.go_to_tab)) do
 		for i = 1, 9 do
-			local key = keys.go_to_tab:format(i)
+			local key = pattern:format(i)
 			if key ~= keys.last_notification then
 				vim.keymap.set({ "n", "t" }, key, function()
 					api.go_to(i)
@@ -70,6 +62,9 @@ function M.setup(api)
 			end
 		end
 	end
+
+	-- Notification mapping takes precedence over generated tab keys.
+	map({ "n", "t" }, keys.last_notification, api.go_to_notification, { noremap = true })
 
 	local function switch_vim_tab(direction)
 		local src_mode = mode.record()
@@ -124,8 +119,8 @@ function M.setup(api)
 		move_vim_tab(1)
 	end, { noremap = true })
 
-	if keys.paste_register ~= false then
-		vim.keymap.set("t", keys.paste_register, function()
+	for _, key in ipairs(utils.key_list(keys.paste_register)) do
+		vim.keymap.set("t", key, function()
 			local ok, char = pcall(vim.fn.getchar)
 			if not ok or type(char) ~= "number" or char < 0 then
 				return
@@ -141,7 +136,7 @@ function M.setup(api)
 			vim.api.nvim_chan_send(job, txt)
 		end, { noremap = true, silent = true })
 
-		vim.keymap.set("t", keys.paste_register .. "=", function()
+		vim.keymap.set("t", key .. "=", function()
 			local expr = vim.fn.input("=")
 			if expr == "" then
 				return
