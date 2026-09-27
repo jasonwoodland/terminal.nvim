@@ -457,7 +457,7 @@ function M.delete()
 	window.save_tab_state()
 	window.close_pane_windows()
 
-	-- Applies vim's close rule: the neighboring pane absorbs the space and
+	-- Applies the terminal layout's close rule: the neighboring pane absorbs the space and
 	-- receives focus; single-pane tabs are removed entirely.
 	state.remove_term_from_order(bufnr)
 	vim.api.nvim_buf_delete(bufnr, { force = true })

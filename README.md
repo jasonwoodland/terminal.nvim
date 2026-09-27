@@ -8,7 +8,7 @@ Use Neovim as your terminal multiplexer.
 
 - Multiple terminal tabs per Vim tab
 - Split panes within terminal tabs — vertical and horizontal, nesting like vim windows
-- The full vim `CTRL-W` command set over panes (splits, directional navigation, resize cascades, rotate/exchange, move-to-edge), matching vim's exact semantics in both drawer and float mode
+- Vim-style pane commands: splits, directional navigation, resizing, rotate/exchange, and move-to-edge
 - Unobtrusive, idiomatic keymaps that work in both Terminal and Normal modes
 - Toggle fullscreen terminal
 - Clickable winbar with terminal tabs
@@ -60,7 +60,7 @@ require("terminal").setup({
   float = {
     enabled = false,                -- Start in drawer mode; toggle with <C-S-f>
     padding = { x = 24, y = 4 },    -- Padding from screen edges (columns, rows)
-    border = false,                 -- Border style (see :help nvim_open_win), or false for none
+    border = false,                 -- false, "single", "double", "rounded", or "solid"
     winblend = 0,                   -- Pseudo-transparency for the float (0-100)
     overlay = {                     -- Dimming backdrop behind the float
       enabled = true,
@@ -86,7 +86,7 @@ require("terminal").setup({
   -- OSC notification passthrough
   osc_notifications = true,
 
-  -- Default key map (set any key to false to disable, or set keys = false to disable all)
+  -- Keyboard mappings (false disables a key; keys = false disables keyboard maps)
   keys = {
     toggle = "<C-S-Space>",
     normal_mode = "<C-S-\\>",
@@ -234,13 +234,18 @@ These work anywhere in Normal and/or Terminal mode:
       <td align="center">✓</td>
       <td align="center">✓</td>
       <td><kbd>&lt;C-M-PageUp&gt;</kbd></td>
-      <td>Move the current tab to previous Vim tab page</td>
+      <td>Move the current Vim tab page left</td>
     </tr>
     <tr>
       <td align="center">✓</td>
       <td align="center">✓</td>
       <td><kbd>&lt;C-M-PageDown&gt;</kbd></td>
-      <td>Move the current tab to next Vim tab page</td>
+      <td>Move the current Vim tab page right</td>
+    </tr>
+    <tr>
+      <td align="center">✓</td><td align="center">✓</td>
+      <td><kbd>&lt;C-S-M-PageUp&gt;</kbd> / <kbd>&lt;C-S-M-PageDown&gt;</kbd></td>
+      <td>Move the current terminal tab to the previous / next Vim tab page</td>
     </tr>
     <tr><th colspan="4" align="left">Notifications</th></tr>
     <tr>
@@ -279,6 +284,11 @@ These work anywhere in Normal and/or Terminal mode:
       <td align="center">✓</td>
       <td><kbd>&lt;C-S-t&gt;</kbd></td>
       <td>Break the current pane out into its own tab</td>
+    </tr>
+    <tr>
+      <td align="center">✓</td><td align="center">✓</td>
+      <td><kbd>&lt;C-S-s&gt;</kbd></td>
+      <td>Split the current pane horizontally</td>
     </tr>
     <tr><th colspan="4" align="left">Registers</th></tr>
     <tr>
@@ -387,14 +397,17 @@ Press <kbd>&lt;C-S-w&gt;</kbd> followed by a sub-key (works in both Normal and T
 </table>
 
 Splits nest like vim windows: panes form rows and columns, and all of the
-commands above follow vim's `CTRL-W` semantics (researched from the Neovim
-source) — including the directional-navigation descent rules, the resize
-cascade order, proportional `=` distribution, and `E443` when rotating next
-to a split pane.
+commands above use a frame-tree model based on Neovim's window implementation.
+Drawer navigation uses native window commands and can leave the drawer; float
+navigation stays within its panes. Height resizes redistribute space within the
+terminal area. Splits always go right/below, rotate/exchange keep fixed-size
+slots, and close prefers the next sibling. Pane sizing uses a minimum of one
+cell rather than Vim's window-size preferences. This is a subset of `CTRL-W`,
+with terminal-specific behavior, rather than exact parity with every Vim option.
 
 ### Normal mode `<C-w>` overrides
 
-When focused in a terminal pane window, `<C-w>` sub-keys are overridden to control panes instead of Vim windows. The same sub-keys from the wincmd table above apply, except `t` (break pane to tab), which is only available via `<C-S-w> t` or the `<C-S-t>` shorthand. Outside of terminal pane windows, `<C-w>` behaves normally.
+When focused in a terminal pane window, `<C-w>` sub-keys are overridden to control panes instead of Vim windows. The same sub-keys from the wincmd table above apply, except `t` (break pane to tab), which uses uppercase `<C-w>T`, `<C-S-w> t`, or the `<C-S-t>` shorthand. The `{count}<CR>` drawer-height command is only available through `<C-S-w>`. Outside terminal pane windows, these overrides replay native `<C-w>` commands; previously installed mappings for those keys are not retained.
 
 `z{height}<CR>` also works in Normal mode inside a pane, like vim: it sets the pane's height (a full-height or single pane resizes the drawer itself; a stacked pane resizes within the drawer). All other `z` commands (`zz`, `zt`, folds, plain `z<CR>`) pass through untouched.
 
@@ -422,7 +435,7 @@ Basic convenience commands for manipulating standard terminal buffers
       <td>Open a terminal in a vertical split</td>
     </tr>
     <tr>
-      <td><code>:TermTab [args]</code></td>
+      <td><code>:TermTab [position]</code></td>
       <td><code>:tt</code>, <code>:ttab</code></td>
       <td>Open a terminal in a new tab</td>
     </tr>
@@ -439,9 +452,24 @@ Basic convenience commands for manipulating standard terminal buffers
   </tbody>
 </table>
 
+`:TermJob {command}` runs a command in a temporary terminal split;
+`:TermJobClose` closes the most recent such buffer. `:FugitiveJob {command}`
+also calls Fugitive's refresh hook on success and requires vim-fugitive.
+These auxiliary commands currently share the plugin's terminal-exit cleanup;
+see the audit for their lifecycle limitations.
+
+Keyboard configuration does not disable the terminal mouse handlers. The normal
+`<C-w>` and `z` overrides are installed whenever `keys` is not `false`.
+`paste_register`, `digraph`, and `go_to_tab` currently require a single string
+(or `false`); other actions can also take lists of key strings.
+
+Process-close confirmation uses `pgrep -P` to look for direct children of the
+terminal job. It can include background jobs and is not a portable foreground
+process check.
+
 ## Public API
 
-All functions are available on the module table for use in custom keymaps:
+Call `setup()` once before using the plugin. These functions are available for custom keymaps:
 
 ```lua
 local terminal = require("terminal")
@@ -456,6 +484,7 @@ terminal.new()                      -- Create new terminal tab
 terminal.delete()                   -- Delete current terminal
 terminal.vsplit()                   -- Split the current pane side by side
 terminal.hsplit()                   -- Split the current pane stacked
+terminal.break_pane_to_tab()        -- Move the current pane into its own terminal tab
 terminal.split(dir)                 -- Split explicitly: "row" or "col"
 terminal.next()                     -- Switch to next tab
 terminal.prev()                     -- Switch to previous tab
@@ -489,8 +518,17 @@ If your workflow starts from the shell, you can launch Neovim directly into a fu
 nvim +"lua require('terminal').toggle()" +"lua require('terminal').zoom()"
 ```
 
-This opens terminal.nvim immediately and then zooms it to fill the editor area.
+This assumes your configuration already calls `terminal.setup()`. It opens the terminal and zooms it to fill the editor area.
 
 ## Contributing
 
-All issues and PRs are welcome.
+All issues and PRs are welcome. Run the headless regression suites from the repo root:
+
+```sh
+for test in tests/*.lua; do
+  nvim --clean --headless -l "$test" || exit 1
+done
+```
+
+See [the implementation audit](AUDIT.md) for verified behavior, remaining issues,
+and suggested follow-up work.

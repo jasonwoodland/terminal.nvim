@@ -264,7 +264,7 @@ function M.rotate(direction, count)
 end
 
 -- CTRL-W x: exchange the current pane with the count'th (or next) sibling.
--- Focus stays in the same screen slot, which now shows the other buffer.
+-- Focus stays in the same fixed-size slot, which now shows the other buffer.
 function M.exchange(count)
 	structural_op(function(entry, bufnr)
 		local root, other = frame.exchange(entry.layout, bufnr, count)

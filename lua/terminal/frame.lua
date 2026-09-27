@@ -1,6 +1,6 @@
 -- terminal.nvim: pure frame-tree layout engine
 --
--- A Lua port of Neovim's window frame model (src/nvim/window.c). A tab's pane
+-- A terminal-specific adaptation of Neovim's window frame model (src/nvim/window.c). A tab's pane
 -- layout is a tree of nodes:
 --
 --   leaf:   { t = "leaf", buf = <bufnr>, w = <cols>, h = <rows> }
@@ -277,7 +277,7 @@ function M.flatten(node)
 end
 
 -- Remove the leaf holding buf. The freed space goes to the next sibling, or
--- the previous one when the leaf is last (win_altframe rule). Returns
+-- the previous one when the leaf is last (a simplified win_altframe rule). Returns
 -- root, absorbing_buf; root is nil when the last leaf was removed.
 function M.remove(root, buf)
 	local path = find_path(root, buf)
@@ -365,7 +365,7 @@ local function setsize_frame(path, at, dim, size)
 end
 
 -- Set the leaf holding buf to `size` in dimension dim ("w"/"h"), cascading
--- through neighbors exactly like CTRL-W +/-/</> (vim frame_setheight).
+-- through neighbors using the next-first frame_setheight cascade within the root.
 function M.set_size(root, buf, dim, size)
 	local path = find_path(root, buf)
 	if not path then
@@ -637,8 +637,8 @@ end
 
 -- Exchange buf with the count'th sibling of its parent frame (or next/prev
 -- without count). Leaf-only targets, silent no-op otherwise (vim behavior).
--- Returns root, other_buf; focus should move to other_buf — vim keeps the
--- cursor in the same screen slot, which now shows the other buffer.
+-- Returns root, other_buf; focus moves to other_buf in the same fixed-size slot.
+-- Native Neovim instead exchanges window objects, carrying their sizes along.
 function M.exchange(root, buf, count)
 	local path = find_path(root, buf)
 	if not path or #path < 2 then

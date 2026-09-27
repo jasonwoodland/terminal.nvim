@@ -10,7 +10,10 @@ terminal.move()	terminal-nvim.txt	/*terminal.move()*
 terminal.move_to_vim_tab()	terminal-nvim.txt	/*terminal.move_to_vim_tab()*
 terminal.new()	terminal-nvim.txt	/*terminal.new()*
 terminal.next()	terminal-nvim.txt	/*terminal.next()*
+terminal.nvim-:FugitiveJob	terminal-nvim.txt	/*terminal.nvim-:FugitiveJob*
 terminal.nvim-:TermDelete	terminal-nvim.txt	/*terminal.nvim-:TermDelete*
+terminal.nvim-:TermJob	terminal-nvim.txt	/*terminal.nvim-:TermJob*
+terminal.nvim-:TermJobClose	terminal-nvim.txt	/*terminal.nvim-:TermJobClose*
 terminal.nvim-:TermReset	terminal-nvim.txt	/*terminal.nvim-:TermReset*
 terminal.nvim-:TermSplit	terminal-nvim.txt	/*terminal.nvim-:TermSplit*
 terminal.nvim-:TermTab	terminal-nvim.txt	/*terminal.nvim-:TermTab*
