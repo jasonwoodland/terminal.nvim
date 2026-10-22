@@ -100,6 +100,8 @@ require("terminal").setup({
     last_tab = "<C-S-o>",
     last_pane = "<C-S-p>",
     pane_left = "<C-S-h>",
+    pane_down = "<C-S-j>",
+    pane_up = "<C-S-k>",
     pane_right = "<C-S-l>",
     vsplit = "<C-S-v>",
     split = "<C-S-s>",
@@ -108,7 +110,7 @@ require("terminal").setup({
     move_prev = "<C-S-M-[>",
     move_next = "<C-S-M-]>",
     paste_register = "<C-S-r>",
-    digraph = "<C-S-k>",
+    digraph = "<C-S-i>",
     reset_height = "<C-S-=>",
     vim_tab_next = "<C-PageDown>",
     vim_tab_prev = "<C-PageUp>",
@@ -270,6 +272,18 @@ These work anywhere in Normal and/or Terminal mode:
     <tr>
       <td align="center">✓</td>
       <td align="center">✓</td>
+      <td><kbd>&lt;C-S-j&gt;</kbd></td>
+      <td>Move cursor one window below the current one</td>
+    </tr>
+    <tr>
+      <td align="center">✓</td>
+      <td align="center">✓</td>
+      <td><kbd>&lt;C-S-k&gt;</kbd></td>
+      <td>Move cursor one window above the current one</td>
+    </tr>
+    <tr>
+      <td align="center">✓</td>
+      <td align="center">✓</td>
       <td><kbd>&lt;C-S-l&gt;</kbd></td>
       <td>Move cursor one window right of the current one</td>
     </tr>
@@ -307,7 +321,7 @@ These work anywhere in Normal and/or Terminal mode:
     <tr>
       <td align="center"></td>
       <td align="center">✓</td>
-      <td><kbd>&lt;C-S-k&gt;&nbsp;{char1}{char2}</kbd></td>
+      <td><kbd>&lt;C-S-i&gt;&nbsp;{char1}{char2}</kbd></td>
       <td>Enter a digraph and send it to the terminal (like <code>i_CTRL-K</code>)</td>
     </tr>
   </tbody>

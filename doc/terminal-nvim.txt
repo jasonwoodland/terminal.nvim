@@ -96,6 +96,8 @@ the full default configuration: >lua
 	last_tab		= "<C-S-o>",
 	last_pane		= "<C-S-p>",
 	pane_left		= "<C-S-h>",
+	pane_down		= "<C-S-j>",
+	pane_up			= "<C-S-k>",
 	pane_right		= "<C-S-l>",
 	vsplit			= "<C-S-v>",
 	split			= "<C-S-s>",
@@ -104,7 +106,7 @@ the full default configuration: >lua
 	move_prev		= "<C-S-M-[>",
 	move_next		= "<C-S-M-]>",
 	paste_register		= "<C-S-r>",
-	digraph			= "<C-S-k>",
+	digraph			= "<C-S-i>",
 	reset_height		= "<C-S-=>",
 	vim_tab_next		= "<C-PageDown>",
 	vim_tab_prev		= "<C-PageUp>",
@@ -432,6 +434,12 @@ Panes						*terminal.nvim-map-panes*
 						*terminal.nvim-<C-S-h>*
 <C-S-h>			Focus the pane to the left of the current one.
 
+						*terminal.nvim-<C-S-j>*
+<C-S-j>			Focus the pane below the current one.
+
+						*terminal.nvim-<C-S-k>*
+<C-S-k>			Focus the pane above the current one.
+
 						*terminal.nvim-<C-S-l>*
 <C-S-l>			Focus the pane to the right of the current one.
 
@@ -474,8 +482,8 @@ expression switches away from its originating terminal, the result is discarded.
 ------------------------------------------------------------------------------
 Digraphs					*terminal.nvim-map-digraph*
 
-						*terminal.nvim-<C-S-k>*
-<C-S-k>{char1}{char2}	Like |i_CTRL-K| but for Terminal mode: enter a
+						*terminal.nvim-<C-S-i>*
+<C-S-i>{char1}{char2}	Like |i_CTRL-K| but for Terminal mode: enter a
 			digraph (see |digraph|) and send the resulting
 			character to the terminal. An on-screen indicator is
 			shown while waiting for the second character. For an

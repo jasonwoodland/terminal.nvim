@@ -128,6 +128,8 @@ function M.setup(api)
 	digraph.setup(keys.digraph)
 
 	map({ "n", "t" }, keys.pane_left, function() panes.navigate("h") end, { noremap = true })
+	map({ "n", "t" }, keys.pane_down, function() panes.navigate("j") end, { noremap = true })
+	map({ "n", "t" }, keys.pane_up, function() panes.navigate("k") end, { noremap = true })
 	map({ "n", "t" }, keys.pane_right, function() panes.navigate("l") end, { noremap = true })
 	map({ "n", "t" }, keys.vsplit, api.vsplit, { noremap = true })
 	map({ "n", "t" }, keys.split, api.hsplit, { noremap = true })
