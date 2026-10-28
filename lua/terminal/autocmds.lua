@@ -11,6 +11,7 @@ local statusline = require("terminal.statusline")
 local float_layout = require("terminal.float_layout")
 local bufname = require("terminal.bufname")
 local activity = require("terminal.activity")
+local follow = require("terminal.follow")
 
 local pending_title_bufs = {}
 local title_update_scheduled = false
@@ -114,6 +115,7 @@ function M.setup(api)
 				state.add_term_to_order(bufnr)
 			end
 			vim.b.term_mode = "t"
+			follow.attach(bufnr)
 			local owner_tab = vim.api.nvim_get_current_tabpage()
 			vim.b[bufnr].term_owner_tab = owner_tab
 			-- Neovim 0.11 does not emit TermRequest for handled OSC titles.
@@ -180,6 +182,7 @@ function M.setup(api)
 		pattern = "*",
 		group = "Term",
 		callback = function()
+			follow.schedule()
 			if vim.t.term_toggling then
 				return
 			end

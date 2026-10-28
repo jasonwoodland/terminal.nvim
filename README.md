@@ -13,6 +13,7 @@ Use Neovim as your terminal multiplexer.
 - Toggle fullscreen terminal
 - Clickable winbar with terminal tabs
 - Fast tab/window switching, reordering and resizing without leaving Terminal mode
+- Inactive panes follow the live terminal screen when left in Terminal mode; Normal mode preserves scrollback
 - Drawer-style and floating window modes
 - Mouse-draggable pane borders in float mode
 - Preserve and restore terminal buffer mode when switching focus
