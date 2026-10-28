@@ -53,6 +53,10 @@ function M.title_changed(bufnr)
 	end, title_update_delay)
 end
 
+function M.native_title_changed(dict)
+	M.title_changed(dict.term_title_bufnr)
+end
+
 local function get_term_refocus_target()
 	local target = vim.t.term_winid
 	if state.win_valid(target) then
@@ -116,8 +120,11 @@ function M.setup(api)
 			-- Watch the native variable instead; this also catches title-only
 			-- output with no text changes. The watcher dies with the buffer.
 			if not vim.b[bufnr].term_title_watched then
-				vim.cmd(("call dictwatcheradd(b:, 'term_title', "
-					.. [[{dict, key, change -> luaeval("require('terminal.autocmds').title_changed(_A)", %d)})]]):format(bufnr))
+				-- A Vimscript callback runs line_breakcheck() every 1000 calls,
+				-- re-entering the libuv loop while terminal output is being read.
+				-- Use a Lua callback so sustained OSC titles cannot abort Nvim.
+				vim.b[bufnr].term_title_bufnr = bufnr
+				vim.cmd([[call dictwatcheradd(b:, 'term_title', "v:lua.require'terminal.autocmds'.native_title_changed")]])
 				vim.b[bufnr].term_title_watched = true
 			end
 			float_layout.setup_mouse_mappings(bufnr, api)
