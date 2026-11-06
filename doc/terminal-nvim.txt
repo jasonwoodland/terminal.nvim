@@ -26,7 +26,7 @@ Contents					*terminal.nvim-contents*
     9. About ............................... |terminal.nvim-about|
 
 ==============================================================================
-1. Introduction					*terminal.nvim-intro*
+1. Introduction						*terminal.nvim-intro*
 
 terminal.nvim turns Neovim into a terminal multiplexer. It organises terminal
 buffers into "terminal tabs", each of which can hold multiple panes split
@@ -133,9 +133,10 @@ drawer ~
 	    }
 <
 	`winpinned` sets |'winpinned'| on drawer panes when that option is
-	available. This prevents |:only| and |:fclose| from closing the drawer.
-	Set it to `false` to retain Neovim's normal window-closing behaviour.
-	It is disabled for floating and zoomed terminal panes. Default: `true`.
+	available. This prevents |:only| and |:fclose| from closing the
+	drawer. Set it to `false` to retain Neovim's normal window-closing
+	behaviour. It is disabled for floating and zoomed terminal panes.
+	Default: `true`.
 
 						*terminal.nvim-opt-winbar*
 winbar ~
@@ -152,14 +153,15 @@ show_winbar_when_single_tab ~
 	there are two or more terminal tabs. Requires `winbar = true`.
 	Default: `false`.
 
-				*terminal.nvim-opt-set_buffer_name*
+					*terminal.nvim-opt-set_buffer_name*
 set_buffer_name ~
-	When true, names terminal buffers from their OSC title using the format
-	`term://{terminal-job-pid}//{title}`. On Neovim versions before 0.13,
-	an inactive terminal's rename is deferred until it is focused, preventing
-	the inactive buffer from changing Neovim's outer title. terminal.nvim does
-	not modify 'title' or 'titlestring'; Neovim's normal title handling follows
-	the renamed active buffer. Default: `true`.
+	When true, names terminal buffers from their OSC title using the
+	format `term://{terminal-job-pid}//{title}`. On Neovim versions before
+	0.13, an inactive terminal's rename is deferred until it is focused,
+	preventing the inactive buffer from changing Neovim's outer title.
+	terminal.nvim does not modify 'title' or 'titlestring'; Neovim's
+	normal title handling follows the renamed active buffer. Default:
+	`true`.
 
 						*terminal.nvim-opt-float*
 float ~
@@ -183,17 +185,18 @@ float ~
 <
 	`enabled` defines the initial mode for new Vim tabs. When `false`, the
 	terminal opens as a drawer. |terminal.float_toggle()| changes only the
-	current Vim tab's mode, leaving configuration and other tabs unchanged.
-	Zoom restores command-line/ruler options when leaving the tab or closing
-	its panes. Operations that cannot fit all recursive pane minimums are
-	rejected before replacing the current view.
+	current Vim tab's mode, leaving configuration and other tabs
+	unchanged. Zoom restores command-line/ruler options when leaving the
+	tab or closing its panes. Operations that cannot fit all recursive
+	pane minimums are rejected before replacing the current view.
 
 	`padding` is the gap from the editor edges in columns/rows.
 
 	`border` supports "single", "double", "rounded", "solid", or `false`
 	for no border. Conventional eight-character rectangular arrays also
 	work, but shortened arrays, partial borders, per-side highlights and
-	"shadow" do not have full |nvim_open_win()| semantics. Default: `false`.
+	"shadow" do not have full |nvim_open_win()| semantics. Default:
+	`false`.
 
 	`winblend` sets the pseudo-transparency (|'winblend'|) of the floating
 	terminal panes and winbar (0 = opaque, 100 = transparent).
@@ -267,7 +270,7 @@ These commands are convenience wrappers around |:terminal| and the public
 `:vst`
 
 						*terminal.nvim-:TermTab*
-:TermTab [position]	or	Open a new terminal in a new |tabpage|. An optional
+:TermTab [pos]	or	Open a new terminal in a new |tabpage|. An optional
 `:ttab`		or	argument (e.g. "+1") is passed to |:tabnew| as a
 `:tt`			leading position.
 
@@ -285,8 +288,9 @@ These commands are convenience wrappers around |:terminal| and the public
 						*terminal.nvim-:TermJob*
 :TermJob {command}	Run a command in a temporary terminal split. A
 			successful exit closes the buffer. Failed output
-			remains, with the exit status in b:terminal_job_status.
-			These jobs are separate from managed terminal tabs.
+			remains, with the exit status in 
+			b:terminal_job_status. These jobs are separate from
+			managed terminal tabs.
 
 						*terminal.nvim-:TermJobClose*
 :TermJobClose		Close the newest remaining TermJob buffer, including
@@ -298,13 +302,13 @@ These commands are convenience wrappers around |:terminal| and the public
 
 Delete and reset use nvim_get_proc_children() to detect direct children of the
 terminal job and ask before closing them, or when inspection fails. Background
-jobs count; this does not detect the PTY foreground process group. The check is
-synchronous, and Neovim may fall back to pgrep on some platforms.
+jobs count; this does not detect the PTY foreground process group. The check
+is synchronous, and Neovim may fall back to pgrep on some platforms.
 
-Ordinary terminal buffers, including those opened by other plugins, are adopted
-into terminal tabs and deleted on exit regardless of status. Setup replaces
-Neovim's default terminal-exit handler. Auxiliary TermJob/FugitiveJob buffers are
-excluded from this ownership and cleanup policy.
+Ordinary terminal buffers, including those opened by other plugins, are
+adopted into terminal tabs and deleted on exit regardless of status. Setup
+replaces Neovim's default terminal-exit handler. Auxiliary TermJob/FugitiveJob
+buffers are excluded from this ownership and cleanup policy.
 
 ==============================================================================
 6. Mappings					*terminal.nvim-mappings*
@@ -466,10 +470,10 @@ Notifications				*terminal.nvim-map-notifications*
 Registers					*terminal.nvim-map-registers*
 
 These mappings are active in Terminal mode only. Register and expression paste
-use |nvim_paste()|, so bracketed-paste markers follow the child application's mode
-and native terminal paste filters apply where supported. If the prompt or
-expression switches away from its originating terminal, the result is discarded.
-|terminal.send()| remains a raw channel send.
+use |nvim_paste()|, so bracketed-paste markers follow the child application's
+mode and native terminal paste filters apply where supported. If the prompt or
+expression switches away from its originating terminal, the result is
+discarded. |terminal.send()| remains a raw channel send.
 
 						*terminal.nvim-<C-S-r>*
 <C-S-r>{register}	Insert the contents of {register} into the terminal.
@@ -506,7 +510,8 @@ its panes. Splits always go right/below. Rotate/exchange preserve slot sizes,
 and close prefers the next sibling. Pane sizing uses a one-cell minimum,
 not Vim's window-size preferences. These commands do not promise exact parity
 with all Vim options. Rotating beside a split sibling reports |E443|.
-Separators and statuslines between stacked drawer panes support mouse dragging.
+Separators and statuslines between stacked drawer panes support mouse
+dragging.
 
 Navigation
 
@@ -595,9 +600,10 @@ The following functions are exposed on the `terminal` module: >lua
 terminal.setup({config})
 	Initialise the plugin and apply {config} on top of the defaults
 	described in |terminal.nvim-configuration|. Must be called before any
-	of the keymaps or commands are usable. Call once during initialization;
-	later calls with options raise an error before changing configuration.
-	Calls without options (or with an empty table) are harmless.
+	of the keymaps or commands are usable. Call once during
+	initialization; later calls with options raise an error before
+	changing configuration. Calls without options (or with an empty table)
+	are harmless.
 
 							*terminal.toggle()*
 terminal.toggle([{opts}])
@@ -615,8 +621,9 @@ terminal.zoom()
 
 						*terminal.float_toggle()*
 terminal.float_toggle()
-	Toggle between float and drawer mode in the current Vim tab, rebuilding
-	its view immediately. Configuration defines the initial mode only;
+	Toggle between float and drawer mode in the current Vim tab,
+	rebuilding its view immediately. Configuration defines the initial
+	mode only;
 	other Vim tabs retain their display modes.
 	When closed or zoomed, opens in float mode and clears the zoom state.
 
@@ -703,7 +710,8 @@ terminal.send({text})
 	Send {text} to the job channel of the currently focused terminal.
 	Does nothing if no terminal is open or the buffer has no job. Stale
 	windows and closed channels are tolerated. Returns true after a send,
-	false plus an error for a failed channel send, or nil when no job exists.
+	false plus an error for a failed channel send, or nil when no job
+	exists.
 
 							*terminal.config*
 terminal.config
