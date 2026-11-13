@@ -87,6 +87,9 @@ require("terminal").setup({
   -- OSC notification passthrough
   osc_notifications = true,
 
+  -- Answer OSC 10/11 color queries using the Normal highlight
+  osc_colors = true,
+
   -- Keyboard mappings (false disables a key; keys = false disables keyboard maps)
   keys = {
     toggle = "<C-S-Space>",
@@ -493,6 +496,15 @@ Ordinary terminal buffers, including those opened by other plugins, are adopted
 into terminal tabs. Their exit deletes the buffer regardless of status; setup
 replaces Neovim's default terminal-exit handler. The auxiliary job commands above
 are excluded from this ownership and cleanup policy.
+
+With `osc_colors = true`, OSC 10/11 queries from terminal applications receive
+the current `Normal` foreground/background when `termguicolors` is enabled.
+This keeps application backgrounds, such as Codex's prompt, consistent with the
+colorscheme. It replaces Neovim's built-in color-query handler for all terminal
+buffers, retaining its light/dark fallback for unset colors or cterm rendering.
+Window-specific highlights, transparency blending, and inherited host-terminal
+colors are not resolved. Set `osc_colors = false` to retain Neovim's handler or
+use your own responder. Remove any existing color-query workaround before enabling it.
 
 ## Public API
 

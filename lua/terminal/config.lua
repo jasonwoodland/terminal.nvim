@@ -27,6 +27,7 @@ M.config = {
 	float_zoom_hide_cmdline = false,
 	set_buffer_name = true,
 	osc_notifications = true,
+	osc_colors = true,
 	keys = {
 		toggle = "<C-S-Space>",
 		normal_mode = "<C-S-\\>",

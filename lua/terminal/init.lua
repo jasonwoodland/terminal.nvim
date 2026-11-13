@@ -644,6 +644,7 @@ function M.setup(user_config)
 
 	require("terminal.autocmds").setup(M)
 	require("terminal.osc").setup()
+	require("terminal.colors").setup()
 	require("terminal.keymaps").setup(M)
 	require("terminal.commands").setup(M)
 
