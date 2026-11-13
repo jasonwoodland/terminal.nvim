@@ -535,6 +535,11 @@ j		Focus the window below.
 k		Focus the window above.
 l		Focus the window to the right.
 p		Jump to the previous window.
+t		Focus the top-left window (like |CTRL-W_t|).
+b		Focus the bottom-right window (like |CTRL-W_b|).
+
+Like directional navigation, t/b include editor windows in drawer mode
+and stay within the current terminal tab's panes in float mode.
 
 Pane management
 
@@ -543,8 +548,9 @@ v		Split side by side; add a new pane to the right (like
 s		Split stacked; add a new pane below (like |CTRL-W_s|).
 c		Delete the current pane (with running-process prompt). The
 		neighbouring pane absorbs the freed space, like |CTRL-W_c|.
-t		Break the current pane out into a new terminal tab (like 
-		|CTRL-W_T|).
+T		Break the current pane out into a new terminal tab immediately
+		after the current tab (like |CTRL-W_T|). Does nothing when the
+		current tab has only one pane.
 
 Resize
 
@@ -583,7 +589,7 @@ x		Exchange the current pane with the next one; with [count],
 
 When the cursor is in a terminal pane in Normal mode, terminal.nvim handles
 the |CTRL-W| sub-commands using the same sub-keys documented in
-|terminal.nvim-wincmd|, except that break-to-tab uses uppercase `<C-w>T`
+|terminal.nvim-wincmd|, with break-to-tab using uppercase `<C-w>T`
 and `{count}<CR>` is only available through `<C-S-w>`. Navigation commands
 (`h`, `j`, `k`, `l`, `w`, and `p`) work like normal Vim window commands,
 including moving between terminal and non-terminal windows when the terminal

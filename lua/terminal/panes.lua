@@ -106,6 +106,19 @@ function M.cycle(count, backwards)
 	end
 end
 
+-- CTRL-W t / b: native window order in drawers, layout order in floats.
+function M.goto_edge(bottom)
+	if not config.is_float_mode() then
+		M.native_wincmd(bottom and "b" or "t")
+		return
+	end
+	local wins = vim.t.term_winids or {}
+	local win = wins[bottom and #wins or 1]
+	if state.win_valid(win) then
+		focus_pane_win(win)
+	end
+end
+
 -- Jump to the previously focused pane window.
 function M.goto_last()
 	local prev = vim.t.term_prev_pane_winid

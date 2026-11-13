@@ -356,6 +356,10 @@ Press <kbd>&lt;C-S-w&gt;</kbd> followed by a sub-key (works in both Normal and T
       <td><kbd>p</kbd></td>
       <td>Jump to the previous (last-visited) pane</td>
     </tr>
+    <tr>
+      <td><kbd>t</kbd> / <kbd>b</kbd></td>
+      <td>Focus the top-left / bottom-right window (drawer: includes editor windows; float: current tab's panes)</td>
+    </tr>
     <tr><th colspan="2" align="left">Pane management</th></tr>
     <tr>
       <td><kbd>v</kbd></td>
@@ -370,8 +374,8 @@ Press <kbd>&lt;C-S-w&gt;</kbd> followed by a sub-key (works in both Normal and T
       <td>Delete current terminal (the neighboring pane absorbs the space)</td>
     </tr>
     <tr>
-      <td><kbd>t</kbd></td>
-      <td>Break current pane out into its own tab</td>
+      <td><kbd>T</kbd></td>
+      <td>Break current pane out into its own tab after the current tab (requires multiple panes)</td>
     </tr>
     <tr><th colspan="2" align="left">Resize</th></tr>
     <tr>
@@ -425,7 +429,7 @@ with terminal-specific behavior, rather than exact parity with every Vim option.
 
 ### Normal mode `<C-w>` overrides
 
-When focused in a terminal pane window, `<C-w>` sub-keys are overridden to control panes instead of Vim windows. The same sub-keys from the wincmd table above apply, except `t` (break pane to tab), which uses uppercase `<C-w>T`, `<C-S-w> t`, or the `<C-S-t>` shorthand. The `{count}<CR>` drawer-height command is only available through `<C-S-w>`. Outside terminal pane windows, these overrides replay native `<C-w>` commands; previously installed mappings for those keys are not retained.
+When focused in a terminal pane window, `<C-w>` sub-keys are overridden to control panes instead of Vim windows. The same sub-keys from the wincmd table above apply. Break pane to tab uses uppercase `<C-w>T` or `<C-S-w> T`; the `<C-S-t>` shorthand also works. It moves the current pane into a new terminal tab immediately after the current tab, and does nothing if the tab has only one pane. The `{count}<CR>` drawer-height command is only available through `<C-S-w>`. Outside terminal pane windows, these overrides replay native `<C-w>` commands; previously installed mappings for those keys are not retained.
 
 `z{height}<CR>` also works in Normal mode inside a pane, like vim: it sets the pane's height (a full-height or single pane resizes the drawer itself; a stacked pane resizes within the drawer). All other `z` commands (`zz`, `zt`, folds, plain `z<CR>`) pass through untouched.
 

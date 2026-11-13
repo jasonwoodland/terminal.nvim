@@ -228,9 +228,13 @@ function M.setup(api)
 						float_layout.equalize_panes()
 					elseif key_match(c, "p", "<C-S-p>") then
 						panes.goto_previous()
+					elseif key_match(c, "t", "<C-t>", "<C-S-t>") then
+						panes.goto_edge(false)
+					elseif key_match(c, "b", "<C-b>", "<C-S-b>") then
+						panes.goto_edge(true)
 					elseif key_match(c, "c", "<C-S-c>") then
 						api.delete()
-					elseif key_match(c, "t", "<C-S-t>") then
+					elseif c == "T" then
 						api.break_pane_to_tab()
 					elseif key_match(c, "<CR>", "<C-S-CR>") and explicit_count then
 						window.set_drawer_height(count)
@@ -271,6 +275,8 @@ function M.setup(api)
 		{ { "<Bar>" },      function() panes.set_size("w", vim.v.count > 0 and vim.v.count or nil) end },
 		{ { "=" },          float_layout.equalize_panes },
 		{ { "p", "<C-p>" }, panes.goto_previous },
+		{ { "t", "<C-t>" }, function() panes.goto_edge(false) end },
+		{ { "b", "<C-b>" }, function() panes.goto_edge(true) end },
 		{ { "c", "<C-c>" }, api.delete },
 		{ { "v", "<C-v>" }, api.vsplit },
 		{ { "s", "<C-s>" }, api.hsplit },
