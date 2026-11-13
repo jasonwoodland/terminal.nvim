@@ -51,6 +51,62 @@ for _, case in ipairs({ { false, false }, { false, true }, { true, false }, { tr
 			and enters == 0]]), 'output following never changes focus or mode or emits enter events')
 		ui.request('nvim_ui_try_resize', 82, 28)
 		ui.wait([[return at_live_screen()]], 'UI resize keeps inactive pane on live screen')
+		ui.lua([[_G.focus = vim.api.nvim_get_current_win()]])
+		local pos = ui.lua([[vim.o.mouse = 'a'; local p = vim.api.nvim_win_get_position(source_win); return {p[1] + 2, p[2] + 2}]])
+		ui.request('nvim_input_mouse', 'wheel', 'up', '', 0, pos[1], pos[2])
+		ui.wait([[return not require('terminal.follow').is_following(source_win) and not at_live_screen()]], 'wheel pauses following')
+		ui.lua([[
+			_G.scrolled_top = vim.api.nvim_win_call(source_win, vim.fn.winsaveview).topline
+			vim.api.nvim_chan_send(channel, '\27[4;1Hpaused redraw')
+			vim.wait(100, function() return false end)
+		]])
+		assert(ui.lua([[return vim.api.nvim_win_call(source_win, vim.fn.winsaveview).topline == scrolled_top
+			and vim.b[source_buf].term_mode == 't' and vim.api.nvim_get_current_win() == focus]]), 'paused output preserves view, mode and focus')
+		local function open_menu(label)
+			ui.request('nvim_input_mouse', 'right', 'press', '', 0, pos[1], pos[2])
+			assert(vim.wait(3000, function() return ui.find_text(label) ~= nil end, 10), 'native follow menu shows ' .. label)
+			local item = ui.find_text(label)
+			assert(math.abs(item[1] - pos[1]) <= 1 and math.abs(item[2] - pos[2]) <= 2,
+				'native menu opens at the mouse position: ' .. vim.inspect({ item = item, mouse = pos }))
+		end
+		open_menu('[ ] Follow output')
+		local item = assert(ui.find_text('[ ] Follow output'))
+		ui.request('nvim_input_mouse', 'left', 'press', '', 0, item[1], item[2] + 2)
+		ui.request('nvim_input_mouse', 'left', 'release', '', 0, item[1], item[2] + 2)
+		ui.wait([[return require('terminal.follow').is_following(source_win) and at_live_screen()]], 'menu resumes following')
+		assert(ui.lua([[return vim.api.nvim_get_current_win() == focus]]), 'menu preserves focus')
+		open_menu('[x] Follow output')
+		ui.input('<Esc>')
+		assert(vim.wait(3000, function() return ui.find_text('Follow output') == nil end, 10), 'Escape dismisses native menu')
+		assert(ui.lua([[return vim.api.nvim_get_current_win() == focus and vim.api.nvim_get_mode().mode == 't']]), 'dismissal preserves focus and mode')
+		open_menu('[x] Follow output')
+		ui.input('<Down><CR>')
+		ui.wait([[return not require('terminal.follow').is_following(source_win)]], 'menu disables following')
+		ui.wait([[return vim.api.nvim_get_mode().mode == 't' and vim.b.term_mode == 't']], 'native menu action preserves Terminal mode')
+		ui.lua([[vim.api.nvim_chan_send(channel, '\27[5;1Hdisabled redraw'); vim.wait(50, function() return false end)]])
+		assert(ui.lua([[return not require('terminal.follow').is_following(source_win)]]), 'output does not re-enable disabled following')
+		ui.request('nvim_input_mouse', 'wheel', 'up', '', 0, pos[1], pos[2])
+		ui.wait([[return not at_live_screen()]], 'scroll away from bottom')
+		for _ = 1, 12 do ui.request('nvim_input_mouse', 'wheel', 'down', '', 0, pos[1], pos[2]) end
+		ui.wait([[return require('terminal.follow').is_following(source_win) and at_live_screen()]], 'scrolling to bottom resumes following')
+		ui.lua([[
+			_G.bottom_scrolls = 0
+			_G.scroll_watch = vim.api.nvim_create_autocmd('WinScrolled', {
+				callback = function() bottom_scrolls = bottom_scrolls + 1 end,
+			})
+		]])
+		for _ = 1, 20 do ui.request('nvim_input_mouse', 'wheel', 'down', '', 0, pos[1], pos[2]) end
+		ui.lua([[vim.wait(50, function() return false end); vim.api.nvim_del_autocmd(scroll_watch)]])
+		assert(ui.lua([[return bottom_scrolls == 0 and at_live_screen()
+			and vim.api.nvim_get_current_win() == focus]]), 'scrolling past bottom never moves the viewport or focus')
+		ui.request('nvim_input_mouse', 'wheel', 'up', '', 0, pos[1], pos[2])
+		ui.wait([[return not require('terminal.follow').is_following(source_win)]], 'scroll pauses before focus')
+		ui.request('nvim_input_mouse', 'left', 'press', '', 0, pos[1], pos[2])
+		ui.request('nvim_input_mouse', 'left', 'release', '', 0, pos[1], pos[2])
+		ui.wait([[return vim.api.nvim_get_current_win() == source_win and vim.api.nvim_get_mode().mode == 't'
+			and require('terminal.follow').is_following(source_win) and at_live_screen()]], 'focus resumes Terminal mode and live screen')
+		ui.lua([[vim.api.nvim_set_current_win(focus); require('terminal.mode').restore_current()]])
+		ui.wait([[return vim.api.nvim_get_mode().mode == 't']], 'return to other terminal mode')
 		ui.lua([[
 			_G.focus = vim.api.nvim_get_current_win()
 			_G.enters = 0

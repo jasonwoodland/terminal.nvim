@@ -643,6 +643,7 @@ function M.setup(user_config)
 	state.setup_vars()
 
 	require("terminal.autocmds").setup(M)
+	require("terminal.follow").setup()
 	require("terminal.osc").setup()
 	require("terminal.colors").setup()
 	require("terminal.keymaps").setup(M)

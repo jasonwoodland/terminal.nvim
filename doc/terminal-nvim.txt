@@ -512,6 +512,20 @@ Digraphs					*terminal.nvim-map-digraph*
 ------------------------------------------------------------------------------
 Window Commands						*terminal.nvim-wincmd*
 
+Mouse scrolling and following			*terminal.nvim-mouse-follow*
+
+Scrolling up with the mouse wheel in an inactive terminal pane pauses
+following without taking focus or changing its saved terminal mode. Scrolling
+back to the bottom resumes following; further downward scrolling stops at the
+live screen. Right-click an inactive pane (or a pane in Normal mode) to open
+Neovim's native popup at the mouse pointer, with a checked "Follow output"
+item. Enabling it jumps to the live screen without taking focus; disabling it
+pauses following. Escape dismisses the menu. Focusing a pane left in Terminal
+mode resumes that mode and returns to the live screen.
+
+Mouse input in the focused pane in Terminal mode uses Neovim's native
+handling, so mouse-aware applications receive clicks, drags, and wheel input.
+
 Press `<C-S-w>` (analogous to |CTRL-W|) followed by one of the sub-keys
 below to manipulate the current terminal tab's panes. Sub-keys accept an
 optional |count| where indicated.

@@ -172,6 +172,9 @@ function M.setup(api)
 				if vim.api.nvim_get_current_win() ~= winid then
 					return
 				end
+				-- A popup action may already have restored Terminal mode by
+				-- the time this deferred leave callback runs.
+				if vim.api.nvim_get_mode().mode == "t" then return end
 				if vim.bo[bufnr].buftype == "terminal" then
 					vim.b[bufnr].term_mode = "n"
 				end

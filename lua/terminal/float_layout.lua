@@ -387,6 +387,7 @@ end
 -- drive them with synthetic positions.
 
 function M.on_left_mouse(mouse)
+	if require("terminal.follow").on_left_mouse(mouse) then return "" end
 	-- Track mode for tabline clicks so LeftRelease can restore it
 	if mouse.screenrow == 1 and vim.o.showtabline > 0 then
 		tabline_click_mode = vim.api.nvim_get_mode().mode
@@ -508,6 +509,7 @@ function M.on_left_drag(mouse)
 end
 
 function M.on_left_release(mouse)
+	if require("terminal.follow").on_left_release() then return "" end
 	if drag_state then
 		local drag = drag_state
 		drag_state = nil
@@ -562,6 +564,9 @@ function M.setup_mouse_mappings(bufnr, api)
 		}) do
 			vim.keymap.set(keymode, event, function()
 				local ev_mouse = vim.fn.getmousepos()
+				local follow = require("terminal.follow")
+				if event:find("LeftMouse", 1, true) and follow.on_left_mouse(ev_mouse) then return "" end
+				if event:find("LeftRelease", 1, true) and follow.on_left_release() then return "" end
 				if ev_mouse.winid == vim.t.term_winbar_winid or statusline.is_stl_window(ev_mouse.winid) then
 					return ""
 				end

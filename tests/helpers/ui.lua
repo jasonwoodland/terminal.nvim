@@ -11,6 +11,16 @@ function M.start(root, width, height)
 	local decode_handle = function(_, data) return vim.mpack.decode(data) end
 	local unpack = vim.mpack.Unpacker({ ext = { [0] = decode_handle, [1] = decode_handle, [2] = decode_handle } })
 	local ui = { redraws = 0 }
+	local rows = {}
+	function ui.find_text(value)
+		for row, cells in pairs(rows) do
+			local filled = {}
+			for col = 1, math.max(width or 100, #cells) do filled[col] = cells[col] or " " end
+			local line = table.concat(filled)
+			local col = line:find(value, 1, true)
+			if col then return { row, col - 1 } end
+		end
+	end
 	output:read_start(function(err, data)
 		assert(not err, err)
 		if not data then return end
@@ -19,7 +29,22 @@ function M.start(root, width, height)
 			message, pos = unpack(data, pos)
 			if message then
 				if message[1] == 1 then replies[message[2]] = message end
-				if message[1] == 2 and message[2] == "redraw" then ui.redraws = ui.redraws + 1 end
+				if message[1] == 2 and message[2] == "redraw" then
+					ui.redraws = ui.redraws + 1
+					for _, event in ipairs(message[3]) do
+						if event[1] == "grid_clear" or event[1] == "grid_resize" then rows = {} end
+						if event[1] == "grid_line" then
+							for i = 2, #event do
+								local line = event[i]
+								local row, col = line[2], line[3] + 1
+								rows[row] = rows[row] or {}
+								for _, cell in ipairs(line[4]) do
+									for _ = 1, cell[3] or 1 do rows[row][col] = cell[1]; col = col + 1 end
+								end
+							end
+						end
+					end
+				end
 			end
 		end
 	end)

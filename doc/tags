@@ -66,6 +66,7 @@ terminal.nvim-map-tabs	terminal-nvim.txt	/*terminal.nvim-map-tabs*
 terminal.nvim-map-toggle	terminal-nvim.txt	/*terminal.nvim-map-toggle*
 terminal.nvim-map-vim-tabs	terminal-nvim.txt	/*terminal.nvim-map-vim-tabs*
 terminal.nvim-mappings	terminal-nvim.txt	/*terminal.nvim-mappings*
+terminal.nvim-mouse-follow	terminal-nvim.txt	/*terminal.nvim-mouse-follow*
 terminal.nvim-opt-drawer	terminal-nvim.txt	/*terminal.nvim-opt-drawer*
 terminal.nvim-opt-float	terminal-nvim.txt	/*terminal.nvim-opt-float*
 terminal.nvim-opt-float_zoom	terminal-nvim.txt	/*terminal.nvim-opt-float_zoom*

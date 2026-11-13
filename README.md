@@ -433,6 +433,21 @@ When focused in a terminal pane window, `<C-w>` sub-keys are overridden to contr
 
 `z{height}<CR>` also works in Normal mode inside a pane, like vim: it sets the pane's height (a full-height or single pane resizes the drawer itself; a stacked pane resizes within the drawer). All other `z` commands (`zz`, `zt`, folds, plain `z<CR>`) pass through untouched.
 
+### Mouse scrolling and output following
+
+Scroll up in an inactive terminal pane with the mouse wheel to pause output following
+without changing its saved terminal mode or taking focus. Scroll back to the
+bottom to resume; further downward scrolling stops at the live screen.
+Right-click an inactive pane (or a pane in Normal mode) to open Neovim's native
+popup at the mouse pointer, with a checked **Follow output** item.
+Enabling it jumps to the live screen without
+focusing the pane; disabling it pauses following. Escape dismisses the menu.
+Focusing a pane that was left in Terminal mode resumes that mode and returns
+to the live screen.
+
+Mouse input in the focused pane in Terminal mode uses Neovim's native handling,
+so mouse-aware applications such as htop receive clicks, drags, and wheel input.
+
 ## Commands
 
 Basic convenience commands for manipulating standard terminal buffers

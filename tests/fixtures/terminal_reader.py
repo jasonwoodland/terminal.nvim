@@ -6,6 +6,8 @@ import tty
 tty.setraw(sys.stdin.fileno())
 if sys.argv[2] == "bracketed":
     os.write(sys.stdout.fileno(), b"\x1b[?2004h")
+elif sys.argv[2] == "mouse":
+    os.write(sys.stdout.fileno(), b"\x1b[?1002h\x1b[?1006h")
 os.write(sys.stdout.fileno(), b"READER_READY\r\n")
 with open(sys.argv[1], "ab", buffering=0) as output:
     while True:
