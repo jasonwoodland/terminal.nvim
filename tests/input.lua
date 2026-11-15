@@ -25,6 +25,8 @@ local ok, err = xpcall(function()
 		ui.lua([[
 			local root, capture, protocol = ...
 			vim.cmd('enew')
+			vim.b.terminal_managed = true
+			vim.b.term_owner_tab = vim.api.nvim_get_current_tabpage()
 			vim.fn.termopen({ 'python3', root .. '/tests/fixtures/terminal_reader.py', capture, protocol })
 			vim.cmd('startinsert')
 		]], root, capture, protocol)
@@ -57,6 +59,8 @@ local ok, err = xpcall(function()
 	captures[#captures + 1] = shell_output
 	ui.lua([[
 		vim.cmd('enew')
+		vim.b.terminal_managed = true
+		vim.b.term_owner_tab = vim.api.nvim_get_current_tabpage()
 		vim.fn.termopen({ '/bin/sh' })
 		vim.fn.setreg('a', "printf '%s\\n' 'shell paste works' > " .. vim.fn.shellescape(...) .. "\n")
 		vim.cmd('startinsert')

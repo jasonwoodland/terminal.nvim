@@ -18,9 +18,8 @@ assert(table.concat(vim.api.nvim_buf_get_lines(failed, 0, -1, false)):find("fail
 assert(#state.get_tabs() == 0, "auxiliary jobs are not managed terminal tabs")
 local failed_win = vim.fn.bufwinid(failed)
 vim.api.nvim_set_current_win(failed_win)
-state.adopt_current_terminal()
-state.adopt_orphaned_terminals()
-assert(#state.get_tabs() == 0, "focus/orphan scans do not adopt command jobs")
+vim.api.nvim_exec_autocmds("WinEnter", {})
+assert(#state.get_tabs() == 0 and not state.is_managed(failed), "focus does not adopt command jobs")
 vim.api.nvim_set_current_win(previous)
 
 local later, job = jobs.run({ "/bin/sh", "-c", "read ignored; exit 3" })

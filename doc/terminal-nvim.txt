@@ -36,6 +36,7 @@ commands is available with terminal-specific behavior. Terminals can
 be displayed as a drawer pinned to the bottom of the screen or as a centered
 floating window, and the current tab can be zoomed to take over the full
 editor area.
+Ordinary |:terminal| buffers and other plugins' terminals are not managed.
 
 ==============================================================================
 2. Requirements					*terminal.nvim-requirements*
@@ -248,8 +249,8 @@ osc_notifications ~
 osc_colors ~
 	Answer OSC 10/11 queries with the current |hl-Normal| foreground and
 	background when 'termguicolors' is enabled. Default: `true`.
-	Replaces Neovim's built-in color-query handler for all terminal buffers,
-	retaining its light/dark fallback for unset colors or cterm rendering.
+	Applies only to managed terminal buffers, retaining Neovim's
+	light/dark fallback for unset colors or cterm rendering.
 	Window-specific highlights, transparency blending, and inherited host
 	terminal colors are not resolved. Set to `false` to retain Neovim's
 	handler or use your own responder. Remove any existing color-query
@@ -263,22 +264,25 @@ keys ~
 	See |terminal.nvim-mappings| for the meaning of each action. Values
 	may also be lists of keys. Each `go_to_tab` string must contain an
 	integer placeholder such as `%d`.
-	Normal-mode <C-w> and z overrides are installed whenever keys is not
-	false; their prefixes are not independently configurable.
+	Normal-mode <C-w> and z overrides are buffer-local to managed
+	terminals when keys is not false; their prefixes are not independently
+	configurable.
 
 ==============================================================================
 5. Commands					*terminal.nvim-commands*
 
-These commands are convenience wrappers around |:terminal| and the public
-|terminal.nvim-functions|.
+These commands use the public |terminal.nvim-functions| to create and control
+managed terminal tabs and panes.
 
 						*terminal.nvim-:TermSplit*
-:TermSplit	or	Open a new terminal in a horizontal split.
+:TermSplit	or	Split the managed pane horizontally (or open the
+			workspace if none exists).
 `:tsplit`	or
 `:st`
 
 						*terminal.nvim-:TermVsplit*
-:TermVsplit	or	Open a new terminal in a vertical split.
+:TermVsplit	or	Split the managed pane vertically (or open the
+			workspace if none exists).
 `:tvsplit`	or
 `:vst`
 
@@ -322,18 +326,21 @@ terminal job and ask before closing them, or when inspection fails. Background
 jobs count; this does not detect the PTY foreground process group. The check
 is synchronous, and Neovim may fall back to pgrep on some platforms.
 
-Ordinary terminal buffers, including those opened by other plugins, are
-adopted into terminal tabs and deleted on exit regardless of status. Setup
-replaces Neovim's default terminal-exit handler. Auxiliary TermJob/FugitiveJob
-buffers are excluded from this ownership and cleanup policy.
+Only terminals created through this plugin's tabs and panes are managed and
+deleted on exit regardless of status. Ordinary :term buffers and other
+plugins' terminals retain native exit behavior and are excluded from picker
+results, mode tracking, input mappings, title handling, notifications and
+color queries. Auxiliary TermJob/FugitiveJob buffers retain their separate
+policy above.
 
 ==============================================================================
 6. Mappings					*terminal.nvim-mappings*
 
 Unless noted otherwise, every default mapping is active in both Normal
 (|Normal-mode|) and Terminal-Job (|Terminal-mode|) modes, so the same key
-works whether the cursor is in a terminal or in regular text. All keys are
-configurable via the `keys` table; see |terminal.nvim-opt-keys|.
+works in a managed terminal or in regular text. Normal-mode shortcuts are
+global; Terminal-mode shortcuts are buffer-local to managed panes. All keys
+are configurable via the `keys` table; see |terminal.nvim-opt-keys|.
 
 In addition to the defaults below, `<C-S-1>` through `<C-S-9>` jump directly
 to terminal tab 1 through 9 by index. The pattern is configurable via the
@@ -622,8 +629,8 @@ z{height}<CR>	In Normal mode inside a pane, sets the pane's height
 		commands (`zz`, `zt`, folds, plain `z<CR>`) pass
 		through untouched.
 
-Outside a terminal pane these overrides replay native |CTRL-W| and `z`
-commands; previously installed mappings for those keys are not retained.
+These overrides are buffer-local to managed terminals. Outside those buffers,
+existing |CTRL-W| and `z` mappings are unchanged.
 The `<C-S-w>` prefix is available in Normal and Terminal mode.
 
 ==============================================================================
@@ -779,7 +786,7 @@ terminal.config
 ==============================================================================
 8. Appendix					*terminal.nvim-appendix*
 
-TELESCOPE INTEGRATION				*terminal.nvim-telescope*
+TELESCOPE INTEGRATION ~				*terminal.nvim-telescope*
 
 With telescope.nvim installed: >lua
 

@@ -131,7 +131,7 @@ require("terminal").setup({
 
 ### Global keymaps
 
-These work anywhere in Normal and/or Terminal mode:
+Normal-mode shortcuts are global; Terminal-mode shortcuts apply only to managed panes:
 
 <table>
   <thead>
@@ -429,7 +429,7 @@ with terminal-specific behavior, rather than exact parity with every Vim option.
 
 ### Normal mode `<C-w>` overrides
 
-When focused in a terminal pane window, `<C-w>` sub-keys are overridden to control panes instead of Vim windows. The same sub-keys from the wincmd table above apply. Break pane to tab uses uppercase `<C-w>T` or `<C-S-w> T`; the `<C-S-t>` shorthand also works. It moves the current pane into a new terminal tab immediately after the current tab, and does nothing if the tab has only one pane. The `{count}<CR>` drawer-height command is only available through `<C-S-w>`. Outside terminal pane windows, these overrides replay native `<C-w>` commands; previously installed mappings for those keys are not retained.
+When focused in a terminal pane window, `<C-w>` sub-keys are overridden to control panes instead of Vim windows. The same sub-keys from the wincmd table above apply. Break pane to tab uses uppercase `<C-w>T` or `<C-S-w> T`; the `<C-S-t>` shorthand also works. It moves the current pane into a new terminal tab immediately after the current tab, and does nothing if the tab has only one pane. The `{count}<CR>` drawer-height command is only available through `<C-S-w>`. These overrides are buffer-local; mappings outside managed buffers are unchanged.
 
 `z{height}<CR>` also works in Normal mode inside a pane, like vim: it sets the pane's height (a full-height or single pane resizes the drawer itself; a stacked pane resizes within the drawer). All other `z` commands (`zz`, `zt`, folds, plain `z<CR>`) pass through untouched.
 
@@ -450,7 +450,7 @@ so mouse-aware applications such as htop receive clicks, drags, and wheel input.
 
 ## Commands
 
-Basic convenience commands for manipulating standard terminal buffers
+Commands for managed terminal tabs and panes:
 
 <table>
   <thead>
@@ -516,16 +516,17 @@ initial mode for new Vim tabs. Zoom restores command-line/ruler options when you
 leave its tab or close its panes. Operations that cannot fit the recursive pane
 minimums are rejected before replacing the current view.
 
-Ordinary terminal buffers, including those opened by other plugins, are adopted
-into terminal tabs. Their exit deletes the buffer regardless of status; setup
-replaces Neovim's default terminal-exit handler. The auxiliary job commands above
-are excluded from this ownership and cleanup policy.
+Only terminals created through this plugin's tabs and panes are managed.
+Ordinary `:term` buffers and other plugins' terminals are excluded from the
+picker, mode tracking, input mappings, title handling, notifications and color
+queries, and retain their native exit behavior. Managed terminals are deleted
+on exit regardless of status. Auxiliary jobs retain their separate policy above.
 
 With `osc_colors = true`, OSC 10/11 queries from terminal applications receive
 the current `Normal` foreground/background when `termguicolors` is enabled.
 This keeps application backgrounds, such as Codex's prompt, consistent with the
-colorscheme. It replaces Neovim's built-in color-query handler for all terminal
-buffers, retaining its light/dark fallback for unset colors or cterm rendering.
+colorscheme. This applies only to managed terminals, retaining Neovim's
+light/dark fallback for unset colors or cterm rendering.
 Window-specific highlights, transparency blending, and inherited host-terminal
 colors are not resolved. Set `osc_colors = false` to retain Neovim's handler or
 use your own responder. Remove any existing color-query workaround before enabling it.

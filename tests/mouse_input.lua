@@ -16,6 +16,8 @@ for _, floating in ipairs({ false, true }) do
 			require('terminal').setup({ set_buffer_name = false, float = { enabled = floating } })
 			vim.o.mouse = 'a'
 			_G.mouse_buf = vim.api.nvim_create_buf(false, true)
+			vim.b[mouse_buf].terminal_managed = true
+			vim.b[mouse_buf].term_owner_tab = vim.api.nvim_get_current_tabpage()
 			vim.api.nvim_buf_call(mouse_buf, function()
 				vim.fn.termopen({ 'python3', root .. '/tests/fixtures/terminal_reader.py', capture, 'mouse' })
 			end)

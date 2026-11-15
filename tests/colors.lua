@@ -8,9 +8,13 @@ vim.o.termguicolors = true
 vim.o.background = "dark"
 vim.api.nvim_set_hl(0, "Normal", { fg = "#ebdbb2", bg = "#282828" })
 
-local function query(fg, bg, terminator, preserve_terminator)
+local function query(fg, bg, terminator, preserve_terminator, managed)
 	local path = vim.fn.tempname()
 	vim.cmd("enew")
+	if managed ~= false then
+		vim.b.terminal_managed = true
+		vim.b.term_owner_tab = vim.api.nvim_get_current_tabpage()
+	end
 	local job = vim.fn.termopen({ "python3", root .. "/tests/fixtures/color_query.py", path, terminator or "st" })
 	assert(vim.wait(3000, function() return vim.fn.jobwait({ job }, 0)[1] ~= -1 end, 10), "query completes")
 	local file = assert(io.open(path, "rb"), "query capture exists")
@@ -39,6 +43,7 @@ vim.api.nvim_create_autocmd("TermRequest", {
 config.setup({})
 colors.setup()
 colors.setup() -- Must not add duplicate responses.
+query("ffff/ffff/ffff", "0000/0000/0000", "st", false, false)
 query("ebeb/dbdb/b2b2", "2828/2828/2828", "bel", true)
 query("ebeb/dbdb/b2b2", "2828/2828/2828", "st", true)
 assert(unrelated >= 4, "other TermRequest handlers survive")

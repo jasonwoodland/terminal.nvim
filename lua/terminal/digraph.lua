@@ -113,10 +113,10 @@ local function start_session(job)
 	end, ns)
 end
 
-function M.setup(key)
+function M.setup(key, bufnr)
 	if not key then return end
 	if type(key) == "table" then
-		for _, item in ipairs(key) do M.setup(item) end
+		for _, item in ipairs(key) do M.setup(item, bufnr) end
 		return
 	end
 	if not watching_lifetime then
@@ -140,7 +140,7 @@ function M.setup(key)
 	vim.keymap.set("t", key, function()
 		local job = vim.b.terminal_job_id
 		if job then start_session(job) end
-	end, { noremap = true, silent = true })
+	end, { noremap = true, silent = true, buffer = bufnr or 0 })
 end
 
 return M

@@ -32,7 +32,7 @@ function M.title_changed(bufnr)
 		local current_tab = vim.api.nvim_get_current_tabpage()
 
 		for buf in pairs(pending) do
-			if vim.api.nvim_buf_is_valid(buf) and vim.bo[buf].buftype == "terminal" then
+			if state.is_managed(buf) then
 				local title = vim.b[buf].term_title
 				if title and title:match("%S") then
 					title = title:match("^%s*(.-)%s*$")
@@ -95,11 +95,29 @@ end
 
 function M.setup(api)
 	vim.api.nvim_create_augroup("Term", {})
-	pcall(vim.api.nvim_clear_autocmds, { group = "nvim.terminal", event = "TermClose" })
+	-- Keep Neovim's exit behavior for ordinary terminals. Only our own jobs
+	-- use the workspace cleanup below (including on versions with >1 handler).
+	for _, autocmd in ipairs(vim.api.nvim_get_autocmds({ event = "TermClose" })) do
+		local is_default = autocmd.desc == "Automatically close terminal buffers when started with no arguments and exiting without an error"
+			or autocmd.desc == 'Displays the "[Process exited]" virtual text'
+		if autocmd.group_name == "nvim.terminal" and is_default and type(autocmd.callback) == "function" then
+			local fallback = autocmd.callback
+			vim.api.nvim_del_autocmd(autocmd.id)
+			vim.api.nvim_create_autocmd("TermClose", {
+				group = "Term", desc = autocmd.desc, pattern = autocmd.pattern, nested = true,
+				callback = function(ev)
+					if not vim.api.nvim_buf_is_valid(ev.buf) then return end
+					if not state.is_managed(ev.buf) and not vim.b[ev.buf].terminal_job_runner then return fallback(ev) end
+				end,
+			})
+		end
+	end
 	vim.api.nvim_create_autocmd("TermOpen", {
 		pattern = "*",
 		group = "Term",
 		callback = function()
+			local bufnr = vim.api.nvim_get_current_buf()
+			if not state.is_managed(bufnr) then return end
 			vim.opt_local.signcolumn = "no"
 			vim.opt_local.number = false
 			vim.opt_local.relativenumber = false
@@ -107,8 +125,6 @@ function M.setup(api)
 			vim.opt_local.sidescrolloff = 0
 			vim.opt_local.winblend = 0
 
-			local bufnr = vim.api.nvim_get_current_buf()
-			if vim.b[bufnr].terminal_job_runner then return end
 			local was_winbar_visible = config.should_show_winbar(#state.get_tabs())
 			local known_tab = state.find_buf_tab(bufnr)
 			if not known_tab then
@@ -116,6 +132,8 @@ function M.setup(api)
 			end
 			vim.b.term_mode = "t"
 			follow.attach(bufnr)
+			follow.setup(bufnr)
+			require("terminal.keymaps").setup(api, bufnr)
 			local owner_tab = vim.api.nvim_get_current_tabpage()
 			vim.b[bufnr].term_owner_tab = owner_tab
 			-- Neovim 0.11 does not emit TermRequest for handled OSC titles.
@@ -151,7 +169,7 @@ function M.setup(api)
 		pattern = "*:t",
 		group = "Term",
 		callback = function()
-			if vim.bo.buftype == "terminal" then
+			if state.is_managed() then
 				vim.b.term_mode = "t"
 			end
 		end,
@@ -161,6 +179,7 @@ function M.setup(api)
 		group = "Term",
 		callback = function()
 			local bufnr = vim.api.nvim_get_current_buf()
+			if not state.is_managed(bufnr) then return end
 			local winid = vim.api.nvim_get_current_win()
 			state.defer_view(state.capture_view(winid), function()
 				if vim.t.term_overlay_refocus then
@@ -215,7 +234,6 @@ function M.setup(api)
 		pattern = "*",
 		group = "Term",
 		callback = function()
-			state.adopt_current_terminal()
 			if state.is_in_term_window() and vim.bo.buftype == "terminal" then
 				bufname.sync(vim.api.nvim_get_current_buf())
 			end
@@ -231,7 +249,7 @@ function M.setup(api)
 			local current_win = vim.api.nvim_get_current_win()
 			local wins = vim.t.term_winids or {}
 			for _, win in ipairs(wins) do
-				if win == current_win then
+				if win == current_win and state.is_managed() then
 					local old_winid = vim.t.term_winid
 					if old_winid and old_winid ~= current_win then
 						vim.t.term_prev_pane_winid = old_winid
@@ -375,7 +393,6 @@ function M.setup(api)
 		callback = function()
 			state.sync_zoom_options()
 			state.defer_view(state.capture_view(), function()
-				state.adopt_current_terminal()
 				if vim.t.term_needs_rebuild then
 					state.set_toggling()
 					if window.rebuild_tab() then vim.t.term_needs_rebuild = nil end
@@ -383,7 +400,7 @@ function M.setup(api)
 					update_float_win_config()
 				end
 				winbar.update()
-				if vim.bo.buftype == "terminal" then
+				if state.is_managed() then
 					mode.restore_current()
 				end
 			end)
@@ -413,7 +430,7 @@ function M.setup(api)
 		group = "Term",
 		callback = function(ev)
 			local bufnr = ev.buf
-			if vim.b[bufnr].terminal_job_runner then return end
+			if not state.is_managed(bufnr) then return end
 			local owner = vim.b[bufnr].term_owner_tab
 			if not owner or not vim.api.nvim_tabpage_is_valid(owner) then
 				return
@@ -464,7 +481,7 @@ function M.setup(api)
 				if vim.t.term_toggling then
 					return
 				end
-				if vim.bo[0].buftype == "terminal" then
+				if state.is_managed() then
 					winbar.update()
 				end
 			end,

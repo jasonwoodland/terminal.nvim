@@ -28,8 +28,10 @@ assert(current_id() == a, "last-tab follows the moved entry")
 last()
 assert(current_id() == b, "last-tab toggles back")
 
--- Insert an adopted buffer before the saved previous tab without selecting it.
+-- Insert a managed fixture before the saved previous tab without selecting it.
 local extra = vim.api.nvim_create_buf(false, true)
+vim.b[extra].terminal_managed = true
+vim.b[extra].term_owner_tab = vim.api.nvim_get_current_tabpage()
 vim.api.nvim_open_term(extra, {})
 local order = state.get_term_order()
 local adopted = table.remove(order)

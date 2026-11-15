@@ -18,6 +18,7 @@ function M.setup()
 				group = "Term",
 				desc = "Report colorscheme foreground/background to terminal applications",
 				callback = function(ev)
+					if not require("terminal.state").is_managed(ev.buf) then return fallback(ev) end
 					local command = ev.data.sequence:match("^\27%](1[01]);%?$")
 					if not command then return end
 					local channel = vim.bo[ev.buf].channel

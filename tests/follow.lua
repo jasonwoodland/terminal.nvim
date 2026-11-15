@@ -8,6 +8,8 @@ for _, case in ipairs({ { false, false }, { false, true }, { true, false }, { tr
 			require('terminal').setup({ set_buffer_name = false, float = { enabled = ... },
 				keys = { toggle = '<F2>', vsplit = '<F9>' } })
 			_G.source_buf = vim.api.nvim_create_buf(false, true)
+			vim.b[source_buf].terminal_managed = true
+			vim.b[source_buf].term_owner_tab = vim.api.nvim_get_current_tabpage()
 			_G.channel = vim.api.nvim_open_term(source_buf, {})
 		]], floating)
 		ui.input('<F2>')

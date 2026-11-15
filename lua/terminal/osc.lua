@@ -26,6 +26,7 @@ function M.setup()
 		pattern = "*",
 		group = "Term",
 		callback = function(ev)
+			if not state.is_managed(ev.buf) then return end
 			local seq = ev.data.sequence
 
 			if seq:sub(1, 4) ~= "\x1b]9;" and seq:sub(1, 5) ~= "\x1b]99;" and seq:sub(1, 6) ~= "\x1b]777;" then
@@ -45,7 +46,7 @@ function M.setup()
 			state.set_last_notification_bufnr(ev.buf)
 
 			-- Notify when not focused in a terminal buffer
-			local is_term_buf = vim.bo.buftype == "terminal"
+			local is_term_buf = state.is_managed() and vim.bo.buftype == "terminal"
 			if is_term_buf then
 				return
 			end

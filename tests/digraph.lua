@@ -7,7 +7,7 @@ vim.api.nvim_chan_send = function(_, text) sends[#sends + 1] = text end
 vim.b.terminal_job_id = 123
 require("terminal.digraph").setup("<F7>")
 local start
-for _, map in ipairs(vim.api.nvim_get_keymap("t")) do
+for _, map in ipairs(vim.api.nvim_buf_get_keymap(0, "t")) do
 	if map.lhs == "<F7>" then start = map.callback end
 end
 local function flush() vim.wait(10, function() return false end) end

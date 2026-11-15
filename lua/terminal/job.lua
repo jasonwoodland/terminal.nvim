@@ -18,7 +18,7 @@ function M.run(cmd, cb)
 	local previous_mode = mode.record()
 	vim.cmd("botright 10new")
 	local buf = vim.api.nvim_get_current_buf()
-	-- Set before TermOpen so the global handlers do not adopt or delete it.
+	-- Auxiliary jobs have their own lifecycle, separate from managed panes.
 	vim.b[buf].terminal_job_runner = true
 	local entry = { buf = buf }
 	jobs[#jobs + 1] = entry

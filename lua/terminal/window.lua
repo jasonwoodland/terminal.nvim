@@ -204,6 +204,8 @@ end
 -- num_panes: how many panes will share the row/float (for width calculation)
 -- tab_count: how many terminal tabs will exist once this terminal opens
 function M.termopen_with_size(bufnr, num_panes, tab_count)
+	vim.b[bufnr].terminal_managed = true
+	vim.b[bufnr].term_owner_tab = vim.api.nvim_get_current_tabpage()
 	num_panes = math.max(num_panes or 1, 1)
 	local width = 80
 	local height = math.floor(vim.o.lines * 0.5)
@@ -265,7 +267,7 @@ function M.save_tab_state()
 
 	local current_win = vim.api.nvim_get_current_win()
 	for _, win in ipairs(wins) do
-		if state.win_valid(win) then
+		if state.win_valid(win) and state.is_managed(vim.api.nvim_win_get_buf(win)) then
 			local buf = vim.api.nvim_win_get_buf(win)
 			vim.b[buf].terminal_preview_topline = vim.fn.getwininfo(win)[1].topline
 			vim.b[buf].terminal_preview_line_count = vim.api.nvim_buf_line_count(buf)
@@ -362,7 +364,7 @@ function M.save_layout_sizes()
 	end
 	local sizes = {}
 	for i, win in ipairs(wins) do
-		if not state.win_valid(win) then
+		if not state.win_valid(win) or not state.is_managed(vim.api.nvim_win_get_buf(win)) then
 			return
 		end
 		sizes[i] = { w = vim.api.nvim_win_get_width(win), h = vim.api.nvim_win_get_height(win) }
@@ -387,7 +389,7 @@ function M.close_pane_windows()
 		overlay.destroy()
 		float_layout.close_canvas()
 		for _, win in ipairs(wins) do
-			if state.win_valid(win) then
+			if state.win_valid(win) and state.is_managed(vim.api.nvim_win_get_buf(win)) then
 				local cfg = vim.api.nvim_win_get_config(win)
 				local ordinary = 0
 				for _, w in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
@@ -657,7 +659,7 @@ function M.swap_tab_buffers(target_entry, target_idx)
 		return false
 	end
 	for i, win in ipairs(wins) do
-		if not state.win_valid(win) then
+		if not state.win_valid(win) or not state.is_managed(vim.api.nvim_win_get_buf(win)) then
 			return false
 		end
 		if not vim.api.nvim_buf_is_valid(target_bufs[i]) then

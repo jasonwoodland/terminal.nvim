@@ -28,7 +28,8 @@ function M.toggle(opts)
 	end
 
 	local is_open = state.is_term_open()
-	if not is_open and vim.t.term_winid and vim.t.term_winid ~= 0 and state.win_valid(vim.t.term_winid) then
+	if not is_open and vim.t.term_winid and vim.t.term_winid ~= 0 and state.win_valid(vim.t.term_winid)
+		and state.is_managed(vim.api.nvim_win_get_buf(vim.t.term_winid)) then
 		is_open = true
 	end
 	-- In non-float mode with only 1 window total, terminal is not meaningfully open
@@ -56,7 +57,7 @@ function M.toggle(opts)
 	if is_open then
 		-- Close
 		window.save_tab_state()
-		if state.win_valid(vim.t.term_winid) then
+		if state.win_valid(vim.t.term_winid) and state.is_managed(vim.api.nvim_win_get_buf(vim.t.term_winid)) then
 			vim.t.term_bufnr = vim.api.nvim_win_get_buf(vim.t.term_winid)
 			vim.t.term_mode = vim.api.nvim_get_mode().mode
 		end
@@ -295,9 +296,7 @@ function M.move_to_vim_tab(direction)
 	local entry = table.remove(order, tab_idx)
 	state.set_term_order(order)
 
-	-- Add tab to target tab before opening remaining tabs, so
-	-- adopt_current_terminal() (triggered by WinEnter) doesn't re-adopt
-	-- the moved buffers into the source tab.
+	-- Register the entry and its ownership before opening the remaining tabs.
 	local target_order = state.get_term_order(target_tab)
 	table.insert(target_order, entry)
 	state.set_term_order(target_order, target_tab)
@@ -450,11 +449,10 @@ local function confirm_terminal_close(bufnr)
 end
 
 function M.delete()
-	state.set_toggling()
-
-	if vim.bo.buftype ~= "terminal" then
+	if not state.is_managed() then
 		return
 	end
+	state.set_toggling()
 
 	local bufnr = vim.api.nvim_get_current_buf()
 
@@ -483,7 +481,7 @@ function M.reset()
 	local order = state.get_term_order()
 	local selected = vim.t.term_tab_idx
 	local replacement = vim.api.nvim_create_buf(false, true)
-	-- Start before discarding the old job. TermOpen temporarily adopts the new
+	-- Start before discarding the old job. TermOpen temporarily registers the new
 	-- buffer; replace that provisional order with the original pane tree below.
 	local ok, err = pcall(window.termopen_with_size, replacement, #order[tab_idx].bufs, #order)
 	if not ok then
@@ -635,6 +633,7 @@ function M.send(text)
 		return
 	end
 	local bufnr = vim.api.nvim_win_get_buf(winid)
+	if not state.is_managed(bufnr) then return end
 	local job = vim.b[bufnr].terminal_job_id
 	if not job then
 		return

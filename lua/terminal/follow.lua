@@ -17,6 +17,7 @@ end
 
 function M.is_following(win)
 	if not win or not vim.api.nvim_win_is_valid(win) then return false end
+	if not require("terminal.state").is_managed(vim.api.nvim_win_get_buf(win)) then return false end
 	if paused[win] ~= nil then return not paused[win] end
 	return vim.b[vim.api.nvim_win_get_buf(win)].term_mode == "t"
 end
@@ -40,7 +41,8 @@ local function mouse_pane()
 	-- terminal. Inactive panes still use native scrollback navigation.
 	if win == vim.api.nvim_get_current_win() and vim.api.nvim_get_mode().mode == "t" then return end
 	for _, pane in ipairs(vim.t.term_winids or {}) do
-		if pane == win and vim.api.nvim_win_is_valid(win) then return win end
+		if pane == win and vim.api.nvim_win_is_valid(win)
+			and require("terminal.state").is_managed(vim.api.nvim_win_get_buf(win)) then return win end
 	end
 end
 
@@ -89,9 +91,17 @@ local function show_menu(win, source, source_mode)
 	vim.cmd("popup! TerminalFollow")
 end
 
-function M.setup()
+function M.setup(bufnr)
+	local function map(_, key, callback, opts)
+		-- Normal-mode mouse handling is needed when hovering an inactive
+		-- pane from the editor. Respect existing user mappings. Terminal-mode
+		-- handling is installed only on our own buffers.
+		if not bufnr and vim.fn.maparg(key, "n") ~= "" then return end
+		opts = vim.tbl_extend("force", {}, opts, bufnr and { buffer = bufnr } or {})
+		vim.keymap.set(bufnr and "t" or "n", key, callback, opts)
+	end
 	for _, key in ipairs({ "<ScrollWheelUp>", "<ScrollWheelDown>" }) do
-		vim.keymap.set({ "n", "t" }, key, function()
+		map({ "n", "t" }, key, function()
 			local win = mouse_pane()
 			if win then
 				-- Don't let native wheel scrolling overshoot the live screen
@@ -107,40 +117,43 @@ function M.setup()
 			return key
 		end, { expr = true, noremap = true })
 	end
-	vim.api.nvim_create_autocmd("WinScrolled", {
-		group = "Term",
-		callback = function()
-			for win in pairs(wheel_down) do
-				if not vim.api.nvim_win_is_valid(win) then
-					paused[win], wheel_down[win] = nil, nil
-				elseif vim.api.nvim_win_call(win, vim.fn.winsaveview).topline >= live_top(win) then
-					paused[win], wheel_down[win] = nil, nil
-					M.set_following(win, true)
+	if not bufnr then
+		vim.api.nvim_create_autocmd("WinScrolled", {
+			group = "Term",
+			callback = function()
+				for win in pairs(wheel_down) do
+					if not vim.api.nvim_win_is_valid(win) then
+						paused[win], wheel_down[win] = nil, nil
+					elseif vim.api.nvim_win_call(win, vim.fn.winsaveview).topline >= live_top(win) then
+						paused[win], wheel_down[win] = nil, nil
+						M.set_following(win, true)
+					end
 				end
-			end
-		end,
-	})
-	vim.api.nvim_create_autocmd("WinClosed", {
-		group = "Term",
-		callback = function(ev)
-			local win = tonumber(ev.match)
-			paused[win], wheel_down[win] = nil, nil
-		end,
-	})
-	vim.api.nvim_create_autocmd("TermEnter", {
-		group = "Term",
-		callback = function()
-			local win = vim.api.nvim_get_current_win()
-			if paused[win] then M.set_following(win, true) end
-			paused[win], wheel_down[win] = nil, nil
-		end,
-	})
+			end,
+		})
+		vim.api.nvim_create_autocmd("WinClosed", {
+			group = "Term",
+			callback = function(ev)
+				local win = tonumber(ev.match)
+				paused[win], wheel_down[win] = nil, nil
+			end,
+		})
+		vim.api.nvim_create_autocmd("TermEnter", {
+			group = "Term",
+			callback = function()
+				if not require("terminal.state").is_managed() then return end
+				local win = vim.api.nvim_get_current_win()
+				if paused[win] then M.set_following(win, true) end
+				paused[win], wheel_down[win] = nil, nil
+			end,
+		})
+	end
 	for _, prefix in ipairs({ "", "2-", "3-", "4-" }) do
 		local press, release = "<" .. prefix .. "LeftMouse>", "<" .. prefix .. "LeftRelease>"
-		vim.keymap.set({ "n", "t" }, press, function()
+		map({ "n", "t" }, press, function()
 			return M.on_left_mouse(vim.fn.getmousepos()) and "" or press
 		end, { expr = true, noremap = true })
-		vim.keymap.set({ "n", "t" }, release, function()
+		map({ "n", "t" }, release, function()
 			return M.on_left_release() and "" or release
 		end, { expr = true, noremap = true })
 	end
@@ -153,7 +166,7 @@ function M.setup()
 		return ""
 	end
 	for _, key in ipairs({ "<RightMouse>", "<2-RightMouse>", "<3-RightMouse>", "<4-RightMouse>" }) do
-		vim.keymap.set({ "n", "t" }, key, function() return right_mouse(key) end, { expr = true, noremap = true })
+		map({ "n", "t" }, key, function() return right_mouse(key) end, { expr = true, noremap = true })
 	end
 end
 
@@ -166,7 +179,7 @@ function M.schedule()
 		for _, win in ipairs(vim.t.term_winids or {}) do
 			if win ~= current and vim.api.nvim_win_is_valid(win) then
 				local buf = vim.api.nvim_win_get_buf(win)
-				if vim.bo[buf].buftype == "terminal" and M.is_following(win) then
+				if require("terminal.state").is_managed(buf) and M.is_following(win) then
 					-- The terminal screen is the final window-height lines of the
 					-- buffer, including blank rows below the application's cursor.
 					-- Keep the buffer cursor within that screen without forcing it

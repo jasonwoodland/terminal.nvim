@@ -14,7 +14,7 @@ local function term_bufnr_of_win(winid)
 		return nil
 	end
 	local ok, bufnr = pcall(vim.api.nvim_win_get_buf, winid)
-	if not ok or not vim.api.nvim_buf_is_valid(bufnr) or vim.bo[bufnr].buftype ~= "terminal" then
+	if not ok or not state.is_managed(bufnr) then
 		return nil
 	end
 	return bufnr
@@ -24,7 +24,7 @@ end
 -- or nil when the current buffer is not a terminal.
 function M.record()
 	local bufnr = vim.api.nvim_get_current_buf()
-	if not vim.api.nvim_buf_is_valid(bufnr) or vim.bo[bufnr].buftype ~= "terminal" then
+	if not state.is_managed(bufnr) then
 		return nil
 	end
 
@@ -101,6 +101,7 @@ end
 -- Restore the current buffer's saved mode; leaves insert when focus landed on
 -- a non-terminal buffer.
 function M.restore_current()
+	if vim.bo.buftype == "terminal" and not state.is_managed() then return end
 	if vim.bo.buftype ~= "terminal" then
 		vim.cmd("stopinsert")
 	elseif vim.b.term_mode == "t" or vim.b.term_mode == nil then

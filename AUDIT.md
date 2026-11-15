@@ -99,15 +99,14 @@ works in a shell. Public `send()` intentionally remains a raw channel send.
 - **Borders:** the float canvas supports common rectangular borders; shortened
   arrays, partial borders, shadow and per-side highlights do not have native
   `nvim_open_win()` semantics. Docs explicitly narrow support.
-- **Ownership policy:** ordinary terminal buffers from other plugins are adopted,
-  and setup replaces Neovim's default terminal-exit handler. Their buffers are
-  deleted on exit regardless of status. This is now explicit documentation;
-  auxiliary job buffers are excluded. An opt-in ownership filter could improve
-  coexistence but would change existing behavior.
+- **Ownership policy:** only explicitly created workspace jobs are managed.
+  Ordinary terminals retain native exit/color handling and are excluded from
+  plugin input mappings, titles, notifications, mode tracking and picker results.
+  `tests/ownership.lua` covers isolation and managed cleanup; auxiliary jobs
+  retain their separate lifecycle.
 - **Mapping policy:** `keys=false` disables keyboard mappings while mouse handlers
-  remain. Normal `<C-w>`/`z` overrides have no independent configuration and replay
-  native commands outside panes, not previously installed user mappings. The
-  contract is documented; adding knobs is optional feature work.
+  remain. Terminal-mode maps and Normal `<C-w>`/`z` overrides are buffer-local
+  to managed terminals. Existing mappings outside those buffers are retained.
 
 ## Feature-by-feature review
 

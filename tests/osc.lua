@@ -9,6 +9,8 @@ vim.notify = function(message) notifications[#notifications + 1] = message end
 vim.api.nvim_create_augroup("Term", {})
 require("terminal.osc").setup()
 local state = require("terminal.state")
+vim.b.terminal_managed = true
+vim.b.term_owner_tab = vim.api.nvim_get_current_tabpage()
 
 local function request(sequence, terminator)
 	writes, notifications = {}, {}

@@ -19,6 +19,15 @@ function M.win_valid(win)
 	return win ~= nil and vim.api.nvim_win_is_valid(win)
 end
 
+-- Ownership is explicit, set before starting one of our terminal jobs.
+-- A terminal buffer's type or presence in a window never grants ownership.
+function M.is_managed(bufnr)
+	bufnr = bufnr or vim.api.nvim_get_current_buf()
+	if not vim.api.nvim_buf_is_valid(bufnr) or not vim.b[bufnr].terminal_managed then return false end
+	local owner = vim.b[bufnr].term_owner_tab
+	return owner ~= nil and vim.api.nvim_tabpage_is_valid(owner)
+end
+
 function M.invalidate_view()
 	vim.t.term_view_generation = (vim.t.term_view_generation or 0) + 1
 	vim.t.term_overlay_refocus = nil
@@ -71,7 +80,7 @@ end
 function M.is_term_open()
 	local wins = vim.t.term_winids or {}
 	for _, win in ipairs(wins) do
-		if M.win_valid(win) then
+		if M.win_valid(win) and M.is_managed(vim.api.nvim_win_get_buf(win)) then
 			return true
 		end
 	end
@@ -81,7 +90,7 @@ end
 function M.is_term_related_window(win)
 	local wins = vim.t.term_winids or {}
 	for _, w in ipairs(wins) do
-		if w == win then return true end
+		if w == win and M.win_valid(win) and M.is_managed(vim.api.nvim_win_get_buf(win)) then return true end
 	end
 	if win == vim.t.term_winbar_winid then return true end
 	if win == vim.t.term_canvas_winid then return true end
@@ -163,7 +172,7 @@ function M.drawer_span()
 	local wins = vim.t.term_winids or {}
 	local top, bot = math.huge, 0
 	for _, win in ipairs(wins) do
-		if M.win_valid(win) then
+		if M.win_valid(win) and M.is_managed(vim.api.nvim_win_get_buf(win)) then
 			local pos = vim.api.nvim_win_get_position(win)
 			top = math.min(top, pos[1])
 			bot = math.max(bot, pos[1] + vim.api.nvim_win_get_height(win))
@@ -199,7 +208,7 @@ function M.is_in_term_window()
 	local wins = vim.t.term_winids or {}
 	local current = vim.api.nvim_get_current_win()
 	for _, win in ipairs(wins) do
-		if win == current then
+		if win == current and M.is_managed(vim.api.nvim_get_current_buf()) then
 			return true
 		end
 	end
@@ -372,7 +381,7 @@ function M.get_tabs(tabpage)
 	for _, entry in ipairs(order) do
 		local entry_changed = false
 		for _, buf in ipairs(entry.bufs) do
-			if not (vim.api.nvim_buf_is_valid(buf) and vim.bo[buf].buftype == "terminal") then
+			if not (M.is_managed(buf) and vim.bo[buf].buftype == "terminal") then
 				entry_changed = true
 				if entry.layout then
 					entry.layout = select(1, frame.remove(entry.layout, buf))
@@ -534,59 +543,6 @@ function M.get_current_tab()
 		return nil, idx
 	end
 	return tabs[idx], idx
-end
-
-function M.adopt_current_terminal()
-	local bufnr = vim.api.nvim_get_current_buf()
-	if vim.b[bufnr].terminal_job_runner then return false end
-	if not vim.api.nvim_buf_is_valid(bufnr) or vim.bo[bufnr].buftype ~= "terminal" then
-		return false
-	end
-
-	local owner_tab = vim.b[bufnr].term_owner_tab
-	if owner_tab and vim.api.nvim_tabpage_is_valid(owner_tab) then
-		return false
-	end
-
-	M.add_term_to_order(bufnr)
-	vim.b[bufnr].term_owner_tab = vim.api.nvim_get_current_tabpage()
-	return true
-end
-
-function M.adopt_orphaned_terminals()
-	local orphans = {}
-	for _, buf in ipairs(vim.api.nvim_list_bufs()) do
-		if vim.api.nvim_buf_is_valid(buf) and vim.bo[buf].buftype == "terminal" and not vim.b[buf].terminal_job_runner then
-			local owner_tab = vim.b[buf].term_owner_tab
-			if not owner_tab or not vim.api.nvim_tabpage_is_valid(owner_tab) then
-				table.insert(orphans, buf)
-			end
-		end
-	end
-	if #orphans == 0 then
-		return
-	end
-
-	local owned = {}
-	for _, tab in ipairs(vim.api.nvim_list_tabpages()) do
-		local order = vim.t[tab].term_order
-		if order then
-			order = M.migrate_term_order(order)
-			for _, entry in ipairs(order) do
-				for _, buf in ipairs(entry.bufs) do
-					owned[buf] = true
-				end
-			end
-		end
-	end
-
-	local current_tab = vim.api.nvim_get_current_tabpage()
-	for _, buf in ipairs(orphans) do
-		if not owned[buf] then
-			M.add_term_to_order(buf)
-			vim.b[buf].term_owner_tab = current_tab
-		end
-	end
 end
 
 -------------------------------------------------------------------------------

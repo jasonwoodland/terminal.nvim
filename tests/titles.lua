@@ -12,6 +12,8 @@ end
 
 -- Exercise callbacks from actual PTY output, inside libuv's read callback.
 -- Assigning vim.b.term_title directly misses the event-loop reentry crash.
+vim.b.terminal_managed = true
+vim.b.term_owner_tab = vim.api.nvim_get_current_tabpage()
 local job = vim.fn.jobstart({ "python3", "-c", [[
 import sys, time
 for i in range(3000):

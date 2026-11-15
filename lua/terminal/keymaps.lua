@@ -12,15 +12,21 @@ local digraph = require("terminal.digraph")
 local paste = require("terminal.paste")
 local utils = require("terminal.utils")
 
-function M.setup(api)
+function M.setup(api, bufnr)
 	local keys = config.config.keys
 	if keys == false then
 		return
 	end
 
 	local function map(modes, key, action, opts)
+		opts = vim.tbl_extend("force", {}, opts or {}, bufnr and { buffer = bufnr } or {})
+		if not bufnr then
+			if type(modes) == "string" then modes = { modes } end
+			modes = vim.tbl_filter(function(value) return value ~= "t" end, modes)
+			if #modes == 0 then return end
+		end
 		for _, lhs in ipairs(utils.key_list(key)) do
-			vim.keymap.set(modes, lhs, action, opts or {})
+			vim.keymap.set(modes, lhs, action, opts)
 		end
 	end
 
@@ -57,7 +63,7 @@ function M.setup(api)
 		for i = 1, 9 do
 			local key = pattern:format(i)
 			if key ~= keys.last_notification then
-				vim.keymap.set({ "n", "t" }, key, function()
+				map({ "n", "t" }, key, function()
 					api.go_to(i)
 				end, { noremap = true })
 			end
@@ -79,7 +85,7 @@ function M.setup(api)
 		end
 		local target = vim.api.nvim_get_current_win()
 		state.defer_view(state.capture_view(target), function()
-			if vim.api.nvim_get_current_win() == target and vim.bo.buftype == "terminal" then
+			if vim.api.nvim_get_current_win() == target and state.is_managed() then
 				mode.restore_current()
 			end
 		end)
@@ -125,7 +131,7 @@ function M.setup(api)
 		map("t", key .. "=", paste.expression, { noremap = true, silent = true })
 	end
 
-	digraph.setup(keys.digraph)
+	if bufnr then digraph.setup(keys.digraph, bufnr) end
 
 	map({ "n", "t" }, keys.pane_left, function() panes.navigate("h") end, { noremap = true })
 	map({ "n", "t" }, keys.pane_down, function() panes.navigate("j") end, { noremap = true })
@@ -247,6 +253,8 @@ function M.setup(api)
 		map({ "n", "t" }, keys.wincmd, term_wincmd, { noremap = true })
 	end
 
+	-- Native window commands remain untouched outside managed buffers.
+	if not bufnr then return end
 	-- <C-w> overrides for terminal panes (normal mode)
 	local function nmap_cw(suffix, action)
 		vim.keymap.set({ "n" }, "<C-w>" .. suffix, function()
@@ -257,7 +265,7 @@ function M.setup(api)
 				local prefix = vim.v.count > 0 and tostring(vim.v.count) or ""
 				vim.api.nvim_feedkeys(prefix .. fallback, "n", false)
 			end
-		end, { noremap = true })
+		end, { noremap = true, buffer = bufnr })
 	end
 
 	local cw_actions = {
@@ -322,7 +330,7 @@ function M.setup(api)
 				return
 			end
 		end
-	end, { noremap = true })
+	end, { noremap = true, buffer = bufnr })
 end
 
 return M

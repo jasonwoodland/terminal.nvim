@@ -11,6 +11,8 @@ end
 local terminal = require("terminal")
 terminal.setup({ keys = { paste_register = { "<F2>", "<F3>" }, digraph = { "<F4>", "<F5>" },
 	go_to_tab = { "<M-%d>", "<F%d>" } } })
+assert(vim.fn.maparg("<F2>", "t") == "", "terminal mappings are not global")
+terminal.toggle()
 for _, key in ipairs({ "<F2>", "<F2>=", "<F3>", "<F3>=", "<F4>", "<F5>", "<M-1>", "<M-9>", "<F9>" }) do
 	assert(vim.fn.maparg(key, "t") ~= "", "list mapping registered: " .. key)
 end
