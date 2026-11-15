@@ -16,6 +16,7 @@ terminal.nvim-:FugitiveJob	terminal-nvim.txt	/*terminal.nvim-:FugitiveJob*
 terminal.nvim-:TermDelete	terminal-nvim.txt	/*terminal.nvim-:TermDelete*
 terminal.nvim-:TermJob	terminal-nvim.txt	/*terminal.nvim-:TermJob*
 terminal.nvim-:TermJobClose	terminal-nvim.txt	/*terminal.nvim-:TermJobClose*
+terminal.nvim-:TermNew	terminal-nvim.txt	/*terminal.nvim-:TermNew*
 terminal.nvim-:TermRename	terminal-nvim.txt	/*terminal.nvim-:TermRename*
 terminal.nvim-:TermReset	terminal-nvim.txt	/*terminal.nvim-:TermReset*
 terminal.nvim-:TermSelect	terminal-nvim.txt	/*terminal.nvim-:TermSelect*
@@ -62,6 +63,7 @@ terminal.nvim-cw-override	terminal-nvim.txt	/*terminal.nvim-cw-override*
 terminal.nvim-functions	terminal-nvim.txt	/*terminal.nvim-functions*
 terminal.nvim-installation	terminal-nvim.txt	/*terminal.nvim-installation*
 terminal.nvim-intro	terminal-nvim.txt	/*terminal.nvim-intro*
+terminal.nvim-launch-options	terminal-nvim.txt	/*terminal.nvim-launch-options*
 terminal.nvim-map-digraph	terminal-nvim.txt	/*terminal.nvim-map-digraph*
 terminal.nvim-map-notifications	terminal-nvim.txt	/*terminal.nvim-map-notifications*
 terminal.nvim-map-panes	terminal-nvim.txt	/*terminal.nvim-map-panes*

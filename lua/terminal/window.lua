@@ -203,9 +203,12 @@ end
 -- dimensions instead of the tiny aucmd window used by nvim_buf_call.
 -- num_panes: how many panes will share the row/float (for width calculation)
 -- tab_count: how many terminal tabs will exist once this terminal opens
-function M.termopen_with_size(bufnr, num_panes, tab_count)
+function M.termopen_with_size(bufnr, num_panes, tab_count, opts)
+	opts = opts or require("terminal.launch").normalize()
 	vim.b[bufnr].terminal_managed = true
 	vim.b[bufnr].term_owner_tab = vim.api.nvim_get_current_tabpage()
+	vim.b[bufnr].terminal_launch = vim.deepcopy({ cmd = opts.cmd, cwd = opts.cwd, env = opts.env })
+	if opts.name ~= nil then vim.b[bufnr].terminal_custom_name = opts.name ~= "" and opts.name or nil end
 	num_panes = math.max(num_panes or 1, 1)
 	local width = 80
 	local height = math.floor(vim.o.lines * 0.5)
@@ -235,7 +238,8 @@ function M.termopen_with_size(bufnr, num_panes, tab_count)
 			col = 0,
 			noautocmd = true,
 		})
-		return vim.fn.termopen(vim.env.SHELL or vim.o.shell)
+		local env = opts.env and next(opts.env) and opts.env or nil
+		return vim.fn.termopen(opts.cmd, { cwd = opts.cwd, env = env })
 	end)
 	if state.win_valid(tmp_win) then vim.api.nvim_win_close(tmp_win, true) end
 	if not ok or job <= 0 then

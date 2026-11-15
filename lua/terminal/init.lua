@@ -499,7 +499,8 @@ function M.reset()
 	vim.b[replacement].terminal_custom_name = vim.b[old].terminal_custom_name
 	-- Start before discarding the old job. TermOpen temporarily registers the new
 	-- buffer; replace that provisional order with the original pane tree below.
-	local ok, err = pcall(window.termopen_with_size, replacement, #order[tab_idx].bufs, #order)
+	local ok, err = pcall(window.termopen_with_size, replacement, #order[tab_idx].bufs, #order,
+		vim.b[old].terminal_launch)
 	if not ok then
 		state.set_term_order(order)
 		vim.t.term_tab_idx = selected
@@ -523,15 +524,17 @@ function M.reset()
 	return replacement
 end
 
-function M.new()
+function M.new(opts)
+	opts = require("terminal.launch").normalize(opts)
 	if not window.check_size(nil, #state.get_tabs() + 1) then return false end
-	state.remember_current_tab()
 	state.set_toggling()
 
 	local _, current_idx = state.get_current_tab()
-
 	window.save_tab_state()
-	window.close_pane_windows()
+	local original = state.get_term_order()
+	local previous_id = vim.t.term_prev_tab_id
+	local previous_win = vim.api.nvim_get_current_win()
+	state.remember_current_tab()
 
 	local bufnr = vim.api.nvim_create_buf(false, true)
 
@@ -543,21 +546,33 @@ function M.new()
 	state.set_term_order(order)
 	vim.t.term_tab_idx = insert_idx
 
-	window.termopen_with_size(bufnr, nil, #order)
+	-- Keep existing pane windows alive until the new process has started.
+	local ok, err = pcall(window.termopen_with_size, bufnr, nil, #order, opts)
+	if not ok then
+		state.set_term_order(original)
+		vim.t.term_tab_idx = current_idx
+		vim.t.term_prev_tab_id = previous_id
+		if state.win_valid(previous_win) then vim.api.nvim_set_current_win(previous_win) end
+		mode.restore_current()
+		error(err, 0)
+	end
+	window.close_pane_windows()
 
 	window.open_tab_windows(entry, insert_idx)
+	return bufnr
 end
 
 -- Split the current pane. dir: "row" (vsplit, side by side) or "col"
 -- (split, stacked). The new terminal goes after the current pane and takes
 -- half its space (vim split sizing).
-function M.split(dir)
-	state.set_toggling()
+function M.split(dir, opts)
+	dir = dir or "row"
+	assert(dir == "row" or dir == "col", "split direction must be row or col")
+	opts = require("terminal.launch").normalize(opts)
 
 	local tab, tab_idx = state.get_current_tab()
 	if not tab then
-		M.toggle({ open = true })
-		return
+		return M.new(opts)
 	end
 
 	-- Find current pane before closing windows
@@ -565,21 +580,30 @@ function M.split(dir)
 	local _, current_pane_idx = state.find_buf_tab(current_bufnr)
 
 	window.save_tab_state()
-	local preview = state.get_term_order()[tab_idx]
+	local original = state.get_term_order()
+	local previous_win = vim.api.nvim_get_current_win()
+	local preview = vim.deepcopy(original[tab_idx])
 	if not state.split_entry(preview, -1, current_bufnr, dir or "row")
 		or not window.check_size(preview) then return false end
-	window.close_pane_windows()
+	state.set_toggling()
 
 	local bufnr = vim.api.nvim_create_buf(false, true)
 
 	-- Add to tab before termopen so TermOpen autocmd doesn't double-add
 	if not state.split_buf_in_tab(bufnr, tab_idx, current_bufnr, dir or "row") then
 		vim.api.nvim_buf_delete(bufnr, { force = true })
-		window.reopen_current_tab(tab_idx)
 		return
 	end
 
-	window.termopen_with_size(bufnr, #tab.bufs + 1, #state.get_term_order())
+	local ok, err = pcall(window.termopen_with_size, bufnr, #tab.bufs + 1, #state.get_term_order(), opts)
+	if not ok then
+		state.set_term_order(original)
+		vim.t.term_tab_idx = tab_idx
+		if state.win_valid(previous_win) then vim.api.nvim_set_current_win(previous_win) end
+		mode.restore_current()
+		error(err, 0)
+	end
+	window.close_pane_windows()
 
 	window.reopen_current_tab(tab_idx)
 
@@ -587,14 +611,15 @@ function M.split(dir)
 	if current_pane_idx and wins[current_pane_idx] then
 		vim.t.term_prev_pane_winid = wins[current_pane_idx]
 	end
+	return bufnr
 end
 
-function M.vsplit()
-	M.split("row")
+function M.vsplit(opts)
+	return M.split("row", opts)
 end
 
-function M.hsplit()
-	M.split("col")
+function M.hsplit(opts)
+	return M.split("col", opts)
 end
 
 -- Like CTRL-W_T: move the current pane out of its split into a new terminal

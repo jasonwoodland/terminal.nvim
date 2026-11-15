@@ -274,14 +274,20 @@ keys ~
 These commands use the public |terminal.nvim-functions| to create and control
 managed terminal tabs and panes.
 
+						*terminal.nvim-:TermNew*
+:TermNew [command]	Create a managed terminal tab, optionally running a
+			shell command. Calls |terminal.new()|.
+
 						*terminal.nvim-:TermSplit*
-:TermSplit	or	Split the managed pane horizontally (or open the
+:TermSplit [command]	or
+			Split the managed pane horizontally (or open the
 			workspace if none exists).
 `:tsplit`	or
 `:st`
 
 						*terminal.nvim-:TermVsplit*
-:TermVsplit	or	Split the managed pane vertically (or open the
+:TermVsplit [command]	or
+			Split the managed pane vertically (or open the
 			workspace if none exists).
 `:tvsplit`	or
 `:vst`
@@ -683,8 +689,24 @@ terminal.reset_height()
 	Has no effect while zoomed.
 
 							*terminal.new()*
-terminal.new()
-	Create a new terminal tab after the current one and switch to it.
+terminal.new([{opts}])
+	Create a new terminal tab after the current one and switch to it. Returns
+	the new buffer number, or false if the layout cannot fit. See
+	|terminal.nvim-launch-options| for optional launch settings.
+
+LAUNCH OPTIONS ~					*terminal.nvim-launch-options*
+
+new(), vsplit(), hsplit() and split(dir, opts) accept these optional fields:
+	cmd   String (run through the shell) or argument list (run directly).
+	      Defaults to $SHELL or 'shell'.
+	cwd   Starting directory, including relative paths and ~/ expansion.
+	      Defaults to the source window's current Neovim directory.
+	env   Table of string environment overrides; parent variables are inherited.
+	name  Custom pane name; omitted or empty uses an automatic title.
+
+Splits do not inherit their sibling's launch settings. Invalid options raise an
+error before changing the workspace; process-start failures preserve existing
+panes. Launch settings are captured for |terminal.reset()|.
 
 							*terminal.delete()*
 terminal.delete()
@@ -697,24 +719,28 @@ terminal.reset()
 	Replace the current managed terminal job, keeping its pane and tab.
 	Uses the same process confirmation as terminal.delete(). A startup
 	failure keeps the old job. Returns the replacement buffer on success.
+	Reuses the original command, directory and environment overrides, keeping
+	the current custom name.
 
 							*terminal.split()*
-terminal.split({dir})
+terminal.split({dir} [, {opts}])
 	Split the current pane, adding a new terminal pane after it. {dir} is
 	`"row"` for a side-by-side split or `"col"` for a stacked split. The
 	new pane takes half the current pane's space (Vim split sizing). If
 	no terminal tab exists, a new one is created. A hidden existing tab is
 	split and opened.
+	Accepts |terminal.nvim-launch-options| and returns the new buffer number,
+	or false if the layout cannot fit.
 
 							*terminal.vsplit()*
-terminal.vsplit()
+terminal.vsplit([{opts}])
 	Split the current pane side by side; equivalent to
-	`terminal.split("row")`.
+	`terminal.split("row", opts)`.
 
 							*terminal.hsplit()*
-terminal.hsplit()
+terminal.hsplit([{opts}])
 	Split the current pane stacked; equivalent to
-	`terminal.split("col")`.
+	`terminal.split("col", opts)`.
 
 							*terminal.next()*
 terminal.next()

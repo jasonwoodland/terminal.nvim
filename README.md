@@ -462,12 +462,17 @@ Commands for managed terminal tabs and panes:
   </thead>
   <tbody>
     <tr>
-      <td><code>:TermSplit</code></td>
+      <td><code>:TermNew [command]</code></td>
+      <td></td>
+      <td>Create a terminal tab, optionally running a shell command</td>
+    </tr>
+    <tr>
+      <td><code>:TermSplit [command]</code></td>
       <td><code>:st</code>, <code>:tsplit</code></td>
       <td>Open a terminal in a horizontal split</td>
     </tr>
     <tr>
-      <td><code>:TermVsplit</code></td>
+      <td><code>:TermVsplit [command]</code></td>
       <td><code>:vst</code>, <code>:tvsplit</code></td>
       <td>Open a terminal in a vertical split</td>
     </tr>
@@ -569,6 +574,26 @@ terminal.list()                     -- List managed panes across all Vim tabs
 terminal.focus(bufnr)               -- Navigate to the owning Vim tab, terminal tab and pane
 terminal.send(text)                 -- Send text; ignore stale windows/channels
 ```
+
+`new(opts)`, `vsplit(opts)`, `hsplit(opts)` and `split(dir, opts)` accept optional
+launch settings and return the new buffer number:
+
+```lua
+terminal.new({
+  cmd = { "npm", "run", "dev" },
+  cwd = "~/project",
+  env = { PORT = "3001" },
+  name = "Frontend",
+})
+```
+
+`cmd` accepts an argument list (run directly) or a string (run through the shell).
+Defaults are `$SHELL` or `&shell`, the current Neovim directory, inherited
+environment, and an automatic title. `env` adds or overrides variables; values
+must be strings. Splits use these defaults independently of sibling jobs.
+`reset()` restarts the original command, directory and environment overrides,
+retaining the current custom name. Invalid options and process-start failures
+preserve existing panes.
 
 `list()` returns one record per managed pane, in Vim-tab/terminal-tab/pane order:
 `{ bufnr, tabpage, tabnr, tab_id, tab_index, pane_index, title }`. `bufnr` and

@@ -5,8 +5,12 @@ local M = {}
 local utils = require("terminal.utils")
 
 function M.setup(api)
-	vim.api.nvim_create_user_command("TermSplit", api.hsplit, {})
-	vim.api.nvim_create_user_command("TermVsplit", api.vsplit, {})
+	local function launch(action)
+		return function(opts) action(opts.args ~= "" and { cmd = opts.args } or nil) end
+	end
+	vim.api.nvim_create_user_command("TermNew", launch(api.new), { nargs = "*", desc = "Create a terminal tab, optionally running a command" })
+	vim.api.nvim_create_user_command("TermSplit", launch(api.hsplit), { nargs = "*" })
+	vim.api.nvim_create_user_command("TermVsplit", launch(api.vsplit), { nargs = "*" })
 	vim.api.nvim_create_user_command("TermTab", function(opts)
 		vim.cmd(opts.args .. "tabnew")
 		api.new()
