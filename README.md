@@ -486,6 +486,11 @@ Basic convenience commands for manipulating standard terminal buffers
       <td></td>
       <td>Replace the current terminal job, preserving its pane</td>
     </tr>
+    <tr>
+      <td><code>:TermSelect</code></td>
+      <td></td>
+      <td>Navigate to a terminal pane using Telescope (optional)</td>
+    </tr>
   </tbody>
 </table>
 
@@ -553,8 +558,37 @@ terminal.go_to(index)               -- Go to tab by index (1-based)
 terminal.move(direction)            -- Move current tab (-1 = left, 1 = right)
 terminal.move_to_vim_tab(direction) -- Move current tab to adjacent Vim tab (-1 = prev, 1 = next)
 terminal.go_to_notification()       -- Jump to terminal with last OSC notification
+terminal.list()                     -- List managed panes across all Vim tabs
+terminal.focus(bufnr)               -- Navigate to the owning Vim tab, terminal tab and pane
 terminal.send(text)                 -- Send text; ignore stale windows/channels
 ```
+
+`list()` returns one record per managed pane, in Vim-tab/terminal-tab/pane order:
+`{ bufnr, tabpage, tabnr, tab_id, tab_index, pane_index, title }`. `bufnr` and
+`tabpage` are Neovim handles; `tabnr`, `tab_index` and `pane_index` are 1-based
+display positions. `tab_id` identifies the terminal tab across reordering and
+Vim-tab moves. Handles and IDs last only for the current Neovim session.
+
+`focus(bufnr)` resolves the pane's current location, opens its workspace if
+hidden, and restores its saved terminal mode. It returns `true` on success or
+`false, reason` for a stale/unmanaged buffer or an unavailable layout. It does
+not open the terminal buffer in the current editor window.
+
+## Telescope integration
+
+With [telescope.nvim](https://github.com/nvim-telescope/telescope.nvim) installed:
+
+```lua
+require("telescope").load_extension("terminal")
+vim.keymap.set("n", "<space>t", function()
+  require("telescope").extensions.terminal.terminals()
+end, { desc = "Terminals" })
+```
+
+Also available as `:TermSelect` or `:Telescope terminal terminals`. Select a pane
+to navigate to its Vim tab and terminal workspace, including hidden panes.
+Live previews match the terminal's scroll position and display plain text.
+Pass Telescope options to `terminals(opts)` to customize the picker.
 
 ## Inserting registers
 

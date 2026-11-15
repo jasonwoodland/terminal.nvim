@@ -3,9 +3,11 @@ terminal.break_pane_to_tab()	terminal-nvim.txt	/*terminal.break_pane_to_tab()*
 terminal.config	terminal-nvim.txt	/*terminal.config*
 terminal.delete()	terminal-nvim.txt	/*terminal.delete()*
 terminal.float_toggle()	terminal-nvim.txt	/*terminal.float_toggle()*
+terminal.focus()	terminal-nvim.txt	/*terminal.focus()*
 terminal.go_to()	terminal-nvim.txt	/*terminal.go_to()*
 terminal.go_to_notification()	terminal-nvim.txt	/*terminal.go_to_notification()*
 terminal.hsplit()	terminal-nvim.txt	/*terminal.hsplit()*
+terminal.list()	terminal-nvim.txt	/*terminal.list()*
 terminal.move()	terminal-nvim.txt	/*terminal.move()*
 terminal.move_to_vim_tab()	terminal-nvim.txt	/*terminal.move_to_vim_tab()*
 terminal.new()	terminal-nvim.txt	/*terminal.new()*
@@ -15,6 +17,7 @@ terminal.nvim-:TermDelete	terminal-nvim.txt	/*terminal.nvim-:TermDelete*
 terminal.nvim-:TermJob	terminal-nvim.txt	/*terminal.nvim-:TermJob*
 terminal.nvim-:TermJobClose	terminal-nvim.txt	/*terminal.nvim-:TermJobClose*
 terminal.nvim-:TermReset	terminal-nvim.txt	/*terminal.nvim-:TermReset*
+terminal.nvim-:TermSelect	terminal-nvim.txt	/*terminal.nvim-:TermSelect*
 terminal.nvim-:TermSplit	terminal-nvim.txt	/*terminal.nvim-:TermSplit*
 terminal.nvim-:TermTab	terminal-nvim.txt	/*terminal.nvim-:TermTab*
 terminal.nvim-:TermVsplit	terminal-nvim.txt	/*terminal.nvim-:TermVsplit*
@@ -80,6 +83,7 @@ terminal.nvim-opt-set_buffer_name	terminal-nvim.txt	/*terminal.nvim-opt-set_buff
 terminal.nvim-opt-show_winbar_when_single_tab	terminal-nvim.txt	/*terminal.nvim-opt-show_winbar_when_single_tab*
 terminal.nvim-opt-winbar	terminal-nvim.txt	/*terminal.nvim-opt-winbar*
 terminal.nvim-requirements	terminal-nvim.txt	/*terminal.nvim-requirements*
+terminal.nvim-telescope	terminal-nvim.txt	/*terminal.nvim-telescope*
 terminal.nvim-wincmd	terminal-nvim.txt	/*terminal.nvim-wincmd*
 terminal.nvim-z<CR>	terminal-nvim.txt	/*terminal.nvim-z<CR>*
 terminal.prev()	terminal-nvim.txt	/*terminal.prev()*

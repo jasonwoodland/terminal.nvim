@@ -267,6 +267,9 @@ function M.save_tab_state()
 	for _, win in ipairs(wins) do
 		if state.win_valid(win) then
 			local buf = vim.api.nvim_win_get_buf(win)
+			vim.b[buf].terminal_preview_topline = vim.fn.getwininfo(win)[1].topline
+			vim.b[buf].terminal_preview_line_count = vim.api.nvim_buf_line_count(buf)
+			vim.b[buf].terminal_preview_following = require("terminal.follow").is_following(win)
 			st.modes[tostring(buf)] = vim.b[buf].term_mode or "t"
 			if win == current_win then
 				st.focus = buf

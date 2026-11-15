@@ -23,6 +23,7 @@ Contents					*terminal.nvim-contents*
 	<C-w> Overrides .................... |terminal.nvim-cw-override|
     7. Functions ........................... |terminal.nvim-functions|
     8. Appendix ............................ |terminal.nvim-appendix|
+	Telescope integration .............. |terminal.nvim-telescope|
     9. About ............................... |terminal.nvim-about|
 
 ==============================================================================
@@ -173,14 +174,14 @@ float ~
 	with |terminal.float_toggle()| (mapped to `<C-S-f>` by default): >lua
 
 	    float = {
-	      enabled  = false,
-	      padding  = { x = 24, y = 4 },
-	      border   = false,
-	      winblend = 0,
-	      overlay  = {
-		enabled  = true,
-		winblend = 75,
-		hl       = "TerminalOverlay",
+	      enabled	= false,
+	      padding	= { x = 24, y = 4 },
+	      border	= false,
+	      winblend	= 0,
+	      overlay	= {
+		enabled		= true,
+		winblend	= 75,
+		hl		= "TerminalOverlay",
 	      },
 	    }
 <
@@ -296,6 +297,10 @@ These commands are convenience wrappers around |:terminal| and the public
 			Keeps the tab identity, pane position and geometry.
 			Uses the same confirmation as TermDelete; a startup
 			failure leaves the original job intact.
+
+						*terminal.nvim-:TermSelect*
+:TermSelect		Navigate to a managed pane using Telescope. Requires
+			telescope.nvim; see |terminal.nvim-telescope|.
 
 						*terminal.nvim-:TermJob*
 :TermJob {command}	Run a command in a temporary terminal split. A
@@ -737,13 +742,34 @@ terminal.go_to_notification()
 	Jump to the terminal that produced the most recent OSC notification.
 	Notifies the user if no notification has been recorded.
 
-							*terminal.send()*
+							*terminal.list()*
+terminal.list()
+	List managed terminal panes across all Vim tabs, including hidden
+	panes. Returns records in Vim-tab/terminal-tab/pane order with fields:
+	    bufnr       Buffer handle; use with terminal.focus().
+	    tabpage     Owning Vim tabpage handle.
+	    tabnr       Vim tab number (1-based).
+	    tab_id      Stable terminal-tab ID within this Neovim session.
+	    tab_index   Terminal-tab position (1-based).
+	    pane_index  Pane position in layout leaf order (1-based).
+	    title       OSC title, falling back to the buffer name.
+	Does not change focus. Auxiliary TermJob/FugitiveJob buffers are
+	excluded.
+
+							*terminal.focus()*
+terminal.focus({bufnr})
+	Navigate to the owning Vim tab, terminal tab and pane. Opens a hidden
+	workspace and restores the pane's saved Terminal/Normal mode. Resolves
+	current ownership rather than relying on previously recorded indices.
+	Returns true, or false plus a reason for stale/unmanaged buffers or an
+	unavailable layout. Does not open a duplicate pane in the editor.
+
+						*terminal.send()*
 terminal.send({text})
-	Send {text} to the job channel of the currently focused terminal.
-	Does nothing if no terminal is open or the buffer has no job. Stale
-	windows and closed channels are tolerated. Returns true after a send,
-	false plus an error for a failed channel send, or nil when no job
-	exists.
+	Send {text} to the job channel of the currently focused terminal. Does
+	nothing if no terminal is open or the buffer has no job. Stale windows
+	and closed channels are tolerated. Returns true after a send, false
+	plus an error for a failed channel send, or nil when no job exists.
 
 							*terminal.config*
 terminal.config
@@ -752,6 +778,21 @@ terminal.config
 
 ==============================================================================
 8. Appendix					*terminal.nvim-appendix*
+
+TELESCOPE INTEGRATION				*terminal.nvim-telescope*
+
+With telescope.nvim installed: >lua
+
+    require("telescope").load_extension("terminal")
+    vim.keymap.set("n", "<space>t", function()
+      require("telescope").extensions.terminal.terminals()
+    end, { desc = "Terminals" })
+<
+Also available as :TermSelect or :Telescope terminal terminals. Selection
+navigates to the pane's Vim tab and terminal workspace, including hidden
+panes. Live previews match the terminal's scroll position and display plain
+text. Pass Telescope options to terminals(opts) to customize the picker, or
+call require("terminal.telescope").terminals(opts) directly.
 
 STARTING AS A FULLSCREEN TERMINAL MULTIPLEXER ~
 

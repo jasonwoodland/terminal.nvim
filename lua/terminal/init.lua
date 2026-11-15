@@ -345,79 +345,91 @@ function M.move_to_vim_tab(direction)
 	window.open_tab_windows(target_tabs[target_tab_idx], target_tab_idx)
 end
 
+-- Enumerate managed panes without changing the current Vim tab or window.
+-- Buffer numbers are session-local identities; indices are display metadata.
+function M.list()
+	local result = {}
+	for tabnr, tabpage in ipairs(vim.api.nvim_list_tabpages()) do
+		for tab_index, entry in ipairs(state.get_tabs(tabpage)) do
+			for pane_index, bufnr in ipairs(entry.bufs) do
+				result[#result + 1] = {
+					bufnr = bufnr,
+					tabpage = tabpage,
+					tabnr = tabnr,
+					tab_id = entry.id,
+					tab_index = tab_index,
+					pane_index = pane_index,
+					title = vim.b[bufnr].term_title or vim.api.nvim_buf_get_name(bufnr),
+				}
+			end
+		end
+	end
+	return result
+end
+
+function M.focus(bufnr)
+	local target
+	for _, item in ipairs(M.list()) do
+		if item.bufnr == bufnr then target = item; break end
+	end
+	if not target then return false, "Terminal is no longer managed" end
+
+	mode.record()
+	if target.tabpage ~= vim.api.nvim_get_current_tabpage() then
+		vim.api.nvim_set_current_tabpage(target.tabpage)
+		state.setup_vars()
+	end
+	-- Resolve again after TabEnter: entries can be moved/reordered while a
+	-- picker is open, and user autocmds may change ownership on entry.
+	local tab_idx, pane_idx = state.find_buf_tab(bufnr)
+	if not tab_idx then return false, "Terminal is no longer in its workspace" end
+	local entry = state.get_tabs()[tab_idx]
+	if not window.check_size(entry) then return false, "Terminal layout does not fit" end
+
+	state.set_toggling()
+	if not state.is_term_open() then
+		window.save_tab_state()
+		local order = state.get_term_order()
+		order[tab_idx].focus = bufnr
+		state.set_term_order(order)
+		vim.t.prev_winid = vim.api.nvim_get_current_win()
+		if not window.open_tab_windows(order[tab_idx], tab_idx) then
+			return false, "Terminal workspace could not be opened"
+		end
+	elseif tab_idx ~= (vim.t.term_tab_idx or 1) then
+		local order = state.get_term_order()
+		order[tab_idx].focus = bufnr
+		state.set_term_order(order)
+		window.switch_to_tab(tab_idx)
+	end
+
+	local win = (vim.t.term_winids or {})[pane_idx]
+	if not state.win_valid(win) or vim.api.nvim_win_get_buf(win) ~= bufnr then
+		return false, "Terminal pane is no longer available"
+	end
+	local previous = vim.t.term_winid
+	if previous ~= win and state.win_valid(previous) then vim.t.term_prev_pane_winid = previous end
+	vim.api.nvim_set_current_win(win)
+	vim.t.term_winid = win
+	vim.t.term_bufnr = bufnr
+	local order = state.get_term_order()
+	order[tab_idx].focus = bufnr
+	state.set_term_order(order)
+	mode.restore(win)
+	statusline.update()
+	winbar.update()
+	return true
+end
+
 function M.go_to_notification()
-	local last_bufnr = state.get_last_notification_bufnr()
-	if not last_bufnr or not vim.api.nvim_buf_is_valid(last_bufnr) then
+	local bufnr = state.get_last_notification_bufnr()
+	if not bufnr or not vim.api.nvim_buf_is_valid(bufnr) then
 		vim.notify("No recent notification", vim.log.levels.WARN)
 		return
 	end
-
-	local bufnr = last_bufnr
-
-	-- Find which tab owns this buffer
-	local target_tab = nil
-	for _, tp in ipairs(vim.api.nvim_list_tabpages()) do
-		local ok, order = pcall(vim.api.nvim_tabpage_get_var, tp, "term_order")
-		if ok and order then
-			order = state.migrate_term_order(order)
-			for _, entry in ipairs(order) do
-				for _, buf in ipairs(entry.bufs) do
-					if buf == bufnr then
-						target_tab = tp
-						break
-					end
-				end
-				if target_tab then break end
-			end
-		end
-		if target_tab then break end
-	end
-
-	if not target_tab then
-		vim.notify("Notification terminal no longer exists", vim.log.levels.WARN)
-		state.set_last_notification_bufnr(nil)
-		return
-	end
-
-	state.set_toggling()
-
-	-- Switch to the target tab if needed
-	if target_tab ~= vim.api.nvim_get_current_tabpage() then
-		mode.record()
-		vim.api.nvim_set_current_tabpage(target_tab)
-		state.setup_vars()
-	end
-
-	-- Open terminal if not already open
-	if not state.is_term_open() then
-		M.toggle({ open = true })
-	end
-
-	-- Find the tab/pane index now (after tabs are validated)
-	local tab_idx, pane_idx = state.find_buf_tab(bufnr)
-	if not tab_idx then
-		return
-	end
-
-	local current_idx = vim.t.term_tab_idx or 1
-	if tab_idx ~= current_idx then
-		window.save_tab_state()
-		window.close_pane_windows()
-
-		local st = state.get_tab_state(tab_idx)
-		st.focus = bufnr
-		state.set_tab_state(tab_idx, st)
-
-		window.reopen_current_tab(tab_idx)
-	else
-		-- Already on the right tab, just focus the pane
-		local wins = vim.t.term_winids or {}
-		if pane_idx and pane_idx <= #wins and state.win_valid(wins[pane_idx]) then
-			mode.record()
-			vim.api.nvim_set_current_win(wins[pane_idx])
-			mode.apply(vim.b[bufnr].term_mode)
-			statusline.update()
-		end
+	local ok, err = M.focus(bufnr)
+	if not ok then
+		vim.notify(err, vim.log.levels.WARN)
 	end
 end
 
