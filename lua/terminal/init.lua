@@ -700,6 +700,7 @@ function M.setup(user_config)
 	require("terminal.colors").setup()
 	require("terminal.keymaps").setup(M)
 	require("terminal.commands").setup(M)
+	require("terminal.session").setup()
 
 	require("terminal.job").setup()
 	require("terminal.fugitive").setup()

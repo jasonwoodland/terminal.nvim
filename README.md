@@ -22,6 +22,7 @@ Use Neovim as your terminal multiplexer.
 - Activity indicator for background terminal tabs
 - Confirm before deleting or resetting a terminal with child processes
 - Fully configurable keymaps
+- Restore terminal workspaces with `:restart` and native sessions (Neovim 0.13+)
 
 ## Installation
 
@@ -611,6 +612,16 @@ Custom names override OSC titles in the winbar and picker, survive resets and
 pane moves, and leave the terminal buffer URI unchanged. An empty name restores
 the automatic title. Returns `true`, or `false, reason` for invalid names or
 unmanaged buffers.
+
+## Restart and sessions
+
+On Neovim 0.13+ (with `SessionWritePre`), `:restart` automatically restores terminal
+workspaces in their original Vim tabs alongside Neovim's editor session. This
+also works with `:mksession` and respects `sessionoptions`' `terminal`/`tabpages`
+settings. `:restart!` discards the session as usual.
+
+Terminal tabs, pane sizes, focus/modes, names, launch settings and view modes are
+preserved. Jobs start fresh; scrollback and commands typed into a shell are not saved.
 
 ## Telescope integration
 

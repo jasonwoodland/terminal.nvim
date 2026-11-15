@@ -86,6 +86,7 @@ terminal.nvim-opt-set_buffer_name	terminal-nvim.txt	/*terminal.nvim-opt-set_buff
 terminal.nvim-opt-show_winbar_when_single_tab	terminal-nvim.txt	/*terminal.nvim-opt-show_winbar_when_single_tab*
 terminal.nvim-opt-winbar	terminal-nvim.txt	/*terminal.nvim-opt-winbar*
 terminal.nvim-requirements	terminal-nvim.txt	/*terminal.nvim-requirements*
+terminal.nvim-restart	terminal-nvim.txt	/*terminal.nvim-restart*
 terminal.nvim-telescope	terminal-nvim.txt	/*terminal.nvim-telescope*
 terminal.nvim-wincmd	terminal-nvim.txt	/*terminal.nvim-wincmd*
 terminal.nvim-z<CR>	terminal-nvim.txt	/*terminal.nvim-z<CR>*
