@@ -65,6 +65,7 @@ vim.api.nvim_exec_autocmds("TermRequest", {
 })
 assert(state.get_last_notification_bufnr() == nil, "ordinary notifications are excluded")
 assert(not terminal.focus(existing) and #terminal.list() == 1, "picker API excludes ordinary terminals")
+assert(not terminal.rename("Unmanaged", existing), "rename excludes ordinary terminals")
 terminal.delete()
 terminal.reset()
 assert(vim.api.nvim_buf_is_valid(existing), "delete/reset ignore ordinary terminals")

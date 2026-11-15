@@ -35,7 +35,8 @@ end
 
 local function get_winbar_title(entry, is_current)
 	local buf = title_buf(entry, is_current)
-	local title = vim.b[buf].term_title or vim.api.nvim_buf_get_name(buf)
+	local title = state.get_title(buf)
+	if vim.b[buf].terminal_custom_name then return title end
 	title = title:gsub("([^/~ ]+)/", function(c) return c:sub(1, 1) .. "/" end)
 	return title
 end

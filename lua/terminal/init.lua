@@ -358,12 +358,27 @@ function M.list()
 					tab_id = entry.id,
 					tab_index = tab_index,
 					pane_index = pane_index,
-					title = vim.b[bufnr].term_title or vim.api.nvim_buf_get_name(bufnr),
+					title = state.get_title(bufnr),
 				}
 			end
 		end
 	end
 	return result
+end
+
+function M.rename(name, bufnr)
+	if type(name) ~= "string" then return false, "Terminal name must be a string" end
+	if name:find("%c") then return false, "Terminal name must not contain control characters" end
+	bufnr = bufnr or vim.api.nvim_get_current_buf()
+	local target
+	for _, item in ipairs(M.list()) do
+		if item.bufnr == bufnr then target = item; break end
+	end
+	if not target then return false, "Terminal is no longer managed" end
+	name = vim.trim(name)
+	vim.b[bufnr].terminal_custom_name = name ~= "" and name or nil
+	if target.tabpage == vim.api.nvim_get_current_tabpage() then winbar.update() end
+	return true
 end
 
 function M.focus(bufnr)
@@ -481,6 +496,7 @@ function M.reset()
 	local order = state.get_term_order()
 	local selected = vim.t.term_tab_idx
 	local replacement = vim.api.nvim_create_buf(false, true)
+	vim.b[replacement].terminal_custom_name = vim.b[old].terminal_custom_name
 	-- Start before discarding the old job. TermOpen temporarily registers the new
 	-- buffer; replace that provisional order with the original pane tree below.
 	local ok, err = pcall(window.termopen_with_size, replacement, #order[tab_idx].bufs, #order)

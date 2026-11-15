@@ -28,6 +28,10 @@ function M.is_managed(bufnr)
 	return owner ~= nil and vim.api.nvim_tabpage_is_valid(owner)
 end
 
+function M.get_title(bufnr)
+	return vim.b[bufnr].terminal_custom_name or vim.b[bufnr].term_title or vim.api.nvim_buf_get_name(bufnr)
+end
+
 function M.invalidate_view()
 	vim.t.term_view_generation = (vim.t.term_view_generation or 0) + 1
 	vim.t.term_overlay_refocus = nil

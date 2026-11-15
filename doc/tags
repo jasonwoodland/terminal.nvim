@@ -16,6 +16,7 @@ terminal.nvim-:FugitiveJob	terminal-nvim.txt	/*terminal.nvim-:FugitiveJob*
 terminal.nvim-:TermDelete	terminal-nvim.txt	/*terminal.nvim-:TermDelete*
 terminal.nvim-:TermJob	terminal-nvim.txt	/*terminal.nvim-:TermJob*
 terminal.nvim-:TermJobClose	terminal-nvim.txt	/*terminal.nvim-:TermJobClose*
+terminal.nvim-:TermRename	terminal-nvim.txt	/*terminal.nvim-:TermRename*
 terminal.nvim-:TermReset	terminal-nvim.txt	/*terminal.nvim-:TermReset*
 terminal.nvim-:TermSelect	terminal-nvim.txt	/*terminal.nvim-:TermSelect*
 terminal.nvim-:TermSplit	terminal-nvim.txt	/*terminal.nvim-:TermSplit*
@@ -87,6 +88,7 @@ terminal.nvim-telescope	terminal-nvim.txt	/*terminal.nvim-telescope*
 terminal.nvim-wincmd	terminal-nvim.txt	/*terminal.nvim-wincmd*
 terminal.nvim-z<CR>	terminal-nvim.txt	/*terminal.nvim-z<CR>*
 terminal.prev()	terminal-nvim.txt	/*terminal.prev()*
+terminal.rename()	terminal-nvim.txt	/*terminal.rename()*
 terminal.reset()	terminal-nvim.txt	/*terminal.reset()*
 terminal.reset_height()	terminal-nvim.txt	/*terminal.reset_height()*
 terminal.send()	terminal-nvim.txt	/*terminal.send()*

@@ -487,6 +487,11 @@ Commands for managed terminal tabs and panes:
       <td>Replace the current terminal job, preserving its pane</td>
     </tr>
     <tr>
+      <td><code>:TermRename [name]</code></td>
+      <td></td>
+      <td>Rename the current pane; omit name to prompt, use <code>:TermRename!</code> to clear</td>
+    </tr>
+    <tr>
       <td><code>:TermSelect</code></td>
       <td></td>
       <td>Navigate to a terminal pane using Telescope (optional)</td>
@@ -546,6 +551,7 @@ terminal.zoom()                     -- Toggle zoom
 terminal.float_toggle()             -- Toggle between float and drawer mode
 terminal.reset_height()             -- Reset terminal height to default
 terminal.reset()                    -- Replace the current job, preserving its pane
+terminal.rename("Frontend")        -- Set current pane's winbar/picker name; "" restores its automatic title
 terminal.new()                      -- Create new terminal tab
 terminal.delete()                   -- Delete current terminal
 terminal.vsplit()                   -- Split the current pane side by side
@@ -574,6 +580,12 @@ Vim-tab moves. Handles and IDs last only for the current Neovim session.
 hidden, and restores its saved terminal mode. It returns `true` on success or
 `false, reason` for a stale/unmanaged buffer or an unavailable layout. It does
 not open the terminal buffer in the current editor window.
+
+`rename(name, bufnr)` names the current managed pane, or an explicit buffer.
+Custom names override OSC titles in the winbar and picker, survive resets and
+pane moves, and leave the terminal buffer URI unchanged. An empty name restores
+the automatic title. Returns `true`, or `false, reason` for invalid names or
+unmanaged buffers.
 
 ## Telescope integration
 

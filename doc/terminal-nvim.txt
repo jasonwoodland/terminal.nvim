@@ -302,6 +302,12 @@ managed terminal tabs and panes.
 			Uses the same confirmation as TermDelete; a startup
 			failure leaves the original job intact.
 
+						*terminal.nvim-:TermRename*
+:TermRename [name]	Set the current managed pane's winbar/picker name,
+			or prompt when omitted. Names may contain spaces.
+:TermRename!		Clear the custom name and restore its automatic title.
+			Calls |terminal.rename()|.
+
 						*terminal.nvim-:TermSelect*
 :TermSelect		Navigate to a managed pane using Telescope. Requires
 			telescope.nvim; see |terminal.nvim-telescope|.
@@ -759,11 +765,20 @@ terminal.list()
 	    tab_id      Stable terminal-tab ID within this Neovim session.
 	    tab_index   Terminal-tab position (1-based).
 	    pane_index  Pane position in layout leaf order (1-based).
-	    title       OSC title, falling back to the buffer name.
+	    title       Custom name, OSC title, or buffer name (in that order).
 	Does not change focus. Auxiliary TermJob/FugitiveJob buffers are
 	excluded.
 
-							*terminal.focus()*
+						*terminal.rename()*
+terminal.rename({name} [, {bufnr}])
+	Set the current managed pane's display name, or target an explicit buffer.
+	Custom names override OSC titles in the winbar and picker, survive resets
+	and pane moves, and do not change the buffer URI. An empty string restores
+	the latest automatic title. Names are trimmed and must not contain control
+	characters. Returns true, or false plus a reason for invalid input or an
+	unmanaged buffer. Does not change focus.
+
+						*terminal.focus()*
 terminal.focus({bufnr})
 	Navigate to the owning Vim tab, terminal tab and pane. Opens a hidden
 	workspace and restores the pane's saved Terminal/Normal mode. Resolves
