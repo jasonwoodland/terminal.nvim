@@ -23,4 +23,16 @@ for _, sep in ipairs(seps) do if sep.node == root then outer = sep end end
 frame.drag(root, outer, 2)
 assert(inner.children[1].w == 3 and inner.children[2].w == 5,
 	"drag grows the nested pane nearest the separator")
+
+local peer = { t = "col", w = 10, h = 10, children = { leaf(2, 10, 4), leaf(3, 10, 5) } }
+local row = { t = "row", w = 20, h = 10, children = { leaf(1, 9, 10), peer } }
+local drawer = { t = "col", w = 20, h = 18, children = { row, leaf(4, 20, 7) } }
+assert(frame.set_size_outer(drawer, 1, "h", 1, 30))
+assert(row.h == 3 and drawer.h == 11 and drawer.children[2].h == 7,
+	"outer resizing respects nested peer minima and preserves stacked siblings")
+assert(peer.children[1].h == 1 and peer.children[2].h == 1,
+	"cross-axis peers retain a valid internal layout")
+assert(frame.set_size_outer(drawer, 1, "h", 99, 30))
+assert(drawer.h == 30 and row.h == 22 and drawer.children[2].h == 7,
+	"outer growth clamps to the workspace limit without taking sibling space")
 print("Layout regressions passed")

@@ -174,14 +174,6 @@ function M.float_toggle()
 	end
 end
 
-function M.reset_height()
-	if vim.t.term_prev_height ~= nil or vim.t.term_zoom or config.is_float_mode() then
-		return
-	end
-	vim.t.term_drawer_size = nil
-	window.set_drawer_height(config.get_term_height())
-end
-
 -- Resize the current Vim tab's terminal workspace without starting jobs or
 -- opening a hidden workspace. Pane proportions are retained by the renderer.
 function M.resize(opts)

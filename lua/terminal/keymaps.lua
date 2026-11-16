@@ -33,7 +33,6 @@ function M.setup(api, bufnr)
 	map("t", keys.normal_mode, "<C-\\><C-n>", { noremap = true })
 	map({ "n", "t" }, keys.zoom, api.zoom)
 	map({ "n", "t" }, keys.float_toggle, api.float_toggle)
-	map({ "n", "t" }, keys.reset_height, api.reset_height)
 	map({ "n", "t" }, keys.equalize, api.equalize)
 	map({ "n", "t" }, keys.new, api.new, { noremap = true })
 	map({ "n", "t" }, keys.delete, api.delete, { noremap = true })
@@ -243,7 +242,7 @@ function M.setup(api, bufnr)
 					elseif c == "T" then
 						api.break_pane_to_tab()
 					elseif key_match(c, "<CR>", "<C-S-CR>") and explicit_count then
-						window.set_drawer_height(count)
+						panes.set_height(count)
 					end
 					return
 				end

@@ -16,10 +16,29 @@ for _, enabled in ipairs({ true, false }) do
 		ui.wait("return vim.fn.getcmdline() == " .. string.format("%q", enabled and "TermSplit " or "tsplit "),
 			"disabled aliases are not installed")
 		ui.input("<Esc>")
+		ui.input(":tnew ")
+		ui.wait("return vim.fn.getcmdline() == " .. string.format("%q", enabled and "TermNew " or "tnew "),
+			"new abbreviation respects cabbrev")
+		ui.input("<Esc>")
 		ui.input(":tpicker ")
 		ui.wait("return vim.fn.getcmdline() == " .. string.format("%q", enabled and "TermPicker " or "tpicker "),
 			"picker abbreviation respects cabbrev")
 		ui.input("<Esc>")
+		ui.input(":tresize ")
+		ui.wait("return vim.fn.getcmdline() == " .. string.format("%q", enabled and "TermResize " or "tresize "),
+			"resize abbreviation respects cabbrev")
+		ui.input("<Esc>")
+		for alias, command in pairs({ treset = "TermReset", trename = "TermRename" }) do
+			ui.input(":" .. alias .. " ")
+			ui.wait("return vim.fn.getcmdline() == " .. string.format("%q", (enabled and command or alias) .. " "),
+				alias .. " respects cabbrev")
+			ui.input("<Esc>")
+		end
+		for _, alias in ipairs({ "tjob", "tjobclose" }) do
+			ui.input(":" .. alias .. " ")
+			ui.wait("return vim.fn.getcmdline() == " .. string.format("%q", alias .. " "), "job commands have no abbreviations")
+			ui.input("<Esc>")
+		end
 		ui.input(":echo st ")
 		ui.wait("return vim.fn.getcmdline() == 'echo st '", "arguments do not expand")
 		ui.input("<Esc>")

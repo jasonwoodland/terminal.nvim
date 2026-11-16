@@ -136,14 +136,41 @@ function M.goto_previous()
 	end
 end
 
+-- Drawer height changes move the outer boundary, retaining stacked siblings.
+local function set_drawer_pane_height(height)
+	local tab, tab_idx = state.get_current_tab()
+	local bufnr = vim.api.nvim_get_current_buf()
+	if not tab or not state.find_buf_tab(bufnr) or not state.is_term_open() then return end
+	mode.record()
+	window.save_tab_state()
+	local entry = state.get_term_order()[tab_idx]
+	local layout = entry.layout
+	local _, available = require("terminal.size").available(false)
+	if not frame.set_size_outer(layout, bufnr, "h", height, available) then return end
+	local previous_height = vim.t.term_height
+	vim.t.term_height = layout.h
+	if not window.can_open_tab(entry) then vim.t.term_height = previous_height; return end
+	state.set_toggling()
+	window.close_pane_windows()
+	local order = state.get_term_order()
+	order[tab_idx].layout = layout
+	state.set_term_order(order)
+	vim.t.term_drawer_size = nil
+	window.reopen_current_tab(tab_idx)
+	vim.t.term_height = state.drawer_span() or layout.h
+end
+
 -- Resize the current pane in one dimension via vim's frame cascade.
 -- dim: "w" (CTRL-W < >) or "h" (CTRL-W + -).
 -- Width resize in drawer mode stays native (vim-exact, cannot move the
--- drawer boundary). Height resize always goes through the tree: the total is
--- preserved, so the drawer keeps its height instead of growing into the
--- editor area.
+-- drawer boundary). Drawer height changes preserve other stacked panes;
+-- float height changes redistribute within the existing outer geometry.
 function M.resize(delta, dim)
 	dim = dim or "w"
+	if not config.is_float_mode() and dim == "h" then
+		set_drawer_pane_height(vim.api.nvim_win_get_height(0) + delta)
+		return
+	end
 
 	if not config.is_float_mode() and dim == "w" then
 		local amount = math.abs(delta)
@@ -178,6 +205,10 @@ end
 -- maximize within the terminal area (vim's behavior scoped to the drawer or
 -- float, not the whole screen).
 function M.set_size(dim, size)
+	if dim == "h" and size and not config.is_float_mode() then
+		set_drawer_pane_height(size)
+		return
+	end
 	local tab, tab_idx = state.get_current_tab()
 	if not tab or #tab.bufs < 2 then
 		return
@@ -203,25 +234,13 @@ function M.set_size(dim, size)
 	end
 end
 
--- vim's z{height}<CR>: set the current pane's height. A pane spanning the
--- full drawer height (or a single pane) moves the drawer boundary — what vim
--- would do to the window; a stacked pane redistributes within the drawer.
+-- Both the terminal prefix's {height}<CR> and Vim's z{height}<CR> size the
+-- focused pane. Drawers move their boundary; floats retain their outer size.
 function M.set_height(n)
 	if n < 1 then
 		return
 	end
-	if config.is_float_mode() then
-		M.set_size("h", n)
-		return
-	end
-	local tab = state.get_current_tab()
-	local span = state.drawer_span()
-	local cur = vim.api.nvim_win_get_height(0)
-	if not tab or #tab.bufs < 2 or (span and cur >= span) then
-		window.set_drawer_height(n)
-	else
-		M.set_size("h", n)
-	end
+	M.set_size("h", n)
 end
 
 -- Shared prologue/epilogue for structural tree operations that rebuild the

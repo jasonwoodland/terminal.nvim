@@ -120,7 +120,6 @@ require("terminal").setup({
     paste_register = "<C-S-r>",
     digraph = "<C-S-i>",
     equalize = "<C-S-=>",
-    reset_height = false,
     vim_tab_next = "<C-PageDown>",
     vim_tab_prev = "<C-PageUp>",
     vim_tab_move_prev = "<C-M-PageUp>",
@@ -401,7 +400,7 @@ Press <kbd>&lt;C-S-w&gt;</kbd> followed by a sub-key (works in both Normal and T
     </tr>
     <tr>
       <td><kbd>{count}&lt;CR&gt;</kbd></td>
-      <td>Set terminal height to {count}</td>
+      <td>Set the focused pane's height to {count}</td>
     </tr>
     <tr><th colspan="2" align="left">Move & rotate</th></tr>
     <tr>
@@ -426,17 +425,20 @@ Press <kbd>&lt;C-S-w&gt;</kbd> followed by a sub-key (works in both Normal and T
 Splits nest like vim windows: panes form rows and columns, and all of the
 commands above use a frame-tree model based on Neovim's window implementation.
 Drawer navigation uses native window commands and can leave the drawer; float
-navigation stays within its panes. Height resizes redistribute space within the
-terminal area. Splits always go right/below, rotate/exchange keep fixed-size
+navigation stays within its panes. Drawer height commands grow or shrink the
+drawer while preserving other stacked panes; side-by-side peers share their
+row's height. Float height commands redistribute within the existing bounds.
+Use `TermResize` to resize the whole workspace proportionally.
+Splits always go right/below, rotate/exchange keep fixed-size
 slots, and close prefers the next sibling. Pane sizing uses a minimum of one
 cell rather than Vim's window-size preferences. This is a subset of `CTRL-W`,
 with terminal-specific behavior, rather than exact parity with every Vim option.
 
 ### Normal mode `<C-w>` overrides
 
-When focused in a terminal pane window, `<C-w>` sub-keys are overridden to control panes instead of Vim windows. The same sub-keys from the wincmd table above apply. Break pane to tab uses uppercase `<C-w>T` or `<C-S-w> T`; the `<C-S-t>` shorthand also works. It moves the current pane into a new terminal tab immediately after the current tab, and does nothing if the tab has only one pane. The `{count}<CR>` drawer-height command is only available through `<C-S-w>`. These overrides are buffer-local; mappings outside managed buffers are unchanged.
+When focused in a terminal pane window, `<C-w>` sub-keys are overridden to control panes instead of Vim windows. The same sub-keys from the wincmd table above apply. Break pane to tab uses uppercase `<C-w>T` or `<C-S-w> T`; the `<C-S-t>` shorthand also works. It moves the current pane into a new terminal tab immediately after the current tab, and does nothing if the tab has only one pane. The `{count}<CR>` pane-height command is only available through `<C-S-w>`. These overrides are buffer-local; mappings outside managed buffers are unchanged.
 
-`z{height}<CR>` also works in Normal mode inside a pane, like vim: it sets the pane's height (a full-height or single pane resizes the drawer itself; a stacked pane resizes within the drawer). All other `z` commands (`zz`, `zt`, folds, plain `z<CR>`) pass through untouched.
+`z{height}<CR>` also sets the focused pane's height in Normal mode, using the same drawer/float behaviour. All other `z` commands (`zz`, `zt`, folds, plain `z<CR>`) pass through untouched.
 
 ### Mouse scrolling and output following
 
@@ -471,7 +473,7 @@ them. They expand only when the command line contains exactly the alias.
   <tbody>
     <tr>
       <td><code>:TermNew [command]</code></td>
-      <td></td>
+      <td><code>:tnew</code></td>
       <td>Create a terminal tab, optionally running a shell command</td>
     </tr>
     <tr>
@@ -491,17 +493,17 @@ them. They expand only when the command line contains exactly the alias.
     </tr>
     <tr>
       <td><code>:TermReset</code></td>
-      <td></td>
+      <td><code>:treset</code></td>
       <td>Replace the current terminal job, preserving its pane</td>
     </tr>
     <tr>
       <td><code>:TermResize [size]</code></td>
-      <td></td>
+      <td><code>:tresize</code></td>
       <td>Set height, or float width×height; omit size to reset</td>
     </tr>
     <tr>
       <td><code>:TermRename [name]</code></td>
-      <td></td>
+      <td><code>:trename</code></td>
       <td>Rename the current pane; omit name to prompt, use <code>:TermRename!</code> to clear</td>
     </tr>
     <tr>
@@ -576,7 +578,6 @@ terminal.resize()                   -- Reset workspace size to configured defaul
 terminal.resize({ height = 24 })    -- Set height (rows or "50%")
 terminal.resize({ width = "80%", height = "50%" }) -- Float width and height
 terminal.equalize()                 -- Equalize pane heights and widths
-terminal.reset_height()             -- Reset terminal height to default
 terminal.reset()                    -- Replace the current job, preserving its pane
 terminal.rename("Frontend")        -- Set current pane's winbar/picker name; "" restores its automatic title
 terminal.new()                      -- Create new terminal tab

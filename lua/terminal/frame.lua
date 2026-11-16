@@ -380,6 +380,31 @@ function M.set_size(root, buf, dim, size)
 	return root
 end
 
+-- Resize a leaf by moving the outer boundary instead of borrowing from
+-- same-axis siblings. Cross-axis peers must follow their shared boundary.
+function M.set_size_outer(root, buf, dim, size, limit)
+	local path = find_path(root, buf)
+	if not path then return false end
+	local delta = size - path[#path].node[dim]
+	local minimum = -math.huge
+	for _, item in ipairs(path) do
+		minimum = math.max(minimum, M.min_size(item.node, dim) - item.node[dim])
+	end
+	local maximum = limit - root[dim]
+	if maximum < minimum then return false end
+	delta = math.max(minimum, math.min(delta, maximum))
+	for i = #path, 1, -1 do
+		local node = path[i].node
+		if node.t ~= "leaf" and axis_dim(node.t) ~= dim then
+			for _, child in ipairs(node.children) do
+				if child ~= path[i + 1].node then M.new_size(child, dim, child[dim] + delta) end
+			end
+		end
+		node[dim] = node[dim] + delta
+	end
+	return true
+end
+
 --------------------------------------------------------------------------------
 -- equalize (win_equal_rec)
 --------------------------------------------------------------------------------

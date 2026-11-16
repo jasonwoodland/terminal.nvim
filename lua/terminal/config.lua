@@ -55,7 +55,6 @@ M.config = {
 		paste_register = "<C-S-r>",
 		digraph = "<C-S-i>",
 		equalize = "<C-S-=>",
-		reset_height = false,
 		vim_tab_next = "<C-PageDown>",
 		vim_tab_prev = "<C-PageUp>",
 		vim_tab_move_prev = "<C-M-PageUp>",
