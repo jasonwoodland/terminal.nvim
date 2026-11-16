@@ -357,11 +357,11 @@ end
 function M.set_drawer_height(target)
 	vim.t.term_height = target
 	if config.is_float_mode() then
-		return
+		return true
 	end
 	local wins = vim.t.term_winids or {}
 	if #wins == 0 then
-		return
+		return true
 	end
 	if #wins == 1 then
 		if state.win_valid(wins[1]) then
@@ -372,13 +372,14 @@ function M.set_drawer_height(target)
 		end
 	else
 		state.set_toggling()
-		M.rebuild_tab()
+		if not M.rebuild_tab() then return false end
 	end
 	-- vim clamps oversized heights; record what we actually got
 	local span = state.drawer_span()
 	if span and span > 0 then
 		vim.t.term_height = span
 	end
+	return true
 end
 
 -- Persist the current on-screen pane sizes into the tab's layout tree.
@@ -655,11 +656,11 @@ function M.reopen_current_tab(target_idx, tabs)
 		vim.t.term_winid = nil
 		vim.t.term_winids = {}
 		vim.t.term_bufnr = nil
-		return
+		return false
 	end
 	target_idx = target_idx or vim.t.term_tab_idx or 1
 	target_idx = state.clamp(target_idx, 1, #tabs)
-	M.open_tab_windows(tabs[target_idx], target_idx)
+	return M.open_tab_windows(tabs[target_idx], target_idx)
 end
 
 function M.rebuild_tab(target_idx, tabs)
@@ -667,8 +668,7 @@ function M.rebuild_tab(target_idx, tabs)
 	if entry and not M.check_size(entry) then return false end
 	M.save_tab_state()
 	M.close_pane_windows()
-	M.reopen_current_tab(target_idx, tabs)
-	return true
+	return M.reopen_current_tab(target_idx, tabs) or entry == nil
 end
 
 function M.swap_tab_buffers(target_entry, target_idx)
@@ -752,7 +752,7 @@ function M.switch_to_tab(target_idx)
 	then
 		state.set_toggling()
 		if M.swap_tab_buffers(target_tab, target_idx) then
-			return
+			return true
 		end
 		-- Fast path failed (invalid window/buffer or pcall error), fall back to rebuild
 	end
@@ -761,7 +761,7 @@ function M.switch_to_tab(target_idx)
 	-- State was saved before attempting the swap. A failed partial swap
 	-- must not overwrite it with buffers from the target tab.
 	M.close_pane_windows()
-	M.reopen_current_tab(target_idx, tabs)
+	return M.reopen_current_tab(target_idx, tabs)
 end
 
 return M

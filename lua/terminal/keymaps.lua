@@ -5,7 +5,6 @@ local M = {}
 local config = require("terminal.config")
 local state = require("terminal.state")
 local mode = require("terminal.mode")
-local window = require("terminal.window")
 local panes = require("terminal.panes")
 local digraph = require("terminal.digraph")
 local paste = require("terminal.paste")
@@ -142,20 +141,7 @@ function M.setup(api, bufnr)
 	map({ "n", "t" }, keys.last_pane, panes.goto_last, { noremap = true })
 	map({ "n", "t" }, keys.last_tab, function()
 		local prev_idx = state.previous_tab_index()
-		if not prev_idx then
-			return
-		end
-		local tabs = state.get_tabs()
-		if prev_idx < 1 or prev_idx > #tabs then
-			return
-		end
-		if prev_idx == (vim.t.term_tab_idx or 1) then
-			return
-		end
-		if not state.is_term_open() then
-			return
-		end
-		window.switch_to_tab(prev_idx)
+		if prev_idx then api.go_to(prev_idx) end
 	end, { noremap = true })
 
 	if keys.wincmd ~= false then

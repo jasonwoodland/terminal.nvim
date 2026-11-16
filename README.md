@@ -612,6 +612,29 @@ current pane and retain the running-process confirmation. `delete()` returns
 `true`; `reset()` returns the replacement buffer number. Both return
 `false, reason` for cancellation, an invalid target, or failure.
 
+`go_to(index)`, `switch(delta, clamp)`, `next()` and `prev()` select terminal tabs
+in the current Vim tab. A hidden workspace stays hidden; reopening shows the
+selected tab. They return `true` on success (including an unchanged selection)
+or `false, reason` for invalid arguments, missing tabs, or a failed switch.
+`index` is a positive integer; `delta` is an integer and wraps by default.
+Pass `true` for `clamp` to stop at either end. The last-tab mapping also works
+while hidden, preserving selection history.
+
+`move(direction)` reorders the selected terminal tab, including while hidden.
+`move_to_vim_tab(direction)` transfers the focused pane's entire terminal tab
+to the adjacent Vim tab and follows it. Both require `-1` or `1` and wrap.
+`break_pane_to_tab()` moves the focused pane into a new terminal tab immediately
+after its source. All three return `true` or `false, reason`; reordering a lone
+terminal tab succeeds without changes, while breaking a lone pane fails.
+Transfer and break require focus inside a managed terminal pane.
+
+`toggle()`, `zoom()`, `float_toggle()` and `equalize()` return `true` or
+`false, reason`. `toggle()` accepts only an optional `{ open = true/false }`
+table; invalid options leave the workspace unchanged. Display failures restore
+the previous mode settings. `go_to_notification()` returns the result of
+focusing the notifying pane, or `false, reason`, and keeps its warning when
+no notification is available.
+
 `new(opts)`, `vsplit(opts)`, `hsplit(opts)` and `split(dir, opts)` accept optional
 launch settings and return the new buffer number:
 

@@ -675,19 +675,26 @@ terminal.toggle([{opts}])				*terminal.toggle()*
 		    • `{ open = false }` – close if open, otherwise no-op.
 		Without {opts}, simply flips the open state. When opening with
 		a |count| greater than 1, the count sets the drawer height in
-		lines.
+		lines. Returns true, including an already-open/already-closed
+		no-op, or false and a reason for invalid options, insufficient
+		room, or failure. Only the optional boolean open field is
+		accepted; invalid options leave the workspace unchanged.
 
 terminal.zoom()						*terminal.zoom()*
 		Toggle the zoom state of the current terminal tab. Behaviour
 		depends on |terminal.nvim-opt-float| and
-		|terminal.nvim-opt-float_zoom|.
+		|terminal.nvim-opt-float_zoom|. Returns true, or false and a
+		reason for insufficient room or failure. Rejected changes
+		restore the previous zoom settings.
 
 terminal.float_toggle()				*terminal.float_toggle()*
 		Toggle between float and drawer mode in the current Vim tab,
 		rebuilding its view immediately. Configuration defines the
 		initial mode only; other Vim tabs retain their display modes.
 		When closed or zoomed, opens in float mode and clears the zoom
-		state.
+		state. Returns true, or false and a reason for insufficient
+		room or failure. Rejected changes restore the previous mode
+		settings.
 
 terminal.resize([{opts}])				*terminal.resize()*
 		Resize the current Vim tab's terminal workspace, preserving
@@ -713,7 +720,9 @@ terminal.resize([{opts}])				*terminal.resize()*
 terminal.equalize()					*terminal.equalize()*
 		Equalize pane heights and widths in the open terminal tab,
 		retaining the overall workspace dimensions. Has no effect when
-		hidden.
+		hidden. Returns true, including hidden/single-pane no-ops, or
+		false and a reason when no terminal tabs exist or the action
+		fails.
 
 terminal.new([{opts}])					*terminal.new()*
 		Create a new terminal tab after the current one and switch to
@@ -777,36 +786,62 @@ terminal.hsplit([{opts}])				*terminal.hsplit()*
 		`terminal.split("col", opts)`.
 
 terminal.next()						*terminal.next()*
-		Switch to the next terminal tab (wraps around).
+		Switch to the next terminal tab (wraps around). Returns the
+		result of terminal.switch(1), including when hidden.
 
 terminal.prev()						*terminal.prev()*
-		Switch to the previous terminal tab (wraps around).
+		Switch to the previous terminal tab (wraps around). Returns
+		the result of terminal.switch(-1), including when hidden.
 
 terminal.switch({delta} [, {clamp}])			*terminal.switch()*
-		Switch terminal tabs by {delta}. By default the index wraps;
-		pass `true` for {clamp} to stop at the first/last tab instead.
+		Switch terminal tabs by integer {delta} in the current Vim
+		tab. By default the index wraps; pass `true` for the optional
+		boolean {clamp} to stop at the first/last tab instead. Returns
+		the result of |terminal.go_to()|. Zero and clamped moves that
+		keep the same selection succeed without changing the last-tab
+		history.
 
 terminal.go_to({index})					*terminal.go_to()*
-		Jump to terminal tab {index} (1-based). No-op if {index} is
-		out of range.
+		Select terminal tab {index} (positive integer, 1-based) in the
+		current Vim tab. When hidden, updates the selected tab and
+		remembered pane without opening the workspace or changing
+		focus or mode. Reopening shows the selected tab. Updates
+		last-tab history when the selection changes. Returns true,
+		including when already selected; otherwise false and a reason
+		for invalid input, no terminal tabs, an out-of-range index, or
+		a failed visible switch. Invalid requests leave the selection
+		unchanged.
 
 terminal.move({direction})				*terminal.move()*
 		Move the current terminal tab one position within its Vim tab.
-		{direction} is `-1` for left or `1` for right; both wrap.
+		{direction} is `-1` for left or `1` for right; both wrap. Also
+		works while hidden, without opening the workspace. Returns
+		true, including with only one terminal tab; otherwise false
+		and a reason for an invalid direction, no terminal tabs, or
+		failure.
 
 terminal.move_to_vim_tab({direction})		*terminal.move_to_vim_tab()*
 		Move the current terminal tab to an adjacent Vim |tabpage|.
 		{direction} is `-1` for previous or `1` for next; both wrap.
+		Requires focus in a managed terminal pane. Transfers the whole
+		terminal tab and follows it. Returns true, or false and a
+		reason for an invalid direction, no focused managed pane, no
+		adjacent Vim tab, insufficient room, or failure. Layout fit is
+		checked before changing ownership or closing windows.
 
 terminal.break_pane_to_tab()			*terminal.break_pane_to_tab()*
 		Move the current pane out of its split into a new terminal tab
-		immediately after the current one, and switch to it. No-op if
-		the current tab has only one pane.
+		immediately after the current one, and switch to it. Requires
+		focus in a managed terminal pane. Returns true, or false and a
+		reason when no managed pane is focused, the tab has only one
+		pane, the layout cannot fit, or the operation fails.
 
 terminal.go_to_notification()		*terminal.go_to_notification()*
 		Jump to the terminal that produced the most recent OSC
 		notification. Notifies the user if no notification has been
-		recorded.
+		recorded. Returns true on successful focus, or false and a
+		reason if no notification is available or its pane cannot be
+		focused. Keeps the existing warning notification on failure.
 
 terminal.list()						*terminal.list()*
 		List managed terminal panes across all Vim tabs, including
