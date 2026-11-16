@@ -605,9 +605,11 @@ _		Maximise pane height within the terminal; with [count], set
 =		Equalise panes (Vim's proportional distribution, |CTRL-W_=|).
 {count}<CR>	Set the focused pane's height to {count} lines.
 
-In drawers, +, -, counted _, and {count}<CR> move the drawer boundary while
-preserving other stacked panes. Side-by-side panes share their row's height.
-Growth is clamped to available editor space; shrinking respects pane minima.
+In drawers, +, -, counted _, and {count}<CR> redistribute between panes first.
+The drawer grows only when neighbouring panes reach their minimum height.
+Shrinking gives space back to neighbours; a full-height pane moves the drawer
+boundary when no stacked neighbour can take the space. Side-by-side panes share
+their row's height. Growth is clamped to available editor space.
 An uncounted _ maximises within the existing workspace. In floats, height
 commands redistribute within the existing bounds. Use |terminal.resize()| or
 |terminal.nvim-:TermResize| to resize the whole workspace proportionally. Pane
@@ -641,9 +643,9 @@ is open as a drawer.
 
 z{height}<CR>						*terminal.nvim-z<CR>*
 		In Normal mode inside a pane, sets the pane's height
-		like the terminal prefix's {count}<CR>: drawer height
-		changes preserve other stacked panes; floats resize
-		within their existing bounds. All other `z`
+		like the terminal prefix's {count}<CR>: redistribute first,
+		then grow the drawer on overflow. Floats resize within their
+		existing bounds. All other `z`
 		commands (`zz`, `zt`, folds, plain `z<CR>`) pass
 		through untouched.
 

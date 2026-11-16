@@ -51,4 +51,28 @@ update()
 buf = vim.api.nvim_win_get_buf(vim.t.term_canvas_winid)
 assert(vim.deep_equal(text(), expected), 'recreated buffer receives complete artwork')
 render.close_canvas()
+
+local nested = { t = 'row', w = 20, h = 9, children = {
+	{ t = 'leaf', buf = 1, w = 9, h = 9 },
+	{ t = 'col', w = 10, h = 9, children = {
+		{ t = 'leaf', buf = 2, w = 10, h = 4 }, { t = 'leaf', buf = 3, w = 10, h = 4 },
+	} },
+} }
+local plain = {row=0, col=0, border='none'}
+local function divider()
+	local canvas = vim.api.nvim_win_get_buf(vim.t.term_canvas_winid)
+	local line = vim.api.nvim_buf_get_lines(canvas, 4, 5, false)[1]
+	return vim.fn.strcharpart(line, 9, 1)
+end
+-- Restore fillchars modified above so the expected divider is unambiguous.
+vim.opt.fillchars:append({vert='│'})
+render.update_canvas(nested, plain)
+assert(divider() == '├', 'plain floats join a visible horizontal separator')
+vim.t.term_zoom = true
+render.update_canvas(nested, plain)
+assert(divider() == '│', 'zoom statuslines do not create horizontal junction arms')
+vim.t.term_zoom = nil
+render.update_canvas(nested, plain)
+assert(divider() == '├', 'leaving zoom restores separator junctions with identical geometry')
+render.close_canvas()
 print('Canvas rendering regressions passed')

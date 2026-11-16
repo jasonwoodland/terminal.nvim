@@ -890,13 +890,11 @@ eq(vim.t.term_height, 6, "z{height}<CR> records the new drawer height")
 
 terminal.hsplit()
 settle()
-local other_pane_height = vim.api.nvim_win_get_height(vim.t.term_winids[1])
 vim.cmd("stopinsert")
 vim.api.nvim_feedkeys("z2\r", "mx", false)
 settle()
 eq(vim.api.nvim_win_get_height(vim.t.term_winid), 2, "z{height}<CR> resizes a stacked pane")
-eq(vim.api.nvim_win_get_height(vim.t.term_winids[1]), other_pane_height, "stacked-pane z{height}<CR> preserves its sibling")
-eq(state.drawer_span(), other_pane_height + 3, "stacked-pane z{height}<CR> adjusts the drawer height")
+eq(state.drawer_span(), 6, "stacked-pane z{height}<CR> redistributes within the drawer")
 
 --------------------------------------------------------------------------------
 -- regression: toggling closed after pane-to-pane navigation must not leave

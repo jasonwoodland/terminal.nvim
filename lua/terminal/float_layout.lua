@@ -199,6 +199,11 @@ end
 function M.update_canvas(layout, base)
 	local off = M.has_border(base) and 1 or 0
 	local _, seps = frame.rects(layout, off, off)
+	-- In zoom, pane statuslines cover horizontal separators. They must not
+	-- contribute junction arms to the remaining vertical divider either.
+	if vim.t.term_zoom then
+		seps = vim.tbl_filter(function(sep) return sep.axis == "v" end, seps)
+	end
 	if off == 0 and #seps == 0 then
 		M.close_canvas()
 		return

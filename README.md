@@ -425,9 +425,11 @@ Press <kbd>&lt;C-S-w&gt;</kbd> followed by a sub-key (works in both Normal and T
 Splits nest like vim windows: panes form rows and columns, and all of the
 commands above use a frame-tree model based on Neovim's window implementation.
 Drawer navigation uses native window commands and can leave the drawer; float
-navigation stays within its panes. Drawer height commands grow or shrink the
-drawer while preserving other stacked panes; side-by-side peers share their
-row's height. Float height commands redistribute within the existing bounds.
+navigation stays within its panes. Height commands redistribute space between
+panes first. Drawers grow only when neighbouring panes reach their minimum
+height; shrinking a pane gives space back to its neighbours. A full-height
+pane moves the drawer boundary when no stacked neighbour can take the space.
+Side-by-side peers share their row's height. Floats retain their outer bounds.
 Use `TermResize` to resize the whole workspace proportionally.
 Splits always go right/below, rotate/exchange keep fixed-size
 slots, and close prefers the next sibling. Pane sizing uses a minimum of one
