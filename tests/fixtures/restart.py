@@ -106,9 +106,9 @@ with tempfile.TemporaryDirectory(prefix="terminal-restart-") as directory:
         query(
             "local t = require('terminal'); vim.cmd.edit(" + json.dumps(str(one)) + "); "
             "t.new({ name = 'Shell' }); t.vsplit({ name = 'Tests' }); "
-            "t.new({ name = 'Database' }); t.go_to(1); t.float_toggle(); "
+            "t.new({ name = 'Database' }); t.go_to(1); t.float_toggle(); assert(t.resize({ width = '80%', height = '75%' })); "
             "vim.cmd('tabnew'); vim.cmd.edit(" + json.dumps(str(two)) + "); "
-            "local editor = vim.api.nvim_get_current_win(); t.new({ name = 'Server' }); "
+            "local editor = vim.api.nvim_get_current_win(); t.new({ name = 'Server' }); assert(t.resize({ height = '50%' })); "
             "vim.api.nvim_set_current_win(editor); vim.api.nvim_win_set_cursor(editor, { 2, 0 }); return true"
         )
         initial = state()
@@ -124,6 +124,9 @@ with tempfile.TemporaryDirectory(prefix="terminal-restart-") as directory:
         assert Path(after["file"]).resolve() == two.resolve() and after["reason"] == "restart", after
         names = query("return vim.tbl_map(function(item) return item.title end, require('terminal').list())")
         assert sorted(names) == ["Database", "Server", "Shell", "Tests"], names
+        assert query("local tabs = vim.api.nvim_list_tabpages(); return "
+                     "vim.deep_equal(vim.t[tabs[1]].term_float_size, { width = '80%', height = '75%' }) "
+                     "and vim.t[tabs[2]].term_drawer_size == '50%'")
 
         query("for _, item in ipairs(require('terminal').list()) do if item.title == 'Server' then "
               "assert(require('terminal').focus(item.bufnr)); require('terminal').zoom(); break end end; return true")

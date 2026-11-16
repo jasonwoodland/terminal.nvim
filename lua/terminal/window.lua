@@ -43,6 +43,17 @@ function M.get_float_win_config()
 	local border_width = has_border and 2 or 0
 	local width = math.floor(vim.o.columns - float_config.padding.x * 2 - border_width)
 	local height = math.floor(vim.o.lines - float_config.padding.y * 2 - border_width - 2)
+	local custom = vim.t.term_float_size or {}
+	local size = require("terminal.size")
+	local available_width, available_height, tabline = size.available(true)
+	if custom.width then
+		width = size.resolve(custom.width, available_width)
+		col = math.floor((available_width - width) / 2)
+	end
+	if custom.height then
+		height = size.resolve(custom.height, available_height)
+		row = tabline + math.floor((available_height - height) / 2)
+	end
 
 	return {
 		relative = "editor",
@@ -320,9 +331,29 @@ function M.apply_drawer_sizes(entry)
 	end
 end
 
+-- Reapply a requested drawer size after the available screen area changes.
+function M.refresh_drawer_size()
+	if config.is_float_mode() or vim.t.term_prev_height or not vim.t.term_drawer_size then return end
+	local size = require("terminal.size")
+	local _, available = size.available(false)
+	local target = size.resolve(vim.t.term_drawer_size, available)
+	if target == vim.t.term_height then return end
+	local previous = vim.t.term_height
+	vim.t.term_height = target
+	if not M.can_open_tab(state.get_current_tab()) then vim.t.term_height = previous; return end
+	local current = vim.api.nvim_get_current_win()
+	local editor = not state.is_managed(vim.api.nvim_win_get_buf(current))
+	local was_insert = vim.fn.mode():sub(1, 1) == "i"
+	state.set_toggling()
+	M.set_drawer_height(target)
+	if editor and state.win_valid(current) then
+		vim.api.nvim_set_current_win(current)
+		vim.cmd(was_insert and "startinsert" or "stopinsert")
+	end
+end
+
 -- Set the drawer's total height (rows spanned by all panes). Single panes
--- resize in place; stacked layouts rebuild so the tree rescales
--- proportionally into the new height.
+-- resize in place; stacked layouts rebuild so the tree rescales proportionally.
 function M.set_drawer_height(target)
 	vim.t.term_height = target
 	if config.is_float_mode() then

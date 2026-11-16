@@ -6,7 +6,6 @@ local config = require("terminal.config")
 local state = require("terminal.state")
 local mode = require("terminal.mode")
 local window = require("terminal.window")
-local float_layout = require("terminal.float_layout")
 local panes = require("terminal.panes")
 local digraph = require("terminal.digraph")
 local paste = require("terminal.paste")
@@ -35,6 +34,7 @@ function M.setup(api, bufnr)
 	map({ "n", "t" }, keys.zoom, api.zoom)
 	map({ "n", "t" }, keys.float_toggle, api.float_toggle)
 	map({ "n", "t" }, keys.reset_height, api.reset_height)
+	map({ "n", "t" }, keys.equalize, api.equalize)
 	map({ "n", "t" }, keys.new, api.new, { noremap = true })
 	map({ "n", "t" }, keys.delete, api.delete, { noremap = true })
 
@@ -231,7 +231,7 @@ function M.setup(api, bufnr)
 					elseif key_match(c, "R", "<S-R>") then
 						panes.rotate(-1, count)
 					elseif c == "=" then
-						float_layout.equalize_panes()
+						api.equalize()
 					elseif key_match(c, "p", "<C-S-p>") then
 						panes.goto_previous()
 					elseif key_match(c, "t", "<C-t>", "<C-S-t>") then
@@ -281,7 +281,7 @@ function M.setup(api, bufnr)
 		{ { "-" },          function() panes.resize(-vim.v.count1, "h") end },
 		{ { "_", "<C-_>" }, function() panes.set_size("h", vim.v.count > 0 and vim.v.count or nil) end },
 		{ { "<Bar>" },      function() panes.set_size("w", vim.v.count > 0 and vim.v.count or nil) end },
-		{ { "=" },          float_layout.equalize_panes },
+		{ { "=" },          api.equalize },
 		{ { "p", "<C-p>" }, panes.goto_previous },
 		{ { "t", "<C-t>" }, function() panes.goto_edge(false) end },
 		{ { "b", "<C-b>" }, function() panes.goto_edge(true) end },

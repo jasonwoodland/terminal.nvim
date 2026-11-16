@@ -92,9 +92,9 @@ local ok, err = pcall(function()
 		vim.api.nvim_win_set_cursor(0, { 45, 0 })
 		vim.fn.winrestview({ topline = 45, lnum = 45, col = 0 })
 		visible_top = vim.fn.winsaveview().topline
-		vim.cmd('TermSelect')
+		vim.cmd('TermPicker')
 	]])
-	ui.wait("return vim.bo.filetype == 'TelescopePrompt'", "TermSelect opens picker")
+	ui.wait("return vim.bo.filetype == 'TelescopePrompt'", "TermPicker opens picker")
 	ui.input('i1:2:2')
 	ui.wait("return require('telescope.actions.state').get_selected_entry().value.bufnr == target", "select visible pane")
 	ui.wait([[
@@ -123,7 +123,7 @@ local ok, err = pcall(function()
 	ui.wait("return vim.bo.filetype ~= 'TelescopePrompt'", "cancel closes picker")
 	assert(ui.lua("return vim.api.nvim_get_current_buf() == target"), "cancel retains pane focus")
 	ui.lua([[
-		vim.cmd('TermSelect')
+		vim.cmd('TermPicker')
 	]])
 	ui.wait([[
 		if vim.bo.filetype ~= 'TelescopePrompt' then return false end

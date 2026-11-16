@@ -2,6 +2,7 @@ terminal-nvim.txt	terminal-nvim.txt	/*terminal-nvim.txt*
 terminal.break_pane_to_tab()	terminal-nvim.txt	/*terminal.break_pane_to_tab()*
 terminal.config	terminal-nvim.txt	/*terminal.config*
 terminal.delete()	terminal-nvim.txt	/*terminal.delete()*
+terminal.equalize()	terminal-nvim.txt	/*terminal.equalize()*
 terminal.float_toggle()	terminal-nvim.txt	/*terminal.float_toggle()*
 terminal.focus()	terminal-nvim.txt	/*terminal.focus()*
 terminal.go_to()	terminal-nvim.txt	/*terminal.go_to()*
@@ -17,11 +18,11 @@ terminal.nvim-:TermDelete	terminal-nvim.txt	/*terminal.nvim-:TermDelete*
 terminal.nvim-:TermJob	terminal-nvim.txt	/*terminal.nvim-:TermJob*
 terminal.nvim-:TermJobClose	terminal-nvim.txt	/*terminal.nvim-:TermJobClose*
 terminal.nvim-:TermNew	terminal-nvim.txt	/*terminal.nvim-:TermNew*
+terminal.nvim-:TermPicker	terminal-nvim.txt	/*terminal.nvim-:TermPicker*
 terminal.nvim-:TermRename	terminal-nvim.txt	/*terminal.nvim-:TermRename*
 terminal.nvim-:TermReset	terminal-nvim.txt	/*terminal.nvim-:TermReset*
-terminal.nvim-:TermSelect	terminal-nvim.txt	/*terminal.nvim-:TermSelect*
+terminal.nvim-:TermResize	terminal-nvim.txt	/*terminal.nvim-:TermResize*
 terminal.nvim-:TermSplit	terminal-nvim.txt	/*terminal.nvim-:TermSplit*
-terminal.nvim-:TermTab	terminal-nvim.txt	/*terminal.nvim-:TermTab*
 terminal.nvim-:TermVsplit	terminal-nvim.txt	/*terminal.nvim-:TermVsplit*
 terminal.nvim-<C-M-PageDown>	terminal-nvim.txt	/*terminal.nvim-<C-M-PageDown>*
 terminal.nvim-<C-M-PageUp>	terminal-nvim.txt	/*terminal.nvim-<C-M-PageUp>*
@@ -73,6 +74,7 @@ terminal.nvim-map-toggle	terminal-nvim.txt	/*terminal.nvim-map-toggle*
 terminal.nvim-map-vim-tabs	terminal-nvim.txt	/*terminal.nvim-map-vim-tabs*
 terminal.nvim-mappings	terminal-nvim.txt	/*terminal.nvim-mappings*
 terminal.nvim-mouse-follow	terminal-nvim.txt	/*terminal.nvim-mouse-follow*
+terminal.nvim-opt-cabbrev	terminal-nvim.txt	/*terminal.nvim-opt-cabbrev*
 terminal.nvim-opt-drawer	terminal-nvim.txt	/*terminal.nvim-opt-drawer*
 terminal.nvim-opt-float	terminal-nvim.txt	/*terminal.nvim-opt-float*
 terminal.nvim-opt-float_zoom	terminal-nvim.txt	/*terminal.nvim-opt-float_zoom*
@@ -94,6 +96,7 @@ terminal.prev()	terminal-nvim.txt	/*terminal.prev()*
 terminal.rename()	terminal-nvim.txt	/*terminal.rename()*
 terminal.reset()	terminal-nvim.txt	/*terminal.reset()*
 terminal.reset_height()	terminal-nvim.txt	/*terminal.reset_height()*
+terminal.resize()	terminal-nvim.txt	/*terminal.resize()*
 terminal.send()	terminal-nvim.txt	/*terminal.send()*
 terminal.setup()	terminal-nvim.txt	/*terminal.setup()*
 terminal.split()	terminal-nvim.txt	/*terminal.split()*

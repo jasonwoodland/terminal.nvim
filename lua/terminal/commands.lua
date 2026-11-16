@@ -11,14 +11,16 @@ function M.setup(api)
 	vim.api.nvim_create_user_command("TermNew", launch(api.new), { nargs = "*", desc = "Create a terminal tab, optionally running a command" })
 	vim.api.nvim_create_user_command("TermSplit", launch(api.hsplit), { nargs = "*" })
 	vim.api.nvim_create_user_command("TermVsplit", launch(api.vsplit), { nargs = "*" })
-	vim.api.nvim_create_user_command("TermTab", function(opts)
-		vim.cmd(opts.args .. "tabnew")
-		api.new()
-	end, { nargs = "?" })
 	vim.api.nvim_create_user_command("TermDelete", function()
 		api.delete()
 	end, {})
 	vim.api.nvim_create_user_command("TermReset", api.reset, {})
+	vim.api.nvim_create_user_command("TermResize", function(opts)
+		local dimensions, err = require("terminal.size").parse(opts.args)
+		local ok
+		if dimensions then ok, err = api.resize(dimensions) end
+		if not ok then vim.notify(err, vim.log.levels.WARN) end
+	end, { nargs = "*", desc = "Resize the workspace: height or widthxheight; omit to reset" })
 	vim.api.nvim_create_user_command("TermRename", function(opts)
 		local bufnr = vim.api.nvim_get_current_buf()
 		local function rename(name)
@@ -41,17 +43,17 @@ function M.setup(api)
 			vim.notify("Current buffer is not a managed terminal", vim.log.levels.WARN)
 		end
 	end, { nargs = "*", bang = true, desc = "Rename the current terminal pane; ! restores its automatic title" })
-	vim.api.nvim_create_user_command("TermSelect", function()
+	vim.api.nvim_create_user_command("TermPicker", function()
 		require("terminal.telescope").terminals()
 	end, { desc = "Navigate to a terminal with Telescope" })
 
+	if not require("terminal.config").config.cabbrev then return end
 	utils.alias("tsplit", "TermSplit")
 	utils.alias("tvsplit", "TermVsplit")
-	utils.alias("ttab", "TermTab")
 	utils.alias("tdelete", "TermDelete")
+	utils.alias("tpicker", "TermPicker")
 	utils.alias("st", "TermSplit")
 	utils.alias("vst", "TermVsplit")
-	utils.alias("tt", "TermTab")
 	utils.alias("td", "TermDelete")
 end
 

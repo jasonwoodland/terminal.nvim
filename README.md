@@ -91,6 +91,9 @@ require("terminal").setup({
   -- Answer OSC 10/11 color queries using the Normal highlight
   osc_colors = true,
 
+  -- Command-line abbreviations, e.g. :st -> :TermSplit
+  cabbrev = true,
+
   -- Keyboard mappings (false disables a key; keys = false disables keyboard maps)
   keys = {
     toggle = "<C-S-Space>",
@@ -116,7 +119,8 @@ require("terminal").setup({
     move_next = "<C-S-M-]>",
     paste_register = "<C-S-r>",
     digraph = "<C-S-i>",
-    reset_height = "<C-S-=>",
+    equalize = "<C-S-=>",
+    reset_height = false,
     vim_tab_next = "<C-PageDown>",
     vim_tab_prev = "<C-PageUp>",
     vim_tab_move_prev = "<C-M-PageUp>",
@@ -173,7 +177,7 @@ Normal-mode shortcuts are global; Terminal-mode shortcuts apply only to managed 
       <td align="center">✓</td>
       <td align="center">✓</td>
       <td><kbd>&lt;C-S-=&gt;</kbd></td>
-      <td>Reset height to default</td>
+      <td>Equalize pane heights and widths</td>
     </tr>
     <tr><th colspan="4" align="left">Tabs</th></tr>
     <tr>
@@ -453,6 +457,9 @@ so mouse-aware applications such as htop receive clicks, drags, and wheel input.
 
 Commands for managed terminal tabs and panes:
 
+Command-line aliases are enabled by default; set `cabbrev = false` to disable
+them. They expand only when the command line contains exactly the alias.
+
 <table>
   <thead>
     <tr>
@@ -478,11 +485,6 @@ Commands for managed terminal tabs and panes:
       <td>Open a terminal in a vertical split</td>
     </tr>
     <tr>
-      <td><code>:TermTab [position]</code></td>
-      <td><code>:tt</code>, <code>:ttab</code></td>
-      <td>Open a terminal in a new tab</td>
-    </tr>
-    <tr>
       <td><code>:TermDelete</code></td>
       <td><code>:td</code>, <code>:tdelete</code></td>
       <td>Delete the current terminal buffer</td>
@@ -493,17 +495,32 @@ Commands for managed terminal tabs and panes:
       <td>Replace the current terminal job, preserving its pane</td>
     </tr>
     <tr>
+      <td><code>:TermResize [size]</code></td>
+      <td></td>
+      <td>Set height, or float width×height; omit size to reset</td>
+    </tr>
+    <tr>
       <td><code>:TermRename [name]</code></td>
       <td></td>
       <td>Rename the current pane; omit name to prompt, use <code>:TermRename!</code> to clear</td>
     </tr>
     <tr>
-      <td><code>:TermSelect</code></td>
-      <td></td>
+      <td><code>:TermPicker</code></td>
+      <td><code>:tpicker</code></td>
       <td>Navigate to a terminal pane using Telescope (optional)</td>
     </tr>
   </tbody>
 </table>
+
+Use `:tabnew | TermNew` to open a managed terminal in a new Vim tab.
+
+`:TermResize 24` sets the workspace height in rows; `:TermResize 50%` uses
+half the available editor area. Floats also accept `:TermResize 120x24` or
+`:TermResize 80%x50%` (width×height). Use `x` as the separator. Drawers stay
+full width. `:TermResize` resets the current mode's configured size.
+Resizing retains pane proportions, exits zoom, and leaves hidden terminals
+hidden. Sizes belong to the current Vim tab and survive native sessions;
+percentage sizes follow changes to the Neovim window size.
 
 `:TermJob {command}` runs a command in a temporary terminal split;
 `:TermJobClose` closes the newest remaining job buffer, including a running job.
@@ -555,6 +572,10 @@ terminal.toggle({ open = true })    -- Only open
 terminal.toggle({ open = false })   -- Only close
 terminal.zoom()                     -- Toggle zoom
 terminal.float_toggle()             -- Toggle between float and drawer mode
+terminal.resize()                   -- Reset workspace size to configured defaults
+terminal.resize({ height = 24 })    -- Set height (rows or "50%")
+terminal.resize({ width = "80%", height = "50%" }) -- Float width and height
+terminal.equalize()                 -- Equalize pane heights and widths
 terminal.reset_height()             -- Reset terminal height to default
 terminal.reset()                    -- Replace the current job, preserving its pane
 terminal.rename("Frontend")        -- Set current pane's winbar/picker name; "" restores its automatic title
@@ -634,7 +655,7 @@ vim.keymap.set("n", "<space>t", function()
 end, { desc = "Terminals" })
 ```
 
-Also available as `:TermSelect` or `:Telescope terminal terminals`. Select a pane
+Also available as `:TermPicker` or `:Telescope terminal terminals`. Select a pane
 to navigate to its Vim tab and terminal workspace, including hidden panes.
 Live previews match the terminal's scroll position and display plain text.
 Pass Telescope options to `terminals(opts)` to customize the picker.

@@ -45,6 +45,7 @@ local function snapshot()
 				tabnr = tabnr,
 				height = vars.term_height or config.get_term_height(),
 				previous_height = vars.term_prev_height,
+				float_size = vars.term_float_size, drawer_size = vars.term_drawer_size,
 				float = float_enabled(vars), zoom = not not vars.term_zoom,
 				open = next(live) ~= nil, active = active, entries = {},
 			}
@@ -110,6 +111,8 @@ local function validate(data)
 		assert(type(workspace) == "table" and type(workspace.float) == "boolean"
 			and type(workspace.zoom) == "boolean" and type(workspace.open) == "boolean", "invalid workspace view")
 		assert(integer(workspace.height, 1), "invalid drawer height")
+		assert(require("terminal.size").validate(workspace.float_size), "invalid float size")
+		assert(require("terminal.size").validate(workspace.drawer_size ~= nil and { height = workspace.drawer_size } or nil), "invalid drawer size")
 		assert(integer(workspace.tabnr, 1), "invalid Vim tab number")
 		assert(type(workspace.focused) == "boolean", "invalid workspace focus")
 		assert(workspace.previous_height == nil or integer(workspace.previous_height, 1), "invalid previous drawer height")
@@ -173,6 +176,12 @@ local function restore_data(data, targets)
 			vim.t.term_prev_height = workspace.previous_height
 			vim.t.term_float_enabled = workspace.float
 			vim.t.term_zoom = workspace.zoom and true or nil
+			vim.t.term_float_size = workspace.float_size
+			vim.t.term_drawer_size = workspace.drawer_size
+			if workspace.drawer_size and not workspace.zoom then
+				local _, available = require("terminal.size").available(false)
+				vim.t.term_height = require("terminal.size").resolve(workspace.drawer_size, available)
+			end
 			if workspace.open then
 				local entry = workspace.entries[workspace.active]
 				local placeholders = {}

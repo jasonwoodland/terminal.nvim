@@ -28,6 +28,7 @@ M.config = {
 	set_buffer_name = true,
 	osc_notifications = true,
 	osc_colors = true,
+	cabbrev = true,
 	keys = {
 		toggle = "<C-S-Space>",
 		normal_mode = "<C-S-\\>",
@@ -53,7 +54,8 @@ M.config = {
 		move_next = "<C-S-M-]>",
 		paste_register = "<C-S-r>",
 		digraph = "<C-S-i>",
-		reset_height = "<C-S-=>",
+		equalize = "<C-S-=>",
+		reset_height = false,
 		vim_tab_next = "<C-PageDown>",
 		vim_tab_prev = "<C-PageUp>",
 		vim_tab_move_prev = "<C-M-PageUp>",
@@ -150,6 +152,7 @@ end
 function M.setup(user_config)
 	assert(user_config == nil or type(user_config) == "table", "terminal configuration must be a table")
 	local candidate = vim.tbl_deep_extend("force", vim.deepcopy(defaults), user_config or {})
+	assert(type(candidate.cabbrev) == "boolean", "cabbrev must be a boolean")
 	assert(candidate.keys == false or type(candidate.keys) == "table", "keys must be a table or false")
 	if candidate.keys ~= false then
 		for name, value in pairs(candidate.keys) do

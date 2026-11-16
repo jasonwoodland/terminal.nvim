@@ -5,6 +5,8 @@ config.setup({ keys = false, float = { padding = { x = 2 } } })
 config.setup({ keys = { toggle = "<F2>" } })
 assert(config.config.keys.toggle == "<F2>" and config.config.keys.zoom, "configuration is built from immutable defaults")
 assert(config.config.float.padding.x == 24, "previous setup does not mutate float defaults")
+assert(config.config.cabbrev == true, "command abbreviations are enabled by default")
+assert(not pcall(config.setup, { cabbrev = "yes" }), "invalid abbreviation setting is rejected")
 for _, keys in ipairs({ true, { missing = "x" }, { toggle = { 1 } }, { go_to_tab = "x" } }) do
 	assert(not pcall(config.setup, { keys = keys }), "invalid key configuration is rejected before installation")
 end

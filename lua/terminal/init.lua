@@ -67,7 +67,8 @@ function M.toggle(opts)
 		vim.t.prev_winid = vim.api.nvim_get_current_win()
 
 		local tab, tab_idx = state.get_current_tab()
-		if height > 1 then vim.t.term_height = height end
+		window.refresh_drawer_size()
+		if height > 1 then vim.t.term_height = height; vim.t.term_drawer_size = nil end
 		if not window.check_size(tab, math.max(#state.get_tabs(), 1)) then return false end
 
 		if tab and #tab.bufs > 0 then
@@ -150,14 +151,20 @@ function M.float_toggle()
 	window.save_tab_state()
 	local previous_float = vim.t.term_float_enabled
 	local previous_zoom, previous_height = vim.t.term_zoom, vim.t.term_prev_height
+	local previous_drawer_height = vim.t.term_height
 	vim.t.term_zoom = nil
 	vim.t.term_prev_height = nil
 
 	vim.t.term_float_enabled = target
+	if not target and vim.t.term_drawer_size then
+		local _, available = require("terminal.size").available(false)
+		vim.t.term_height = require("terminal.size").resolve(vim.t.term_drawer_size, available)
+	end
 
 	if not window.check_size(state.get_current_tab()) then
 		vim.t.term_float_enabled = previous_float
 		vim.t.term_zoom, vim.t.term_prev_height = previous_zoom, previous_height
+		vim.t.term_height = previous_drawer_height
 		return false
 	end
 	if state.is_term_open() then
@@ -171,7 +178,66 @@ function M.reset_height()
 	if vim.t.term_prev_height ~= nil or vim.t.term_zoom or config.is_float_mode() then
 		return
 	end
+	vim.t.term_drawer_size = nil
 	window.set_drawer_height(config.get_term_height())
+end
+
+-- Resize the current Vim tab's terminal workspace without starting jobs or
+-- opening a hidden workspace. Pane proportions are retained by the renderer.
+function M.resize(opts)
+	local size = require("terminal.size")
+	local requested, err = size.validate(opts)
+	if not requested then return false, err end
+	local floating = config.is_float_config_enabled()
+	if requested.width and not floating then return false, "Drawer width is fixed; use height only" end
+	window.save_tab_state()
+	local keys = { "term_height", "term_prev_height", "term_zoom", "term_float_size", "term_drawer_size" }
+	local previous = {}
+	for _, key in ipairs(keys) do previous[key] = vim.t[key] end
+	local function rollback()
+		for _, key in ipairs(keys) do vim.t[key] = previous[key] end
+		state.sync_zoom_options()
+	end
+	vim.t.term_zoom, vim.t.term_prev_height = nil, nil
+	state.sync_zoom_options()
+	local width, height = size.available(floating)
+	for key, value in pairs(requested) do
+		if type(value) == "number" and value > (key == "width" and width or height) then
+			rollback()
+			return false, "Requested " .. key .. " exceeds the available editor area"
+		end
+	end
+	if floating then
+		vim.t.term_float_size = next(requested) and vim.tbl_extend("force", previous.term_float_size or {}, requested) or nil
+	else
+		vim.t.term_drawer_size = requested.height
+		vim.t.term_height = requested.height and size.resolve(requested.height, height) or config.get_term_height()
+	end
+	if not window.can_open_tab(state.get_current_tab()) then
+		rollback()
+		return false, "Not enough room for terminal panes"
+	end
+	if state.is_term_open() then
+		local current = vim.api.nvim_get_current_win()
+		local editor = not state.is_managed(vim.api.nvim_win_get_buf(current))
+		local was_insert = vim.fn.mode():sub(1, 1) == "i"
+		state.set_toggling()
+		local ok, result = pcall(window.rebuild_tab)
+		if not ok or result == false then
+			rollback()
+			pcall(window.rebuild_tab)
+			return false, ok and "Could not resize terminal panes" or tostring(result)
+		end
+		if editor and state.win_valid(current) then
+			vim.api.nvim_set_current_win(current)
+			vim.cmd(was_insert and "startinsert" or "stopinsert")
+		end
+	end
+	return true
+end
+
+function M.equalize()
+	if state.is_term_open() then require("terminal.float_layout").equalize_panes() end
 end
 
 --------------------------------------------------------------------------------

@@ -385,6 +385,7 @@ function M.setup(api)
 		group = "Term",
 		callback = function()
 			update_float_win_config()
+			window.refresh_drawer_size()
 			winbar.update()
 		end,
 	})
@@ -399,6 +400,7 @@ function M.setup(api)
 				else
 					update_float_win_config()
 				end
+				window.refresh_drawer_size()
 				winbar.update()
 				if state.is_managed() then
 					mode.restore_current()

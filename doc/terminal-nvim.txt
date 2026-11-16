@@ -87,6 +87,7 @@ the full default configuration: >lua
       set_buffer_name = true,
       osc_notifications = true,
       osc_colors = true,
+      cabbrev = true,
       keys = {
 	toggle			= "<C-S-Space>",
 	normal_mode		= "<C-S-\\>",
@@ -111,7 +112,8 @@ the full default configuration: >lua
 	move_next		= "<C-S-M-]>",
 	paste_register		= "<C-S-r>",
 	digraph			= "<C-S-i>",
-	reset_height		= "<C-S-=>",
+	equalize		= "<C-S-=>",
+	reset_height		= false,
 	vim_tab_next		= "<C-PageDown>",
 	vim_tab_prev		= "<C-PageUp>",
 	vim_tab_move_prev	= "<C-M-PageUp>",
@@ -257,6 +259,13 @@ osc_colors ~
 	handler or use your own responder. Remove any existing color-query
 	workaround before enabling this option.
 
+						*terminal.nvim-opt-cabbrev*
+cabbrev ~
+	Enable command-line abbreviations listed in |terminal.nvim-commands|.
+	Default: `true`. Expansion requires the command line to contain exactly
+	the alias. Set `false` to leave existing abbreviations unchanged.
+	Independent of |terminal.nvim-opt-keys|.
+
 						*terminal.nvim-opt-keys*
 keys ~
 	A table mapping action names to key sequences. Set any entry to
@@ -293,10 +302,7 @@ managed terminal tabs and panes.
 `:tvsplit`	or
 `:vst`
 
-						*terminal.nvim-:TermTab*
-:TermTab [pos]	or	Open a new terminal in a new |tabpage|. An optional
-`:ttab`		or	argument (e.g. "+1") is passed to |:tabnew| as a
-`:tt`			leading position.
+Use `:tabnew | TermNew` to open a managed terminal in a new Vim tab.
 
 						*terminal.nvim-:TermDelete*
 :TermDelete	or	Force-delete the current terminal buffer, prompting
@@ -309,15 +315,22 @@ managed terminal tabs and panes.
 			Uses the same confirmation as TermDelete; a startup
 			failure leaves the original job intact.
 
+						*terminal.nvim-:TermResize*
+:TermResize [size]	Resize the workspace; omit size to reset defaults.
+			24 sets height in rows; 50% sets relative height.
+			Floats accept widthxheight: 120x24 or 80%x50%.
+			Only x separates dimensions. Drawers stay full width.
+			Calls |terminal.resize()|.
+
 						*terminal.nvim-:TermRename*
 :TermRename [name]	Set the current managed pane's winbar/picker name,
 			or prompt when omitted. Names may contain spaces.
 :TermRename!		Clear the custom name and restore its automatic title.
 			Calls |terminal.rename()|.
 
-						*terminal.nvim-:TermSelect*
-:TermSelect		Navigate to a managed pane using Telescope. Requires
-			telescope.nvim; see |terminal.nvim-telescope|.
+						*terminal.nvim-:TermPicker*
+:TermPicker	or	Navigate to a managed pane using Telescope. Requires
+`:tpicker`		telescope.nvim; see |terminal.nvim-telescope|.
 
 						*terminal.nvim-:TermJob*
 :TermJob {command}	Run a command in a temporary terminal split. A
@@ -389,9 +402,8 @@ Toggle and Zoom					*terminal.nvim-map-toggle*
 			|terminal.float_toggle()|.
 
 						*terminal.nvim-<C-S-=>*
-<C-S-=>			Reset the drawer height back to the value of
-			|terminal.nvim-opt-height|. Calls
-			|terminal.reset_height()|.
+<C-S-=>			Equalize pane heights and widths, keeping the overall
+			workspace size. Calls |terminal.equalize()|.
 
 ------------------------------------------------------------------------------
 Tabs						*terminal.nvim-map-tabs*
@@ -684,6 +696,30 @@ terminal.float_toggle()
 	other Vim tabs retain their display modes.
 	When closed or zoomed, opens in float mode and clears the zoom state.
 
+						*terminal.resize()*
+terminal.resize([{opts}])
+	Resize the current Vim tab's terminal workspace, preserving pane
+	proportions. Returns true, or false and an error message.
+	Options: height and/or width, as positive integer cells or strings
+	from "1%" to "100%". Width is only supported in float mode. Omitted
+	dimensions retain their previous settings; nil or {} resets the
+	current mode to its configured defaults (height or float padding).
+	Examples: >lua
+	terminal.resize({ height = 24 })
+	terminal.resize({ width = "80%", height = "50%" })
+<	Percentages use the available editor area, excluding the command
+	line, visible tabline, and float border or required editor rows.
+	Float sizes include the workspace's winbar and pane separators.
+	Explicit sizes that exceed this area, or cannot fit the panes, fail
+	without changing the view. Resizing exits zoom and leaves hidden
+	workspaces hidden. Sizes are local to the Vim tab and survive native
+	sessions. Percentage sizes adapt when the Neovim window changes.
+
+						*terminal.equalize()*
+terminal.equalize()
+	Equalize pane heights and widths in the open terminal tab, retaining
+	the overall workspace dimensions. Has no effect when hidden.
+
 						*terminal.reset_height()*
 terminal.reset_height()
 	Reset the drawer height to the configured |terminal.nvim-opt-height|.
@@ -852,7 +888,7 @@ With telescope.nvim installed: >lua
       require("telescope").extensions.terminal.terminals()
     end, { desc = "Terminals" })
 <
-Also available as :TermSelect or :Telescope terminal terminals. Selection
+Also available as :TermPicker or :Telescope terminal terminals. Selection
 navigates to the pane's Vim tab and terminal workspace, including hidden
 panes. Live previews match the terminal's scroll position and display plain
 text. Pass Telescope options to terminals(opts) to customize the picker, or

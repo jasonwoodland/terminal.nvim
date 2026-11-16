@@ -19,12 +19,14 @@ if vim.env.TERMINAL_SESSION_PHASE == "write" then
 	terminal.new({ name = "Database" })
 	assert(terminal.focus(tests))
 	terminal.float_toggle()
+	assert(terminal.resize({ width = "80%", height = "75%" }))
 	terminal.zoom()
 	terminal.toggle({ open = false })
 	vim.cmd("tabnew")
 	vim.cmd.edit(two)
 	local editor = vim.api.nvim_get_current_win()
 	terminal.new({ name = "Shell" })
+	assert(terminal.resize({ height = "50%" }))
 	vim.api.nvim_set_current_win(editor)
 	vim.api.nvim_win_set_cursor(editor, { 2, 0 })
 	vim.cmd("tabnew")
@@ -75,6 +77,7 @@ else
 			tab = vim.fn.tabpagenr(), buf = vim.api.nvim_buf_get_name(0), expected = two, cursor = vim.api.nvim_win_get_cursor(0),
 		}))
 	assert(state.is_term_open(), "drawer is restored behind the focused editor")
+	assert(vim.t.term_drawer_size == "50%", "percentage drawer size survives sessions")
 	for _, item in ipairs(terminal.list()) do
 		if item.title == "Frontend" then
 			assert(vim.b[item.bufnr].terminal_launch.env.SESSION_QUOTING == "line one\nline two | ' \" \\",
@@ -90,6 +93,7 @@ else
 	settle()
 	assert(not state.is_term_open() and vim.t.term_float_enabled and vim.t.term_zoom and #state.get_tabs() == 2,
 		"hidden float and terminal tabs restore in the first Vim tab")
+	assert(vim.deep_equal(vim.t.term_float_size, {width="80%", height="75%"}), "float dimensions survive sessions")
 	terminal.toggle({ open = true })
 	settle()
 	assert(#vim.t.term_winids == 3 and state.get_title(vim.api.nvim_get_current_buf()) == "Tests",
