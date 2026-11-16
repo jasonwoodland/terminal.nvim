@@ -827,12 +827,16 @@ terminal.focus({bufnr})					*terminal.focus()*
 		reason for stale/unmanaged buffers or an unavailable layout.
 		Does not open a duplicate pane in the editor.
 
-terminal.send({text})					*terminal.send()*
-		Send {text} to the job channel of the currently focused
-		terminal. Does nothing if no terminal is open or the buffer
-		has no job. Stale windows and closed channels are tolerated.
-		Returns true after a send, false plus an error for a failed
-		channel send, or nil when no job exists.
+terminal.send({text} [, {bufnr}])				*terminal.send()*
+		Send the string {text} to a managed pane's job channel. With
+		no {bufnr}, targets the last focused pane in the current Vim
+		tab, including when hidden. An explicit buffer number targets
+		a managed pane in any Vim tab. Does not open terminals or
+		change focus or mode. Sends exactly the supplied text: no
+		newline or bracketed-paste markers are added. Returns true on
+		success, or false and an error message for invalid input,
+		missing/unmanaged panes, missing jobs, or failed channel
+		sends. Ordinary :terminal buffers are excluded.
 
 terminal.config						*terminal.config*
 		The fully-merged configuration table. Read-only — modify at

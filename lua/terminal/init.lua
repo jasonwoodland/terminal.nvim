@@ -726,18 +726,19 @@ function M.prev()
 	M.switch(-1)
 end
 
-function M.send(text)
-	local winid = vim.t.term_winid
-	if not state.win_valid(winid) then
-		return
+function M.send(text, bufnr)
+	if type(text) ~= "string" then return false, "Terminal text must be a string" end
+	if bufnr == nil then bufnr = vim.t.term_bufnr end
+	local target
+	for _, item in ipairs(M.list()) do
+		if item.bufnr == bufnr then target = item; break end
 	end
-	local bufnr = vim.api.nvim_win_get_buf(winid)
-	if not state.is_managed(bufnr) then return end
+	if not target then return false, "Terminal is no longer managed or no pane is selected" end
 	local job = vim.b[bufnr].terminal_job_id
-	if not job then
-		return
-	end
-	return pcall(vim.api.nvim_chan_send, job, text)
+	if not job then return false, "Terminal has no job" end
+	local ok, err = pcall(vim.api.nvim_chan_send, job, text)
+	if not ok then return false, tostring(err) end
+	return true
 end
 
 function M.setup(user_config)

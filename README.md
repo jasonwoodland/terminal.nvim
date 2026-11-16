@@ -595,8 +595,14 @@ terminal.move_to_vim_tab(direction) -- Move current tab to adjacent Vim tab (-1 
 terminal.go_to_notification()       -- Jump to terminal with last OSC notification
 terminal.list()                     -- List managed panes across all Vim tabs
 terminal.focus(bufnr)               -- Navigate to the owning Vim tab, terminal tab and pane
-terminal.send(text)                 -- Send text; ignore stale windows/channels
+terminal.send(text)                 -- Raw send to the last focused pane in this Vim tab, even hidden
+terminal.send(text, bufnr)          -- Raw send to an explicit managed pane in any Vim tab
 ```
+
+`send()` preserves focus and mode and leaves hidden panes hidden. It sends the
+string exactly as supplied, without adding a newline or paste markers, and
+returns `true` or `false, reason`. Use `terminal.send(vim.fn.getreg("a"))` to
+send a register's contents as raw input.
 
 `new(opts)`, `vsplit(opts)`, `hsplit(opts)` and `split(dir, opts)` accept optional
 launch settings and return the new buffer number:
