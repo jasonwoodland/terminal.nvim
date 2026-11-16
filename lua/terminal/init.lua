@@ -521,34 +521,81 @@ local function confirm_terminal_close(bufnr)
 	return vim.fn.confirm(message, "&Yes\n&No", 2) == 1
 end
 
-function M.delete()
-	if not state.is_managed() then
-		return
+-- Resolve ownership before prompting. Run in the owner's window context so
+-- hidden entries and foreign Vim tabs can be edited without opening them.
+local function pane_action(bufnr, action)
+	if bufnr == nil then bufnr = vim.api.nvim_get_current_buf() end
+	local target
+	for _, item in ipairs(M.list()) do
+		if item.bufnr == bufnr then target = item; break end
 	end
-	state.set_toggling()
-
-	local bufnr = vim.api.nvim_get_current_buf()
-
-	local tab_idx, _ = state.find_buf_tab(bufnr)
-	if not tab_idx or not confirm_terminal_close(bufnr) then
-		return
+	if not target then return false, "Terminal is no longer managed" end
+	if not confirm_terminal_close(bufnr) then return false, "Terminal action cancelled" end
+	target = nil
+	for _, item in ipairs(M.list()) do
+		if item.bufnr == bufnr then target = item; break end
 	end
-
-	window.save_tab_state()
-	window.close_pane_windows()
-
-	-- Applies the terminal layout's close rule: the neighboring pane absorbs the space and
-	-- receives focus; single-pane tabs are removed entirely.
-	state.remove_term_from_order(bufnr)
-	vim.api.nvim_buf_delete(bufnr, { force = true })
-	window.reopen_current_tab()
+	if not target then return false, "Terminal is no longer managed" end
+	local original_tab, original_win = vim.api.nvim_get_current_tabpage(), vim.api.nvim_get_current_win()
+	local original_buf, original_mode = vim.api.nvim_get_current_buf(), vim.api.nvim_get_mode().mode
+	mode.record()
+	local function run()
+		local tab_idx = state.find_buf_tab(bufnr)
+		if not tab_idx then return false, "Terminal is no longer in its workspace" end
+		return action(bufnr, tab_idx)
+	end
+	local ok, result, err
+	if target.tabpage == original_tab then
+		ok, result, err = pcall(run)
+	else
+		ok, result, err = pcall(vim.api.nvim_win_call, vim.api.nvim_tabpage_get_win(target.tabpage), run)
+	end
+	-- A visible deletion may rebuild every pane window. Restore by buffer
+	-- when the caller's original window was replaced, except for the target.
+	if original_buf ~= bufnr and vim.api.nvim_tabpage_is_valid(original_tab) then
+		local restore = state.win_valid(original_win) and original_win or nil
+		if not restore then
+			for _, win in ipairs(vim.t[original_tab].term_winids or {}) do
+				if state.win_valid(win) and vim.api.nvim_win_get_buf(win) == original_buf then restore = win; break end
+			end
+		end
+		if restore then
+			vim.api.nvim_set_current_win(restore)
+			if state.is_managed() then
+				mode.restore(restore, original_mode == "t" and "t" or "n")
+			else
+				vim.cmd(original_mode:sub(1, 1) == "i" and "startinsert" or "stopinsert")
+			end
+		end
+	end
+	state.sync_zoom_options()
+	if not ok then return false, tostring(result) end
+	return result, err
 end
 
-function M.reset()
-	local old = vim.api.nvim_get_current_buf()
-	if vim.bo[old].buftype ~= "terminal" then return end
-	local tab_idx = state.find_buf_tab(old)
-	if not tab_idx or not confirm_terminal_close(old) then return end
+function M.delete(bufnr)
+	return pane_action(bufnr, function(buf, tab_idx)
+		state.set_toggling()
+		window.save_tab_state()
+		local open = state.is_term_open()
+		local tabs = state.get_tabs()
+		local strip_changes = #tabs[tab_idx].bufs == 1
+			and config.should_show_winbar(#tabs) ~= config.should_show_winbar(#tabs - 1)
+		local rebuild = open and (tab_idx == vim.t.term_tab_idx
+			or strip_changes)
+		if rebuild then window.close_pane_windows() end
+		state.remove_term_from_order(buf)
+		vim.api.nvim_buf_delete(buf, { force = true })
+		if vim.t.term_bufnr == buf then
+			local entry = state.get_current_tab()
+			vim.t.term_bufnr = entry and (entry.focus or entry.bufs[1]) or nil
+		end
+		if rebuild then window.reopen_current_tab() else winbar.update() end
+		return true
+	end)
+end
+
+local function reset_pane(old, tab_idx)
 	state.set_toggling()
 	window.save_tab_state()
 	local order = state.get_term_order()
@@ -562,8 +609,9 @@ function M.reset()
 	if not ok then
 		state.set_term_order(order)
 		vim.t.term_tab_idx = selected
-		error(err, 0)
+		return false, tostring(err)
 	end
+	vim.b[replacement].term_mode = vim.b[old].term_mode
 	local entry = order[tab_idx]
 	for _, leaf in ipairs(require("terminal.frame").leaf_nodes(entry.layout)) do
 		if leaf.buf == old then leaf.buf = replacement end
@@ -577,9 +625,15 @@ function M.reset()
 	state.set_term_order(order)
 	vim.t.term_tab_idx = selected
 	if vim.t.term_bufnr == old then vim.t.term_bufnr = replacement end
-	if not window.swap_tab_buffers(entry, tab_idx) then window.rebuild_tab() end
+	if state.is_term_open() and tab_idx == selected then
+		if not window.swap_tab_buffers(entry, tab_idx) then window.rebuild_tab() end
+	end
 	vim.api.nvim_buf_delete(old, { force = true })
 	return replacement
+end
+
+function M.reset(bufnr)
+	return pane_action(bufnr, reset_pane)
 end
 
 function M.new(opts)

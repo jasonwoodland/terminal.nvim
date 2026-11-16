@@ -19,9 +19,11 @@ vim.fn.confirm = function(_, _, default)
 	confirmations = confirmations + 1
 	return answer
 end
-terminal.reset()
+local cancelled, cancellation = terminal.reset()
+assert(cancelled == false and type(cancellation) == "string", "reset cancellation is returned")
 assert(vim.api.nvim_get_current_buf() == old and confirmations == 1, "reset cancellation leaves the job intact")
-terminal.delete()
+cancelled, cancellation = terminal.delete()
+assert(cancelled == false and type(cancellation) == "string", "delete cancellation is returned")
 assert(vim.api.nvim_buf_is_valid(old) and confirmations == 2, "delete uses the same confirmation")
 answer = 1
 vim.cmd("TermReset")
@@ -40,7 +42,8 @@ assert(vim.api.nvim_get_current_buf() == replaced and confirmations == 4, "inspe
 vim.api.nvim_get_proc_children = function() return {} end
 local termopen = vim.fn.termopen
 vim.fn.termopen = function() error("injected startup failure") end
-assert(not pcall(terminal.reset), "startup errors are reported")
+local failed, reason = terminal.reset()
+assert(failed == false and type(reason) == "string", "startup errors are returned")
 vim.fn.termopen = termopen
 assert(vim.api.nvim_buf_is_valid(replaced) and state.get_current_tab().focus == replaced,
 	"failed reset preserves the original job and pane state")
@@ -48,7 +51,8 @@ assert(vim.deep_equal(wins, vim.t.term_winids) and #state.get_tabs() == 1, "fail
 local native_open = vim.api.nvim_open_win
 local buffer_count = #vim.api.nvim_list_bufs()
 vim.api.nvim_open_win = function() error("injected startup window failure") end
-assert(not pcall(terminal.reset), "startup window errors are reported")
+failed, reason = terminal.reset()
+assert(failed == false and type(reason) == "string", "startup window errors are returned")
 vim.api.nvim_open_win = native_open
 assert(#vim.api.nvim_list_bufs() == buffer_count, "failed startup window does not leak replacement buffer")
 assert(vim.api.nvim_buf_is_valid(replaced) and state.get_current_tab().focus == replaced,

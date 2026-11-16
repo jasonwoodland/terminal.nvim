@@ -580,10 +580,10 @@ terminal.resize()                   -- Reset workspace size to configured defaul
 terminal.resize({ height = 24 })    -- Set height (rows or "50%")
 terminal.resize({ width = "80%", height = "50%" }) -- Float width and height
 terminal.equalize()                 -- Equalize pane heights and widths
-terminal.reset()                    -- Replace the current job, preserving its pane
+terminal.reset(bufnr)               -- Replace a pane's job; omit bufnr for the current pane
 terminal.rename("Frontend")        -- Set current pane's winbar/picker name; "" restores its automatic title
 terminal.new()                      -- Create new terminal tab
-terminal.delete()                   -- Delete current terminal
+terminal.delete(bufnr)              -- Delete a pane; omit bufnr for the current pane
 terminal.vsplit()                   -- Split the current pane side by side
 terminal.hsplit()                   -- Split the current pane stacked
 terminal.break_pane_to_tab()        -- Move the current pane into its own terminal tab
@@ -605,6 +605,12 @@ terminal.send(text, bufnr)          -- Raw send to an explicit managed pane in a
 string exactly as supplied, without adding a newline or paste markers, and
 returns `true` or `false, reason`. Use `terminal.send(vim.fn.getreg("a"))` to
 send a register's contents as raw input.
+
+`delete(bufnr)` and `reset(bufnr)` can target hidden panes or panes in other Vim
+tabs without opening them or changing the caller's focus. Both default to the
+current pane and retain the running-process confirmation. `delete()` returns
+`true`; `reset()` returns the replacement buffer number. Both return
+`false, reason` for cancellation, an invalid target, or failure.
 
 `new(opts)`, `vsplit(opts)`, `hsplit(opts)` and `split(dir, opts)` accept optional
 launch settings and return the new buffer number:

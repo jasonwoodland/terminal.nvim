@@ -11,10 +11,14 @@ function M.setup(api)
 	vim.api.nvim_create_user_command("TermNew", launch(api.new), { nargs = "*", desc = "Create a terminal tab, optionally running a command" })
 	vim.api.nvim_create_user_command("TermSplit", launch(api.hsplit), { nargs = "*" })
 	vim.api.nvim_create_user_command("TermVsplit", launch(api.vsplit), { nargs = "*" })
-	vim.api.nvim_create_user_command("TermDelete", function()
-		api.delete()
-	end, {})
-	vim.api.nvim_create_user_command("TermReset", api.reset, {})
+	local function pane_action(action)
+		return function()
+			local ok, err = action()
+			if not ok then vim.notify(err, vim.log.levels.WARN) end
+		end
+	end
+	vim.api.nvim_create_user_command("TermDelete", pane_action(api.delete), {})
+	vim.api.nvim_create_user_command("TermReset", pane_action(api.reset), {})
 	vim.api.nvim_create_user_command("TermResize", function(opts)
 		local dimensions, err = require("terminal.size").parse(opts.args)
 		local ok

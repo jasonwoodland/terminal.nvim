@@ -736,17 +736,28 @@ Splits do not inherit their sibling's launch settings. Invalid options raise
 an error before changing the workspace; process-start failures preserve
 existing panes. Launch settings are captured for |terminal.reset()|.
 
-terminal.delete()					*terminal.delete()*
-		Delete the current terminal pane. If it is the last pane in
-		the tab, the tab itself is removed. Prompts when the job has
-		child processes or process inspection fails.
+terminal.delete([{bufnr}])				*terminal.delete()*
+		Delete a managed pane; defaults to the current buffer. An
+		explicit buffer number can target a hidden pane or another Vim
+		tab. If it is the last pane in its terminal tab, that terminal
+		tab is removed. Prompts when the job has child processes or
+		process inspection fails. Returns true, or false and a reason
+		for cancellation, an invalid target, or failure. Hidden
+		workspaces stay hidden. When acting on another pane, preserves
+		the caller's focus and mode; deleting the focused pane moves
+		focus to its neighbour or the editor.
 
-terminal.reset()					*terminal.reset()*
-		Replace the current managed terminal job, keeping its pane and
-		tab. Uses the same process confirmation as terminal.delete().
-		A startup failure keeps the old job. Returns the replacement
-		buffer on success. Reuses the original command, directory and
-		environment overrides, keeping the current custom name.
+terminal.reset([{bufnr}])				*terminal.reset()*
+		Replace a managed terminal job, keeping its pane and tab.
+		Defaults to the current buffer. An explicit buffer number can
+		target a hidden pane or another Vim tab. Uses the same process
+		confirmation as terminal.delete(). A startup failure keeps the
+		old job. Returns the replacement buffer on success, or false
+		and a reason for cancellation, an invalid target, or failure.
+		Reuses the original command, directory and environment
+		overrides, keeping the custom name and saved mode. Hidden
+		workspaces stay hidden. When acting on another pane, preserves
+		the caller's focus and mode.
 
 terminal.split({dir} [, {opts}])			*terminal.split()*
 		Split the current pane, adding a new terminal pane after it.
