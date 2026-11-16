@@ -5,6 +5,7 @@ local frame = require("terminal.frame")
 local config = require("terminal.config")
 local window = require("terminal.window")
 local launch = require("terminal.launch")
+local focus_context = require("terminal.context")
 
 local function float_enabled(vars)
 	if vars.term_float_enabled ~= nil then return vars.term_float_enabled end
@@ -148,18 +149,11 @@ local function restore_layout(node, bufs)
 end
 
 local function restore_data(data, targets)
-	local original_tab, original_win = vim.api.nvim_get_current_tabpage(), vim.api.nvim_get_current_win()
-	local original_mode = vim.api.nvim_get_mode().mode
+	local caller = focus_context.capture()
 	require("terminal.mode").record()
 	local tabs, buffers, editor_wins, original_vars = {}, {}, {}, {}
 	local function return_to_original()
-		if vim.api.nvim_tabpage_is_valid(original_tab) then vim.api.nvim_set_current_tabpage(original_tab) end
-		if state.win_valid(original_win) then vim.api.nvim_set_current_win(original_win) end
-		if state.is_managed() then
-			require("terminal.mode").restore_scheduled(original_win)
-		else
-			vim.cmd((original_mode == "t" or original_mode:sub(1, 1) == "i") and "startinsert" or "stopinsert")
-		end
+		focus_context.restore(caller, true)
 	end
 	local ok, err = pcall(function()
 		-- Preflight saved panes before starting jobs; keep native editor windows.
@@ -277,6 +271,7 @@ function M.setup()
 	if vim.fn.exists("##SessionWritePre") == 0 then return end
 	local pending
 	local function recover(context)
+		local errors = {}
 		for buf, listed in pairs(context.listed) do
 			if vim.api.nvim_buf_is_valid(buf) then vim.bo[buf].buflisted = listed end
 		end
@@ -284,13 +279,13 @@ function M.setup()
 			if vim.api.nvim_tabpage_is_valid(item.tabpage) then
 				vim.api.nvim_set_current_tabpage(item.tabpage)
 				state.set_toggling()
-				window.reopen_current_tab()
+				local ok, result = pcall(window.reopen_current_tab)
+				if not ok or not result then errors[#errors + 1] = ok and "terminal layout does not fit" or tostring(result) end
 				if state.win_valid(item.editor) then vim.api.nvim_set_current_win(item.editor) end
 			end
 		end
-		if vim.api.nvim_tabpage_is_valid(context.tabpage) then vim.api.nvim_set_current_tabpage(context.tabpage) end
-		if state.win_valid(context.win) then vim.api.nvim_set_current_win(context.win) end
-		require("terminal.mode").restore_scheduled(vim.api.nvim_get_current_win())
+		focus_context.restore(context.focus, true)
+		if #errors > 0 then vim.notify("Could not restore terminal views after session writing: " .. table.concat(errors, "; "), vim.log.levels.WARN) end
 	end
 	vim.api.nvim_create_autocmd("SessionWritePre", {
 		group = "Term",
@@ -303,6 +298,7 @@ function M.setup()
 			if not has_terminals then return end
 			local context = {
 				data = snapshot(), listed = {}, views = {},
+				focus = focus_context.capture(),
 				tabpage = vim.api.nvim_get_current_tabpage(), win = vim.api.nvim_get_current_win(),
 				previous_session = vim.v.this_session,
 				previous_stat = vim.uv.fs_stat(vim.v.this_session),

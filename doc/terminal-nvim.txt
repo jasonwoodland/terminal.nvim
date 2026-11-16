@@ -726,8 +726,9 @@ terminal.equalize()					*terminal.equalize()*
 
 terminal.new([{opts}])					*terminal.new()*
 		Create a new terminal tab after the current one and switch to
-		it. Returns the new buffer number, or false if the layout
-		cannot fit. See |terminal.nvim-launch-options| for optional
+		it. Returns the new buffer number, or false and a reason if
+		the layout cannot fit or its view cannot be installed. See
+		|terminal.nvim-launch-options| for optional
 		launch settings.
 
 LAUNCH OPTIONS ~				*terminal.nvim-launch-options*
@@ -775,7 +776,8 @@ terminal.split({dir} [, {opts}])			*terminal.split()*
 		space (Vim split sizing). If no terminal tab exists, a new one
 		is created. A hidden existing tab is split and opened. Accepts
 		|terminal.nvim-launch-options| and returns the new buffer
-		number, or false if the layout cannot fit.
+		number, or false and a reason if the layout cannot fit or its
+		view cannot be installed.
 
 terminal.vsplit([{opts}])				*terminal.vsplit()*
 		Split the current pane side by side; equivalent to

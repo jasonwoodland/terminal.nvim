@@ -428,6 +428,19 @@ function M.find_buf_tab(bufnr)
 	return nil, nil
 end
 
+-- Resolve live ownership without enumerating unrelated tabs or reading titles.
+function M.find_pane(bufnr)
+	if type(bufnr) ~= "number" or bufnr < 1 or bufnr % 1 ~= 0 or not M.is_managed(bufnr) then return nil end
+	local owner = vim.b[bufnr].term_owner_tab
+	for tab_index, entry in ipairs(M.get_tabs(owner)) do
+		for pane_index, buf in ipairs(entry.bufs) do
+			if buf == bufnr then
+				return { bufnr = buf, tabpage = owner, tab_index = tab_index, pane_index = pane_index, tab_id = entry.id }
+			end
+		end
+	end
+end
+
 function M.add_term_to_order(bufnr, after_bufnr)
 	local order = M.get_term_order()
 

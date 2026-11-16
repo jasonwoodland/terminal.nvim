@@ -17,246 +17,8 @@ M.config = config.config
 -- Public API
 --------------------------------------------------------------------------------
 
-local function display_result(action, ...)
-	local keys = { "term_zoom", "term_prev_height", "term_float_enabled", "term_height", "term_drawer_size" }
-	local previous = {}
-	for _, key in ipairs(keys) do previous[key] = vim.t[key] end
-	local was_open = state.is_term_open()
-	local ok, result, err = pcall(action, ...)
-	if ok and result == true then return true end
-	for _, key in ipairs(keys) do vim.t[key] = previous[key] end
-	state.sync_zoom_options()
-	if was_open and not state.is_term_open() then pcall(window.rebuild_tab) end
-	return false, ok and (err or "Terminal layout does not fit") or tostring(result)
-end
-
-local function toggle(opts)
-	state.set_toggling()
-
-	local height = vim.v.count1
-
-	if #vim.api.nvim_tabpage_list_wins(0) == 1 and not config.is_float_mode() then
-		vim.t.term_winid = nil
-		vim.t.term_winids = {}
-	end
-
-	local is_open = state.is_term_open()
-	if not is_open and vim.t.term_winid and vim.t.term_winid ~= 0 and state.win_valid(vim.t.term_winid)
-		and state.is_managed(vim.api.nvim_win_get_buf(vim.t.term_winid)) then
-		is_open = true
-	end
-	-- In non-float mode with only 1 window total, terminal is not meaningfully open
-	if is_open and not config.is_float_mode() then
-		local tab_wins = vim.api.nvim_tabpage_list_wins(0)
-		-- Exclude winbar overlay from count
-		local real_wins = 0
-		for _, w in ipairs(tab_wins) do
-			if w ~= vim.t.term_winbar_winid then
-				real_wins = real_wins + 1
-			end
-		end
-		if real_wins <= 1 then
-			is_open = false
-		end
-	end
-
-	if opts and opts.open == true and is_open then
-		return true
-	end
-	if opts and opts.open == false and not is_open then
-		return true
-	end
-
-	if is_open then
-		-- Close
-		window.save_tab_state()
-		if state.win_valid(vim.t.term_winid) and state.is_managed(vim.api.nvim_win_get_buf(vim.t.term_winid)) then
-			vim.t.term_bufnr = vim.api.nvim_win_get_buf(vim.t.term_winid)
-			vim.t.term_mode = vim.api.nvim_get_mode().mode
-		end
-		window.close_pane_windows()
-		return true
-	else
-		-- Open
-		vim.t.prev_winid = vim.api.nvim_get_current_win()
-
-		local tab, tab_idx = state.get_current_tab()
-		window.refresh_drawer_size()
-		if height > 1 then vim.t.term_height = height; vim.t.term_drawer_size = nil end
-		if not window.check_size(tab, math.max(#state.get_tabs(), 1)) then return false, "Terminal layout does not fit" end
-
-		if tab and #tab.bufs > 0 then
-			return window.open_tab_windows(tab, tab_idx)
-		else
-			-- Create a new terminal and open it via open_tab_windows
-			local bufnr = vim.api.nvim_create_buf(false, true)
-			local order = state.get_term_order()
-			table.insert(order, state.new_entry(bufnr))
-			state.set_term_order(order)
-			vim.t.term_tab_idx = #order
-			window.termopen_with_size(bufnr, nil, #order)
-			return window.reopen_current_tab()
-		end
-	end
-end
-
-function M.toggle(opts)
-	if opts ~= nil then
-		if type(opts) ~= "table" then return false, "Terminal toggle options must be a table" end
-		for key, value in pairs(opts) do
-			if key ~= "open" then return false, "Unknown terminal toggle option: " .. tostring(key) end
-			if type(value) ~= "boolean" then return false, "Terminal toggle open must be a boolean" end
-		end
-	end
-	return display_result(toggle, opts)
-end
-
-local function zoom()
-	state.set_toggling()
-
-	if not state.is_term_open() then
-		if config.is_float_config_enabled() or config.config.float_zoom then
-			vim.t.term_zoom = true
-		end
-		return M.toggle({ open = true })
-	end
-
-	if config.is_float_config_enabled() then
-		vim.t.term_zoom = (not vim.t.term_zoom) and true or nil
-		return window.rebuild_tab()
-	end
-
-	if config.config.float_zoom then
-		window.save_tab_state()
-
-		if not vim.t.term_zoom then
-			state.save_term_height()
-			vim.t.term_zoom = true
-		else
-			vim.t.term_zoom = nil
-		end
-
-		return window.rebuild_tab()
-	end
-
-	-- Non-float, non-float_zoom: old height toggle behavior
-	local wins2 = vim.t.term_winids or {}
-	if #wins2 == 0 or not state.win_valid(wins2[1]) then
-		return false, "No terminal pane is available to zoom"
-	end
-	if vim.t.term_prev_height == nil then
-		-- set before resizing so WinResized doesn't overwrite term_height
-		vim.t.term_prev_height = state.drawer_span() or vim.t.term_height
-		-- maximize; vim/set_drawer_height clamp to the available rows
-		return window.set_drawer_height(vim.o.lines)
-	else
-		local target = vim.t.term_prev_height
-		vim.t.term_prev_height = nil
-		return window.set_drawer_height(target)
-	end
-end
-
-function M.zoom()
-	return display_result(zoom)
-end
-
-local function float_toggle()
-	state.set_toggling()
-
-	-- Zoom is a layered overlay on top of float/drawer and looks the same in
-	-- either base mode, so toggling float while zoomed would be invisible.
-	-- Lift the overlay and force float on so the keystroke produces visible
-	-- feedback regardless of which base mode the zoom was sitting on top of.
-	-- Same reasoning when closed: open in float mode rather than silently
-	-- flipping a config the user can't see.
-	local force_on = (not state.is_term_open()) or (vim.t.term_zoom ~= nil)
-	local target = force_on or (not config.is_float_config_enabled())
-
-	window.save_tab_state()
-	vim.t.term_zoom = nil
-	vim.t.term_prev_height = nil
-
-	vim.t.term_float_enabled = target
-	if not target and vim.t.term_drawer_size then
-		local _, available = require("terminal.size").available(false)
-		vim.t.term_height = require("terminal.size").resolve(vim.t.term_drawer_size, available)
-	end
-
-	if not window.check_size(state.get_current_tab()) then
-		return false, "Terminal layout does not fit"
-	end
-	if state.is_term_open() then
-		return window.rebuild_tab()
-	else
-		return M.toggle({ open = true })
-	end
-end
-
-function M.float_toggle()
-	return display_result(float_toggle)
-end
-
--- Resize the current Vim tab's terminal workspace without starting jobs or
--- opening a hidden workspace. Pane proportions are retained by the renderer.
-function M.resize(opts)
-	local size = require("terminal.size")
-	local requested, err = size.validate(opts)
-	if not requested then return false, err end
-	local floating = config.is_float_config_enabled()
-	if requested.width and not floating then return false, "Drawer width is fixed; use height only" end
-	window.save_tab_state()
-	local keys = { "term_height", "term_prev_height", "term_zoom", "term_float_size", "term_drawer_size" }
-	local previous = {}
-	for _, key in ipairs(keys) do previous[key] = vim.t[key] end
-	local function rollback()
-		for _, key in ipairs(keys) do vim.t[key] = previous[key] end
-		state.sync_zoom_options()
-	end
-	vim.t.term_zoom, vim.t.term_prev_height = nil, nil
-	state.sync_zoom_options()
-	local width, height = size.available(floating)
-	for key, value in pairs(requested) do
-		if type(value) == "number" and value > (key == "width" and width or height) then
-			rollback()
-			return false, "Requested " .. key .. " exceeds the available editor area"
-		end
-	end
-	if floating then
-		vim.t.term_float_size = next(requested) and vim.tbl_extend("force", previous.term_float_size or {}, requested) or nil
-	else
-		vim.t.term_drawer_size = requested.height
-		vim.t.term_height = requested.height and size.resolve(requested.height, height) or config.get_term_height()
-	end
-	if not window.can_open_tab(state.get_current_tab()) then
-		rollback()
-		return false, "Not enough room for terminal panes"
-	end
-	if state.is_term_open() then
-		local current = vim.api.nvim_get_current_win()
-		local editor = not state.is_managed(vim.api.nvim_win_get_buf(current))
-		local was_insert = vim.fn.mode():sub(1, 1) == "i"
-		state.set_toggling()
-		local ok, result = pcall(window.rebuild_tab)
-		if not ok or result == false then
-			rollback()
-			pcall(window.rebuild_tab)
-			return false, ok and "Could not resize terminal panes" or tostring(result)
-		end
-		if editor and state.win_valid(current) then
-			vim.api.nvim_set_current_win(current)
-			vim.cmd(was_insert and "startinsert" or "stopinsert")
-		end
-	end
-	return true
-end
-
-function M.equalize()
-	if #state.get_tabs() == 0 then return false, "No terminal tabs in this Vim tab" end
-	if not state.is_term_open() then return true end
-	local ok, err = pcall(require("terminal.float_layout").equalize_panes)
-	if not ok then return false, tostring(err) end
-	return true
-end
+local display = require("terminal.display")
+for _, name in ipairs({ "toggle", "zoom", "float_toggle", "resize", "equalize" }) do M[name] = display[name] end
 
 --------------------------------------------------------------------------------
 -- Buffer switching
@@ -420,8 +182,9 @@ local function move_to_vim_tab(direction)
 
 	state.set_toggling()
 	local remaining_tabs = state.get_tabs()
+	local remaining_opened = true
 	if #remaining_tabs > 0 and new_idx2 >= 1 and new_idx2 <= #remaining_tabs then
-		window.open_tab_windows(remaining_tabs[new_idx2], new_idx2)
+		remaining_opened = window.open_tab_windows(remaining_tabs[new_idx2], new_idx2)
 	else
 		vim.t.term_winid = nil
 		vim.t.term_winids = {}
@@ -455,6 +218,7 @@ local function move_to_vim_tab(direction)
 	if not window.open_tab_windows(target_tabs[target_tab_idx], target_tab_idx) then
 		return false, "Destination terminal workspace could not be opened"
 	end
+	if not remaining_opened then return false, "Terminal tab was transferred but the source workspace could not be reopened" end
 	return true
 end
 
@@ -489,10 +253,7 @@ function M.rename(name, bufnr)
 	if type(name) ~= "string" then return false, "Terminal name must be a string" end
 	if name:find("%c") then return false, "Terminal name must not contain control characters" end
 	bufnr = bufnr or vim.api.nvim_get_current_buf()
-	local target
-	for _, item in ipairs(M.list()) do
-		if item.bufnr == bufnr then target = item; break end
-	end
+	local target = state.find_pane(bufnr)
 	if not target then return false, "Terminal is no longer managed" end
 	name = vim.trim(name)
 	vim.b[bufnr].terminal_custom_name = name ~= "" and name or nil
@@ -501,10 +262,7 @@ function M.rename(name, bufnr)
 end
 
 function M.focus(bufnr)
-	local target
-	for _, item in ipairs(M.list()) do
-		if item.bufnr == bufnr then target = item; break end
-	end
+	local target = state.find_pane(bufnr)
 	if not target then return false, "Terminal is no longer managed" end
 
 	mode.record()
@@ -533,7 +291,7 @@ function M.focus(bufnr)
 		local order = state.get_term_order()
 		order[tab_idx].focus = bufnr
 		state.set_term_order(order)
-		window.switch_to_tab(tab_idx)
+		if not window.switch_to_tab(tab_idx) then return false, "Terminal workspace could not be switched" end
 	end
 
 	local win = (vim.t.term_winids or {})[pane_idx]
@@ -568,234 +326,8 @@ function M.go_to_notification()
 	return ok, err
 end
 
-local function confirm_terminal_close(bufnr)
-	local job_id = vim.b[bufnr].terminal_job_id
-	if not job_id then
-		return true
-	end
-	local ok, pid = pcall(vim.fn.jobpid, job_id)
-	if not ok or not pid then
-		return true -- Job already exited.
-	end
-	local inspected, children = pcall(vim.api.nvim_get_proc_children, pid)
-	if inspected and #children == 0 then return true end
-	local message = inspected and "Terminal has child processes. Close anyway?"
-		or "Could not inspect terminal child processes. Close anyway?"
-	return vim.fn.confirm(message, "&Yes\n&No", 2) == 1
-end
-
--- Resolve ownership before prompting. Run in the owner's window context so
--- hidden entries and foreign Vim tabs can be edited without opening them.
-local function pane_action(bufnr, action)
-	if bufnr == nil then bufnr = vim.api.nvim_get_current_buf() end
-	local target
-	for _, item in ipairs(M.list()) do
-		if item.bufnr == bufnr then target = item; break end
-	end
-	if not target then return false, "Terminal is no longer managed" end
-	if not confirm_terminal_close(bufnr) then return false, "Terminal action cancelled" end
-	target = nil
-	for _, item in ipairs(M.list()) do
-		if item.bufnr == bufnr then target = item; break end
-	end
-	if not target then return false, "Terminal is no longer managed" end
-	local original_tab, original_win = vim.api.nvim_get_current_tabpage(), vim.api.nvim_get_current_win()
-	local original_buf, original_mode = vim.api.nvim_get_current_buf(), vim.api.nvim_get_mode().mode
-	mode.record()
-	local function run()
-		local tab_idx = state.find_buf_tab(bufnr)
-		if not tab_idx then return false, "Terminal is no longer in its workspace" end
-		return action(bufnr, tab_idx)
-	end
-	local ok, result, err
-	if target.tabpage == original_tab then
-		ok, result, err = pcall(run)
-	else
-		ok, result, err = pcall(vim.api.nvim_win_call, vim.api.nvim_tabpage_get_win(target.tabpage), run)
-	end
-	-- A visible deletion may rebuild every pane window. Restore by buffer
-	-- when the caller's original window was replaced, except for the target.
-	if original_buf ~= bufnr and vim.api.nvim_tabpage_is_valid(original_tab) then
-		local restore = state.win_valid(original_win) and original_win or nil
-		if not restore then
-			for _, win in ipairs(vim.t[original_tab].term_winids or {}) do
-				if state.win_valid(win) and vim.api.nvim_win_get_buf(win) == original_buf then restore = win; break end
-			end
-		end
-		if restore then
-			vim.api.nvim_set_current_win(restore)
-			if state.is_managed() then
-				mode.restore(restore, original_mode == "t" and "t" or "n")
-			else
-				vim.cmd(original_mode:sub(1, 1) == "i" and "startinsert" or "stopinsert")
-			end
-		end
-	end
-	state.sync_zoom_options()
-	if not ok then return false, tostring(result) end
-	return result, err
-end
-
-function M.delete(bufnr)
-	return pane_action(bufnr, function(buf, tab_idx)
-		state.set_toggling()
-		window.save_tab_state()
-		local open = state.is_term_open()
-		local tabs = state.get_tabs()
-		local strip_changes = #tabs[tab_idx].bufs == 1
-			and config.should_show_winbar(#tabs) ~= config.should_show_winbar(#tabs - 1)
-		local rebuild = open and (tab_idx == vim.t.term_tab_idx
-			or strip_changes)
-		if rebuild then window.close_pane_windows() end
-		state.remove_term_from_order(buf)
-		vim.api.nvim_buf_delete(buf, { force = true })
-		if vim.t.term_bufnr == buf then
-			local entry = state.get_current_tab()
-			vim.t.term_bufnr = entry and (entry.focus or entry.bufs[1]) or nil
-		end
-		if rebuild then window.reopen_current_tab() else winbar.update() end
-		return true
-	end)
-end
-
-local function reset_pane(old, tab_idx)
-	state.set_toggling()
-	window.save_tab_state()
-	local order = state.get_term_order()
-	local selected = vim.t.term_tab_idx
-	local replacement = vim.api.nvim_create_buf(false, true)
-	vim.b[replacement].terminal_custom_name = vim.b[old].terminal_custom_name
-	-- Start before discarding the old job. TermOpen temporarily registers the new
-	-- buffer; replace that provisional order with the original pane tree below.
-	local ok, err = pcall(window.termopen_with_size, replacement, #order[tab_idx].bufs, #order,
-		vim.b[old].terminal_launch)
-	if not ok then
-		state.set_term_order(order)
-		vim.t.term_tab_idx = selected
-		return false, tostring(err)
-	end
-	vim.b[replacement].term_mode = vim.b[old].term_mode
-	local entry = order[tab_idx]
-	for _, leaf in ipairs(require("terminal.frame").leaf_nodes(entry.layout)) do
-		if leaf.buf == old then leaf.buf = replacement end
-	end
-	if entry.focus == old then entry.focus = replacement end
-	if entry.modes then
-		entry.modes[tostring(replacement)] = entry.modes[tostring(old)]
-		entry.modes[tostring(old)] = nil
-	end
-	state.sync_bufs(entry)
-	state.set_term_order(order)
-	vim.t.term_tab_idx = selected
-	if vim.t.term_bufnr == old then vim.t.term_bufnr = replacement end
-	if state.is_term_open() and tab_idx == selected then
-		if not window.swap_tab_buffers(entry, tab_idx) then window.rebuild_tab() end
-	end
-	vim.api.nvim_buf_delete(old, { force = true })
-	return replacement
-end
-
-function M.reset(bufnr)
-	return pane_action(bufnr, reset_pane)
-end
-
-function M.new(opts)
-	opts = require("terminal.launch").normalize(opts)
-	if not window.check_size(nil, #state.get_tabs() + 1) then return false end
-	state.set_toggling()
-
-	local _, current_idx = state.get_current_tab()
-	window.save_tab_state()
-	local original = state.get_term_order()
-	local previous_id = vim.t.term_prev_tab_id
-	local previous_win = vim.api.nvim_get_current_win()
-	state.remember_current_tab()
-
-	local bufnr = vim.api.nvim_create_buf(false, true)
-
-	-- Add to order before termopen so TermOpen autocmd doesn't double-add
-	local order = state.get_term_order()
-	local insert_idx = #order == 0 and 1 or (current_idx or #order) + 1
-	local entry = state.new_entry(bufnr)
-	table.insert(order, insert_idx, entry)
-	state.set_term_order(order)
-	vim.t.term_tab_idx = insert_idx
-
-	-- Keep existing pane windows alive until the new process has started.
-	local ok, err = pcall(window.termopen_with_size, bufnr, nil, #order, opts)
-	if not ok then
-		state.set_term_order(original)
-		vim.t.term_tab_idx = current_idx
-		vim.t.term_prev_tab_id = previous_id
-		if state.win_valid(previous_win) then vim.api.nvim_set_current_win(previous_win) end
-		mode.restore_current()
-		error(err, 0)
-	end
-	window.close_pane_windows()
-
-	window.open_tab_windows(entry, insert_idx)
-	return bufnr
-end
-
--- Split the current pane. dir: "row" (vsplit, side by side) or "col"
--- (split, stacked). The new terminal goes after the current pane and takes
--- half its space (vim split sizing).
-function M.split(dir, opts)
-	dir = dir or "row"
-	assert(dir == "row" or dir == "col", "split direction must be row or col")
-	opts = require("terminal.launch").normalize(opts)
-
-	local tab, tab_idx = state.get_current_tab()
-	if not tab then
-		return M.new(opts)
-	end
-
-	-- Find current pane before closing windows
-	local current_bufnr = vim.api.nvim_get_current_buf()
-	local _, current_pane_idx = state.find_buf_tab(current_bufnr)
-
-	window.save_tab_state()
-	local original = state.get_term_order()
-	local previous_win = vim.api.nvim_get_current_win()
-	local preview = vim.deepcopy(original[tab_idx])
-	if not state.split_entry(preview, -1, current_bufnr, dir or "row")
-		or not window.check_size(preview) then return false end
-	state.set_toggling()
-
-	local bufnr = vim.api.nvim_create_buf(false, true)
-
-	-- Add to tab before termopen so TermOpen autocmd doesn't double-add
-	if not state.split_buf_in_tab(bufnr, tab_idx, current_bufnr, dir or "row") then
-		vim.api.nvim_buf_delete(bufnr, { force = true })
-		return
-	end
-
-	local ok, err = pcall(window.termopen_with_size, bufnr, #tab.bufs + 1, #state.get_term_order(), opts)
-	if not ok then
-		state.set_term_order(original)
-		vim.t.term_tab_idx = tab_idx
-		if state.win_valid(previous_win) then vim.api.nvim_set_current_win(previous_win) end
-		mode.restore_current()
-		error(err, 0)
-	end
-	window.close_pane_windows()
-
-	window.reopen_current_tab(tab_idx)
-
-	local wins = vim.t.term_winids or {}
-	if current_pane_idx and wins[current_pane_idx] then
-		vim.t.term_prev_pane_winid = wins[current_pane_idx]
-	end
-	return bufnr
-end
-
-function M.vsplit(opts)
-	return M.split("row", opts)
-end
-
-function M.hsplit(opts)
-	return M.split("col", opts)
-end
+local lifecycle = require("terminal.lifecycle")
+for _, name in ipairs({ "new", "split", "vsplit", "hsplit", "delete", "reset" }) do M[name] = lifecycle[name] end
 
 -- Like CTRL-W_T: move the current pane out of its split into a new terminal
 -- tab of its own. Fails if the pane's tab has only one pane.
@@ -852,10 +384,7 @@ end
 function M.send(text, bufnr)
 	if type(text) ~= "string" then return false, "Terminal text must be a string" end
 	if bufnr == nil then bufnr = vim.t.term_bufnr end
-	local target
-	for _, item in ipairs(M.list()) do
-		if item.bufnr == bufnr then target = item; break end
-	end
+	local target = state.find_pane(bufnr)
 	if not target then return false, "Terminal is no longer managed or no pane is selected" end
 	local job = vim.b[bufnr].terminal_job_id
 	if not job then return false, "Terminal has no job" end

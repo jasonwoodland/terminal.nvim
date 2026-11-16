@@ -272,15 +272,14 @@ function M.apply_layout(entry)
 	local window = require("terminal.window")
 
 	if not config.is_float_mode() then
-		window.apply_drawer_sizes(entry)
+		if not window.apply_drawer_sizes(entry) then return window.rebuild_tab() end
 		window.save_layout_sizes()
-		return
+		return true
 	end
 
 	local wins = vim.t.term_winids or {}
 	if #wins == 0 or #wins ~= #entry.bufs then
-		window.rebuild_tab()
-		return
+		return window.rebuild_tab()
 	end
 
 	local base = window.get_float_win_config()
@@ -291,8 +290,7 @@ function M.apply_layout(entry)
 		local rect = rects[buf]
 		local win = wins[i]
 		if not rect or not state.win_valid(win) then
-			window.rebuild_tab()
-			return
+			return window.rebuild_tab()
 		end
 		local cfg = vim.api.nvim_win_get_config(win)
 		cfg.relative = "editor"
@@ -307,6 +305,7 @@ function M.apply_layout(entry)
 	window.save_layout_sizes()
 	winbar.update()
 	statusline.update()
+	return true
 end
 
 -- CTRL-W =: vim's win_equal over the layout tree, in both modes.
@@ -314,19 +313,19 @@ function M.equalize_panes()
 	local window = require("terminal.window")
 	local tab, tab_idx = state.get_current_tab()
 	if not tab or #tab.bufs < 2 then
-		return
+		return true
 	end
 
 	window.save_layout_sizes()
 	local order = state.get_term_order()
 	local entry = order[tab_idx]
 	if not entry or not entry.layout then
-		return
+		return false
 	end
 	frame.equalize(entry.layout, entry.layout.w, entry.layout.h)
 	state.set_term_order(order)
 
-	M.apply_layout(entry)
+	return M.apply_layout(entry)
 end
 
 -- The separator (if any) at the given mouse position, along with the tab

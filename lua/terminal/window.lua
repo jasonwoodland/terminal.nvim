@@ -12,6 +12,7 @@ local bufname = require("terminal.bufname")
 local overlay = require("terminal.overlay")
 local float_layout = require("terminal.float_layout")
 local activity = require("terminal.activity")
+local context = require("terminal.context")
 
 local closing_pane_windows = false
 
@@ -306,8 +307,9 @@ function M.apply_drawer_sizes(entry)
 	local wins = vim.t.term_winids or {}
 	local leaves = frame.leaf_nodes(entry.layout)
 	if #wins ~= #leaves then
-		return
+		return false
 	end
+	for _, win in ipairs(wins) do if not state.win_valid(win) then return false end end
 	for _, win in ipairs(wins) do
 		if state.win_valid(win) then
 			vim.wo[win].winfixheight = false
@@ -329,6 +331,7 @@ function M.apply_drawer_sizes(entry)
 			vim.wo[win].winfixheight = true
 		end
 	end
+	return true
 end
 
 -- Reapply a requested drawer size after the available screen area changes.
@@ -341,15 +344,14 @@ function M.refresh_drawer_size()
 	local previous = vim.t.term_height
 	vim.t.term_height = target
 	if not M.can_open_tab(state.get_current_tab()) then vim.t.term_height = previous; return end
-	local current = vim.api.nvim_get_current_win()
-	local editor = not state.is_managed(vim.api.nvim_win_get_buf(current))
-	local was_insert = vim.fn.mode():sub(1, 1) == "i"
+	local caller = context.capture()
 	state.set_toggling()
-	M.set_drawer_height(target)
-	if editor and state.win_valid(current) then
-		vim.api.nvim_set_current_win(current)
-		vim.cmd(was_insert and "startinsert" or "stopinsert")
+	if not M.set_drawer_height(target) then
+		vim.t.term_height = previous
+		return false, "Terminal drawer could not be resized"
 	end
+	if not caller.managed then context.restore(caller) end
+	return true
 end
 
 -- Set the drawer's total height (rows spanned by all panes). Single panes
@@ -364,12 +366,11 @@ function M.set_drawer_height(target)
 		return true
 	end
 	if #wins == 1 then
-		if state.win_valid(wins[1]) then
-			vim.api.nvim_win_call(wins[1], function()
-				vim.api.nvim_win_set_height(0, target)
-			end)
-			M.save_layout_sizes()
-		end
+		if not state.win_valid(wins[1]) then return false end
+		vim.api.nvim_win_call(wins[1], function()
+			vim.api.nvim_win_set_height(0, target)
+		end)
+		M.save_layout_sizes()
 	else
 		state.set_toggling()
 		if not M.rebuild_tab() then return false end
@@ -669,6 +670,15 @@ function M.rebuild_tab(target_idx, tabs)
 	M.save_tab_state()
 	M.close_pane_windows()
 	return M.reopen_current_tab(target_idx, tabs) or entry == nil
+end
+
+-- Best-effort view recovery must not hide a second failure from the caller.
+function M.recover_tab(reason)
+	local ok, result = pcall(M.rebuild_tab)
+	if not ok or not result then
+		return reason .. "; could not restore terminal workspace: " .. (ok and "layout does not fit" or tostring(result))
+	end
+	return reason
 end
 
 function M.swap_tab_buffers(target_entry, target_idx)
