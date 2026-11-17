@@ -356,8 +356,9 @@ plugins' terminals retain native exit behavior and are excluded from picker
 results, mode tracking, input mappings, title handling, notifications and
 color queries. Auxiliary TermJob/FugitiveJob buffers retain their separate
 policy above.
-Closing a Vim tab stops and deletes all managed terminal jobs owned by that
-tab, including hidden panes. Ordinary terminals are unaffected.
+Closing a Vim tab appends its managed terminal tabs to the Vim tab you land in,
+including hidden panes, preserving jobs, layouts and names. The destination's
+selection and drawer visibility are unchanged. Ordinary terminals are unaffected.
 
 ==============================================================================
 6. Mappings					*terminal.nvim-mappings*

@@ -8,6 +8,9 @@ local frame = require("terminal.frame")
 local leaving_cmdheight = nil
 local saved_ruler = nil
 local last_notification_bufnr = nil
+-- Tab-local variables disappear on closure; retain orders for adoption by
+-- the surviving tab, including on Neovim versions without TabClosedPre.
+local workspace_orders = {}
 
 function M.clamp(val, min, max)
 	if val < min then return min end
@@ -342,6 +345,7 @@ function M.get_term_order(tabpage)
 		vars.term_prev_tab_id = previous and previous.id or nil
 		vars.term_prev_tab_idx = nil
 	end
+	workspace_orders[tabpage or vim.api.nvim_get_current_tabpage()] = order
 	return order
 end
 
@@ -359,8 +363,41 @@ function M.set_term_order(order, tabpage)
 		if entry.id == previous_id then previous_exists = true end
 	end
 	vars.term_order = order
+	workspace_orders[tabpage or vim.api.nvim_get_current_tabpage()] = vim.deepcopy(order)
 	vars.term_tab_idx = selected_idx or M.clamp(old_idx, 1, math.max(#order, 1))
 	if not previous_exists then vars.term_prev_tab_id = nil end
+end
+
+function M.adopt_closed_tabs()
+	local target = vim.api.nvim_get_current_tabpage()
+	local order = M.get_term_order(target)
+	local closed = {}
+	for owner in pairs(workspace_orders) do
+		if not vim.api.nvim_tabpage_is_valid(owner) then closed[#closed + 1] = owner end
+	end
+	table.sort(closed)
+	for _, owner in ipairs(closed) do
+		for _, entry in ipairs(workspace_orders[owner]) do
+			local retained = {}
+			for _, buf in ipairs(entry.bufs) do
+				if vim.api.nvim_buf_is_valid(buf) and vim.b[buf].terminal_managed
+					and vim.b[buf].term_owner_tab == owner then
+					vim.b[buf].term_owner_tab = target
+					retained[#retained + 1] = buf
+				elseif entry.layout then
+					entry.layout = select(1, frame.remove(entry.layout, buf))
+				end
+			end
+			if #retained > 0 and entry.layout then
+				M.sync_bufs(entry)
+				order[#order + 1] = entry
+			end
+		end
+		workspace_orders[owner] = nil
+	end
+	M.set_term_order(order, target)
+	-- Prune panes that exited or changed owners since the last snapshot.
+	M.get_tabs(target)
 end
 
 function M.remember_current_tab()

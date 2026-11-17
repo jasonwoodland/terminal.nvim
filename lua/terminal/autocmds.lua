@@ -410,7 +410,10 @@ function M.setup(api)
 	})
 	vim.api.nvim_create_autocmd("TabLeave", {
 		group = "Term",
-		callback = state.leave_tab,
+		callback = function()
+			window.save_tab_state()
+			state.leave_tab()
+		end,
 	})
 	vim.api.nvim_create_autocmd("WinClosed", {
 		group = "Term",
@@ -421,16 +424,7 @@ function M.setup(api)
 	vim.api.nvim_create_autocmd("TabClosed", {
 		group = "Term",
 		callback = function()
-			-- TabClosed does not stop terminal jobs. Retire only our buffers
-			-- whose owner disappeared; ownership may change before this runs.
-			vim.schedule(function()
-				for _, buf in ipairs(vim.api.nvim_list_bufs()) do
-					local owner = vim.b[buf].term_owner_tab
-					if vim.b[buf].terminal_managed and owner and not vim.api.nvim_tabpage_is_valid(owner) then
-						vim.api.nvim_buf_delete(buf, { force = true })
-					end
-				end
-			end)
+			state.adopt_closed_tabs()
 			state.defer_view(state.capture_view(), function()
 				update_float_win_config()
 				winbar.update()
