@@ -102,9 +102,8 @@ function M.update()
 	local cache = _stl_cache[tabpage] or {}
 	local new_cache = {}
 
-	-- Right edge of the pane area: statuslines of panes that don't reach it
-	-- extend one cell to cover the separator column (like vim's statusline
-	-- under a vertical separator).
+	-- Extend across a separator only where the pane to the right also ends.
+	-- A taller neighbour needs its vertical divider to remain visible.
 	local right_edge = 0
 	for _, win in ipairs(wins) do
 		if state.win_valid(win) then
@@ -128,6 +127,18 @@ function M.update()
 		local width = vim.api.nvim_win_get_width(win)
 		local stl_row = cfg.row + cfg.height
 		local has_right = (cfg.col + cfg.width) < right_edge
+		if has_right then
+			for _, other in ipairs(wins) do
+				if state.win_valid(other) then
+					local c = vim.api.nvim_win_get_config(other)
+					if c.relative and c.relative ~= "" and c.col == cfg.col + cfg.width + 1
+						and c.row <= stl_row and c.row + c.height > stl_row then
+						has_right = false
+						break
+					end
+				end
+			end
+		end
 		local stl_col = cfg.col
 		local stl_width = width + (has_right and 1 or 0)
 		local hl = (win == current_win) and "Normal:StatusLine" or "Normal:StatusLineNC"

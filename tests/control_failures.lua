@@ -29,6 +29,43 @@ local ok, err = pcall(function()
 		require('terminal.mode').record()
 		window.save_tab_state()
 		local before = state.get_tabs()
+		local panes = require('terminal.panes')
+		for _, failure in ipairs({'error', 'false'}) do
+			local reopen, attempts = window.reopen_current_tab, 0
+			local notify = vim.notify
+			local reported
+			vim.notify = function(message) reported = message end
+			window.reopen_current_tab = function(...)
+				attempts = attempts + 1
+				if attempts == 1 then
+					if failure == 'error' then error('Vim:E36: Not enough room') end
+					return false
+				end
+				return reopen(...)
+			end
+			panes.splitmove('bottom')
+			window.reopen_current_tab, vim.notify = reopen, notify
+			assert(reported and attempts == 2, 'failed structural move reports and restores the drawer')
+			unchanged(before, two, 'failed structural move restores old layout and focus')
+			assert(terminal.toggle({open=false}) ~= false)
+			assert(terminal.toggle({open=true}) ~= false)
+			unchanged(before, two, 'drawer can still toggle after a failed structural move')
+		end
+		local set_buf, notify = vim.api.nvim_win_set_buf, vim.notify
+		local failed_attachment = false
+		vim.notify = function() end
+		vim.api.nvim_win_set_buf = function(win, buf)
+			if not failed_attachment and (buf == one or buf == two) then
+				failed_attachment = true
+				error('Vim:E36: Not enough room')
+			end
+			return set_buf(win, buf)
+		end
+		local eventignore = vim.o.eventignore
+		panes.splitmove('bottom')
+		vim.api.nvim_win_set_buf, vim.notify = set_buf, notify
+		assert(failed_attachment and vim.o.eventignore == eventignore)
+		unchanged(before, two, 'partial window construction is cleaned up before rollback')
 		local open, calls = window.open_tab_windows, 0
 		window.open_tab_windows = function(...)
 			calls = calls + 1

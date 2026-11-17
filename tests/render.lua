@@ -76,3 +76,30 @@ render.update_canvas(nested, plain)
 assert(divider() == '├', 'leaving zoom restores separator junctions with identical geometry')
 render.close_canvas()
 print('Canvas rendering regressions passed')
+
+-- A stacked left column beside a full-height right pane: the upper
+-- statusline must leave the vertical canvas divider uncovered.
+local statusline = require('terminal.statusline')
+local pane_buf = vim.api.nvim_create_buf(false, true)
+local function pane(row, col, width, height)
+	return vim.api.nvim_open_win(pane_buf, false, {
+		relative='editor', row=row, col=col, width=width, height=height,
+		style='minimal', border='none',
+	})
+end
+local upper, lower, right = pane(0, 0, 9, 3), pane(4, 0, 9, 4), pane(0, 10, 10, 8)
+vim.t.term_zoom = true
+vim.t.term_winids = {upper, lower, right}
+statusline.update()
+local seen = {}
+for _, overlay in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+	local b = vim.api.nvim_win_get_buf(overlay)
+	local owner = vim.b[b].terminal_stl_pane
+	if owner then seen[owner] = vim.api.nvim_win_get_width(overlay) end
+end
+assert(seen[upper] == 9, 'upper statusline leaves the continuing vertical divider visible')
+assert(seen[lower] == 10, 'bottom statusline covers the separator at aligned pane bottoms')
+assert(seen[right] == 10, 'rightmost statusline stays within the pane width')
+statusline.close()
+for _, w in ipairs({upper, lower, right}) do vim.api.nvim_win_close(w, true) end
+print('Zoom statusline divider regressions passed')

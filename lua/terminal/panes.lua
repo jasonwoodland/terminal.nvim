@@ -273,15 +273,21 @@ local function structural_op(fn)
 	if not window.check_size(probe) then return end
 	state.set_toggling()
 	window.save_tab_state()
+	local order = state.get_term_order()
+	local previous = vim.deepcopy(order)
 	window.close_pane_windows()
 
-	local order = state.get_term_order()
 	local entry = order[tab_idx]
 	fn(entry, bufnr, false)
 	state.sync_bufs(entry)
 	state.set_term_order(order)
 
-	window.reopen_current_tab(tab_idx)
+	local ok, result = pcall(window.reopen_current_tab, tab_idx)
+	if not ok or not result then
+		state.set_term_order(previous)
+		local reason = ok and "Terminal layout could not be opened" or tostring(result)
+		vim.notify(window.recover_tab(reason), vim.log.levels.ERROR)
+	end
 end
 
 -- CTRL-W r / R: rotate the sibling slots of the current pane's parent frame.
@@ -317,6 +323,12 @@ end
 function M.splitmove(edge)
 	structural_op(function(entry, bufnr)
 		entry.layout = frame.splitmove(entry.layout, bufnr, edge)
+		-- Edge moves change the split topology; distribute the existing
+		-- workspace evenly instead of preserving the moved pane's old size.
+		local layout = entry.layout
+		if frame.fits(layout, layout.w, layout.h) then
+			frame.equalize(layout, layout.w, layout.h)
+		end
 		entry.focus = bufnr
 		return true
 	end)
