@@ -85,6 +85,15 @@ local function render_winbar_content()
 			end_col = range.end_col,
 		})
 	end
+	local active = winbar_click_ranges[current_idx]
+	if active then
+		return {
+			byte = active.start_col,
+			start_col = vim.fn.strdisplaywidth(line:sub(1, active.start_col)),
+			end_col = vim.fn.strdisplaywidth(line:sub(1, active.end_col)),
+			total = vim.fn.strdisplaywidth(line),
+		}
+	end
 end
 
 function M.get_term_windows()
@@ -227,7 +236,7 @@ local function _do_update()
 		vim.bo[winbar_bufnr].buftype = "nofile"
 	end
 
-	render_winbar_content()
+	local active = render_winbar_content()
 
 	local cfg = get_winbar_overlay_config()
 	if not cfg then
@@ -250,6 +259,26 @@ local function _do_update()
 	vim.wo[winbar_winid].number = false
 	vim.wo[winbar_winid].relativenumber = false
 	vim.wo[winbar_winid].signcolumn = "no"
+	vim.wo[winbar_winid].wrap = false
+	vim.wo[winbar_winid].sidescrolloff = 0
+	vim.wo[winbar_winid].list = false
+	vim.wo[winbar_winid].scrolloff = 0
+	if active then
+		local width = cfg.width
+		local left = vim.t.term_winbar_leftcol or 0
+		if active.start_col < left or active.end_col - active.start_col > width then
+			left = active.start_col
+		elseif active.end_col > left + width then
+			left = active.end_col - width
+		end
+		left = math.max(0, math.min(left, active.total - width))
+		vim.t.term_winbar_leftcol = left
+		-- Keep click ranges in buffer byte columns: getmousepos().column
+		-- already accounts for the window's horizontal scroll and UTF-8.
+		vim.api.nvim_win_call(winbar_winid, function()
+			vim.fn.winrestview({ lnum = 1, col = active.byte, leftcol = left, skipcol = 0 })
+		end)
+	end
 end
 
 function M.update()
