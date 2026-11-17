@@ -5,9 +5,15 @@ function M.start(root, width, height)
 	local uv = vim.uv
 	local input, output, errors = uv.new_pipe(false), uv.new_pipe(false), uv.new_pipe(false)
 	local exited, stderr, replies, sequence = false, {}, {}, 0
+	local exit_code, exit_signal, closed
+	local shutting_down, output_done, stderr_done = false, false, false
+	local child_errors = {}
 	local process = assert(uv.spawn(vim.v.progpath, {
 		args = { "--clean", "--embed" }, stdio = { input, output, errors },
-	}, function() exited = true end))
+	}, function(code, signal)
+		exited, exit_code, exit_signal = true, code, signal
+		if not shutting_down then child_errors[#child_errors + 1] = "UI child exited before teardown" end
+	end))
 	local decode_handle = function(_, data) return vim.mpack.decode(data) end
 	local unpack = vim.mpack.Unpacker({ ext = { [0] = decode_handle, [1] = decode_handle, [2] = decode_handle } })
 	local ui = { redraws = 0 }
@@ -23,7 +29,7 @@ function M.start(root, width, height)
 	end
 	output:read_start(function(err, data)
 		assert(not err, err)
-		if not data then return end
+		if not data then output_done = true; return end
 		local pos, message = 1
 		while pos <= #data do
 			message, pos = unpack(data, pos)
@@ -32,6 +38,16 @@ function M.start(root, width, height)
 				if message[1] == 2 and message[2] == "redraw" then
 					ui.redraws = ui.redraws + 1
 					for _, event in ipairs(message[3]) do
+						if event[1] == "msg_show" then
+							for i = 2, #event do
+								local kind, chunks = event[i][1], event[i][2]
+								if kind == "emsg" or kind == "lua_error" or kind == "rpc_error" or kind == "echoerr" then
+									local parts = {}
+									for _, chunk in ipairs(chunks) do parts[#parts + 1] = chunk[2] end
+									child_errors[#child_errors + 1] = table.concat(parts)
+								end
+							end
+						end
 						if event[1] == "grid_clear" or event[1] == "grid_resize" then rows = {} end
 						if event[1] == "grid_line" then
 							for i = 2, #event do
@@ -48,7 +64,9 @@ function M.start(root, width, height)
 			end
 		end
 	end)
-	errors:read_start(function(_, data) if data then stderr[#stderr + 1] = data end end)
+	errors:read_start(function(_, data)
+		if data then stderr[#stderr + 1] = data else stderr_done = true end
+	end)
 	function ui.request(method, ...)
 		sequence = sequence + 1
 		local id = sequence
@@ -71,16 +89,33 @@ function M.start(root, width, height)
 		assert(ok, message .. ": " .. vim.inspect(last))
 	end
 	function ui.close()
+		if closed then return end
+		closed = true
 		if not exited then
+			local ok, message = pcall(ui.lua, "return vim.v.errmsg")
+			if not ok or message ~= "" then child_errors[#child_errors + 1] = tostring(message) end
+			shutting_down = true
 			input:write(vim.mpack.encode({ 2, "nvim_command", { "qa!" } }))
-			if not vim.wait(1000, function() return exited end, 10) then process:kill("sigkill") end
+			if not vim.wait(1000, function() return exited end, 10) then
+				child_errors[#child_errors + 1] = "UI child did not shut down"
+				process:kill("sigkill")
+				vim.wait(1000, function() return exited end, 10)
+			end
+		end
+		if not vim.wait(500, function() return output_done and stderr_done end, 10) then
+			child_errors[#child_errors + 1] = "UI child streams did not close"
 		end
 		for _, handle in ipairs({ input, output, errors, process }) do
 			if not handle:is_closing() then handle:close() end
 		end
+		if exit_code ~= 0 or exit_signal ~= 0 then
+			child_errors[#child_errors + 1] = ("UI child exited with code %s, signal %s"):format(tostring(exit_code), tostring(exit_signal))
+		end
+		if #stderr > 0 then child_errors[#child_errors + 1] = table.concat(stderr) end
+		assert(#child_errors == 0, table.concat(child_errors, "\n"))
 	end
 	local ok, err = pcall(function()
-		ui.request("nvim_ui_attach", width or 100, height or 36, { rgb = true, ext_linegrid = true })
+		ui.request("nvim_ui_attach", width or 100, height or 36, { rgb = true, ext_linegrid = true, ext_messages = true })
 		ui.lua("vim.opt.runtimepath:prepend(...); vim.env.SHELL = '/bin/sh'; vim.o.swapfile = false", root)
 	end)
 	if not ok then ui.close(); error(err) end

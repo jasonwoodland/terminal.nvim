@@ -6,7 +6,10 @@ local utils = require("terminal.utils")
 
 function M.setup(api)
 	local function launch(action)
-		return function(opts) action(opts.args ~= "" and { cmd = opts.args } or nil) end
+		return function(opts)
+			local ok, err = action(opts.args ~= "" and { cmd = opts.args } or nil)
+			if ok == false then vim.notify(err, vim.log.levels.WARN) end
+		end
 	end
 	vim.api.nvim_create_user_command("TermNew", launch(api.new), { nargs = "*", desc = "Create a terminal tab, optionally running a command" })
 	vim.api.nvim_create_user_command("TermSplit", launch(api.hsplit), { nargs = "*" })

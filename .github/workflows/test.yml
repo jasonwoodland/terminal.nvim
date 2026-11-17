@@ -48,10 +48,26 @@ jobs:
           PY
           tar -xzf "$archive.tar.gz"
           echo "$install_dir/$archive/bin" >> "$GITHUB_PATH"
+      - name: Install pinned picker test dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          export TELESCOPE_PATH="$RUNNER_TEMP/terminal-test-deps/telescope.nvim"
+          export PLENARY_PATH="$RUNNER_TEMP/terminal-test-deps/plenary.nvim"
+          echo "TELESCOPE_PATH=$TELESCOPE_PATH" >> "$GITHUB_ENV"
+          echo "PLENARY_PATH=$PLENARY_PATH" >> "$GITHUB_ENV"
+          mkdir -p "$TELESCOPE_PATH" "$PLENARY_PATH"
+          git init "$TELESCOPE_PATH"
+          git -C "$TELESCOPE_PATH" fetch --depth=1 https://github.com/nvim-telescope/telescope.nvim.git 5255aa27c422de944791318024167ad5d40aad20
+          git -C "$TELESCOPE_PATH" checkout --detach FETCH_HEAD
+          git init "$PLENARY_PATH"
+          git -C "$PLENARY_PATH" fetch --depth=1 https://github.com/nvim-lua/plenary.nvim.git 74b06c6c75e4eeb3108ec01852001636d85a932b
+          git -C "$PLENARY_PATH" checkout --detach FETCH_HEAD
       - name: Run headless and attached-UI suites
         run: |
           nvim --version
-          python3 scripts/test.py
+          python3 scripts/test_runner_test.py
+          python3 scripts/test.py --require-test telescope.lua
       - name: Check generated help tags
         run: |
           nvim --clean --headless '+helptags doc' +qa

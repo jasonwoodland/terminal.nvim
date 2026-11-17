@@ -12,15 +12,15 @@ Contents					*terminal.nvim-contents*
     4. Configuration ....................... |terminal.nvim-configuration|
     5. Commands ............................ |terminal.nvim-commands|
     6. Mappings ............................ |terminal.nvim-mappings|
-	Toggle and Zoom .................... |terminal.nvim-map-toggle|
+	Toggle and zoom .................... |terminal.nvim-map-toggle|
 	Tabs ............................... |terminal.nvim-map-tabs|
-	Vim Tabs ........................... |terminal.nvim-map-vim-tabs|
+	Vim tabs ........................... |terminal.nvim-map-vim-tabs|
 	Panes .............................. |terminal.nvim-map-panes|
 	Notifications ...................... |terminal.nvim-map-notifications|
 	Registers .......................... |terminal.nvim-map-registers|
 	Digraphs ........................... |terminal.nvim-map-digraph|
-	Window Commands .................... |terminal.nvim-wincmd|
-	<C-w> Overrides .................... |terminal.nvim-cw-override|
+	Window commands .................... |terminal.nvim-wincmd|
+	<C-w> overrides .................... |terminal.nvim-cw-override|
     7. Functions ........................... |terminal.nvim-functions|
     8. Appendix ............................ |terminal.nvim-appendix|
 	Restart and sessions ............... |terminal.nvim-restart|
@@ -123,12 +123,12 @@ the full default configuration: >lua
       },
     })
 <
-height ~					*terminal.nvim-opt-height*
+height						*terminal.nvim-opt-height*
 		Terminal drawer height. An integer is treated as an absolute
 		number of lines; a float between 0 and 1 is treated as a
 		fraction of 'lines'. Default: `0.5` (half the screen).
 
-drawer ~					*terminal.nvim-opt-drawer*
+drawer						*terminal.nvim-opt-drawer*
 		Options applied to terminal panes while they are in drawer
 		mode: >lua
 
@@ -142,7 +142,7 @@ drawer ~					*terminal.nvim-opt-drawer*
 		normal window-closing behaviour. It is disabled for floating
 		and zoomed terminal panes. Default: `true`.
 
-winbar ~					*terminal.nvim-opt-winbar*
+winbar						*terminal.nvim-opt-winbar*
 		When true, enables a clickable terminal-tab strip in the
 		'winbar' area of the topmost terminal pane. By default it is
 		drawn only when there are two or more terminal tabs; see
@@ -156,7 +156,7 @@ show_winbar_when_single_tab ~
 		winbar appears only when there are two or more terminal tabs.
 		Requires `winbar = true`. Default: `false`.
 
-set_buffer_name ~			*terminal.nvim-opt-set_buffer_name*
+set_buffer_name				*terminal.nvim-opt-set_buffer_name*
 		When true, names terminal buffers from their OSC title using
 		the format `term://{terminal-job-pid}//{title}`. On Neovim
 		versions before 0.13, an inactive terminal's rename is
@@ -165,7 +165,7 @@ set_buffer_name ~			*terminal.nvim-opt-set_buffer_name*
 		modify 'title' or 'titlestring'; Neovim's normal title
 		handling follows the renamed active buffer. Default: `true`.
 
-float ~						*terminal.nvim-opt-float*
+float						*terminal.nvim-opt-float*
 		Initial window mode. Set to `false` to start in drawer mode,
 		`true` to enable with default layout, or provide a table to
 		customise. The default is a table with `enabled = false`, so
@@ -223,28 +223,28 @@ float ~						*terminal.nvim-opt-float*
 		normal (non-zoomed) state; float zoom remains opaque and
 		full-screen.
 
-float_zoom ~					*terminal.nvim-opt-float_zoom*
+float_zoom					*terminal.nvim-opt-float_zoom*
 		When true, |terminal.zoom()| produces a fullscreen floating
 		zoom window even in drawer mode. When false, zoom instead
 		grows the drawer to the largest possible height. Default:
 		`true`.
 
-float_zoom_show_tabline ~	*terminal.nvim-opt-float_zoom_show_tabline*
+float_zoom_show_tabline		*terminal.nvim-opt-float_zoom_show_tabline*
 		Whether to keep the 'tabline' visible while a float zoom is
 		active. Default: `true`.
 
-float_zoom_hide_cmdline ~	*terminal.nvim-opt-float_zoom_hide_cmdline*
+float_zoom_hide_cmdline		*terminal.nvim-opt-float_zoom_hide_cmdline*
 		Whether to hide the |cmdline| while a float zoom is active.
 		Default: `false`.
 
-osc_notifications ~			*terminal.nvim-opt-osc_notifications*
+osc_notifications			*terminal.nvim-opt-osc_notifications*
 		When true, OSC 9 / OSC 99 / OSC 777 escape sequences from
 		terminal programs are passed through to your host terminal
 		emulator and also recorded so |terminal.go_to_notification()|
 		(mapped to `<C-S-a>` by default) can jump to the originating
 		buffer. Default: `true`.
 
-osc_colors ~					*terminal.nvim-opt-osc_colors*
+osc_colors					*terminal.nvim-opt-osc_colors*
 		Answer OSC 10/11 queries with the current |hl-Normal|
 		foreground and background when 'termguicolors' is enabled.
 		Default: `true`. Applies only to managed terminal buffers,
@@ -255,14 +255,14 @@ osc_colors ~					*terminal.nvim-opt-osc_colors*
 		responder. Remove any existing color-query workaround before
 		enabling this option.
 
-cabbrev ~					*terminal.nvim-opt-cabbrev*
+cabbrev						*terminal.nvim-opt-cabbrev*
 		Enable command-line abbreviations listed in
 		|terminal.nvim-commands|. Default: `true`. Expansion requires
 		the command line to contain exactly the alias. Set `false` to
 		leave existing abbreviations unchanged. Independent of
 		|terminal.nvim-opt-keys|.
 
-keys ~						*terminal.nvim-opt-keys*
+keys						*terminal.nvim-opt-keys*
 		A table mapping action names to key sequences. Set any entry
 		to `false` to disable that mapping, or set `keys = false` to
 		disable every default keyboard mapping. Mouse handlers remain
@@ -356,6 +356,8 @@ plugins' terminals retain native exit behavior and are excluded from picker
 results, mode tracking, input mappings, title handling, notifications and
 color queries. Auxiliary TermJob/FugitiveJob buffers retain their separate
 policy above.
+Closing a Vim tab stops and deletes all managed terminal jobs owned by that
+tab, including hidden panes. Ordinary terminals are unaffected.
 
 ==============================================================================
 6. Mappings					*terminal.nvim-mappings*
@@ -372,7 +374,7 @@ to terminal tab 1 through 9 by index. The pattern is configurable via the
 to `false` to disable these maps).
 
 ------------------------------------------------------------------------------
-Toggle and Zoom					*terminal.nvim-map-toggle*
+Toggle and zoom					*terminal.nvim-map-toggle*
 
 <C-S-Space>					*terminal.nvim-<C-S-Space>*
 		Toggle the terminal open or closed. When closed, opens the
@@ -435,11 +437,11 @@ Tabs						*terminal.nvim-map-tabs*
 		Move the current terminal tab one position to the right within
 		its Vim tab. Calls |terminal.move()| with `1`.
 
-<C-S-o>			 			*terminal.nvim-<C-S-o>*
+<C-S-o>						*terminal.nvim-<C-S-o>*
 		Jump to the last-visited terminal tab.
 
 ------------------------------------------------------------------------------
-Vim Tabs					*terminal.nvim-map-vim-tabs*
+Vim tabs					*terminal.nvim-map-vim-tabs*
 
 These mappings operate on Neovim's own tab pages while preserving the active
 terminal mode, so switching back into a terminal pane resumes Terminal mode
@@ -536,9 +538,9 @@ Digraphs					*terminal.nvim-map-digraph*
 		session and releases its indicator.
 
 ------------------------------------------------------------------------------
-Window Commands						*terminal.nvim-wincmd*
+Window commands						*terminal.nvim-wincmd*
 
-Mouse scrolling and following			*terminal.nvim-mouse-follow*
+MOUSE SCROLLING AND FOLLOWING			*terminal.nvim-mouse-follow*
 
 Scrolling up with the mouse wheel in an inactive terminal pane pauses
 following without taking focus or changing its saved terminal mode. Scrolling
@@ -565,7 +567,7 @@ with all Vim options. Rotating beside a split sibling reports |E443|.
 Separators and statuslines between stacked drawer panes support mouse
 dragging.
 
-Navigation
+Navigation ~
 
 w		Cycle to the next window; with [count], go to window N (like
 		|CTRL-W_w|).
@@ -581,7 +583,7 @@ b		Focus the bottom-right window (like |CTRL-W_b|).
 Like directional navigation, t/b include editor windows in drawer mode
 and stay within the current terminal tab's panes in float mode.
 
-Pane management
+Pane management ~
 
 v		Split side by side; add a new pane to the right (like
 		|CTRL-W_v|).
@@ -592,7 +594,7 @@ T		Break the current pane out into a new terminal tab immediately
 		after the current tab (like |CTRL-W_T|). Does nothing when the
 		current tab has only one pane.
 
-Resize
+Resize ~
 
 >		Grow current pane width by [count] (default 1).
 <		Shrink current pane width by [count] (default 1).
@@ -615,7 +617,7 @@ commands redistribute within the existing bounds. Use |terminal.resize()| or
 |terminal.nvim-:TermResize| to resize the whole workspace proportionally. Pane
 height changes replace any percentage drawer size previously set by TermResize.
 
-MOVE, ROTATE AND EXCHANGE ~
+Move, rotate and exchange ~
 
 H		Move the current pane to the far left, full height
 		(|CTRL-W_H|).
@@ -631,7 +633,7 @@ x		Exchange the current pane with the next one; with [count],
 		with pane N of the current row/column (|CTRL-W_x|).
 
 ------------------------------------------------------------------------------
-<C-w> Overrides					*terminal.nvim-cw-override*
+<C-w> overrides					*terminal.nvim-cw-override*
 
 When the cursor is in a terminal pane in Normal mode, terminal.nvim handles
 the |CTRL-W| sub-commands using the same sub-keys documented in
@@ -731,7 +733,7 @@ terminal.new([{opts}])					*terminal.new()*
 		|terminal.nvim-launch-options| for optional
 		launch settings.
 
-LAUNCH OPTIONS ~				*terminal.nvim-launch-options*
+LAUNCH OPTIONS					*terminal.nvim-launch-options*
 
 new(), vsplit(), hsplit() and split(dir, opts) accept these optional fields:
 	cmd	String (run through the shell) or argument list (run directly).
@@ -830,6 +832,8 @@ terminal.move_to_vim_tab({direction})		*terminal.move_to_vim_tab()*
 		reason for an invalid direction, no focused managed pane, no
 		adjacent Vim tab, insufficient room, or failure. Layout fit is
 		checked before changing ownership or closing windows.
+		If rendering fails after transfer begins, the original layouts,
+		ownership and selection are restored; jobs are kept running.
 
 terminal.break_pane_to_tab()			*terminal.break_pane_to_tab()*
 		Move the current pane out of its split into a new terminal tab
@@ -877,7 +881,7 @@ terminal.focus({bufnr})					*terminal.focus()*
 		reason for stale/unmanaged buffers or an unavailable layout.
 		Does not open a duplicate pane in the editor.
 
-terminal.send({text} [, {bufnr}])				*terminal.send()*
+terminal.send({text} [, {bufnr}])			*terminal.send()*
 		Send the string {text} to a managed pane's job channel. With
 		no {bufnr}, targets the last focused pane in the current Vim
 		tab, including when hidden. An explicit buffer number targets
@@ -895,7 +899,7 @@ terminal.config						*terminal.config*
 ==============================================================================
 8. Appendix					*terminal.nvim-appendix*
 
-RESTART AND SESSIONS ~				*terminal.nvim-restart*
+RESTART AND SESSIONS				*terminal.nvim-restart*
 
 On Neovim 0.13+ (with |SessionWritePre|), |:restart| automatically restores
 managed terminal workspaces in their original Vim tabs alongside the editor
@@ -908,7 +912,7 @@ directories, environment overrides and view modes are preserved. Jobs start
 fresh; scrollback and commands typed into a shell are not saved. Ordinary
 :term buffers retain Neovim's native session behavior.
 
-TELESCOPE INTEGRATION ~				*terminal.nvim-telescope*
+TELESCOPE INTEGRATION				*terminal.nvim-telescope*
 
 With telescope.nvim installed: >lua
 
@@ -923,7 +927,7 @@ panes. Live previews match the terminal's scroll position and display plain
 text. Pass Telescope options to terminals(opts) to customize the picker, or
 call require("terminal.telescope").terminals(opts) directly.
 
-STARTING AS A FULLSCREEN TERMINAL MULTIPLEXER ~
+STARTING AS A FULLSCREEN TERMINAL MULTIPLEXER
 
 If your workflow starts from the shell, you can launch Neovim directly into a
 fullscreen terminal.nvim session: >sh

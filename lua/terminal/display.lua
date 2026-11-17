@@ -25,31 +25,11 @@ local function toggle(opts)
 
 	local height = vim.v.count1
 
-	if #vim.api.nvim_tabpage_list_wins(0) == 1 and not config.is_float_mode() then
-		vim.t.term_winid = nil
-		vim.t.term_winids = {}
-	end
-
 	local is_open = state.is_term_open()
 	if not is_open and vim.t.term_winid and vim.t.term_winid ~= 0 and state.win_valid(vim.t.term_winid)
 		and state.is_managed(vim.api.nvim_win_get_buf(vim.t.term_winid)) then
 		is_open = true
 	end
-	-- In non-float mode with only 1 window total, terminal is not meaningfully open
-	if is_open and not config.is_float_mode() then
-		local tab_wins = vim.api.nvim_tabpage_list_wins(0)
-		-- Exclude winbar overlay from count
-		local real_wins = 0
-		for _, w in ipairs(tab_wins) do
-			if w ~= vim.t.term_winbar_winid then
-				real_wins = real_wins + 1
-			end
-		end
-		if real_wins <= 1 then
-			is_open = false
-		end
-	end
-
 	if opts and opts.open == true and is_open then
 		return true
 	end

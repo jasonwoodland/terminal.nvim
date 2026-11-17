@@ -553,6 +553,8 @@ Ordinary `:term` buffers and other plugins' terminals are excluded from the
 picker, mode tracking, input mappings, title handling, notifications and color
 queries, and retain their native exit behavior. Managed terminals are deleted
 on exit regardless of status. Auxiliary jobs retain their separate policy above.
+Closing a Vim tab also stops and deletes all of its managed terminal jobs,
+including hidden panes. Ordinary terminals are unaffected.
 
 With `osc_colors = true`, OSC 10/11 queries from terminal applications receive
 the current `Normal` foreground/background when `termguicolors` is enabled.

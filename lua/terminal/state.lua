@@ -503,6 +503,11 @@ function M.remove_term_from_order(bufnr, tabpage)
 	end
 
 	M.set_term_order(new_order, tabpage)
+	local vars = vim.t[tabpage or 0]
+	if vars.term_bufnr == bufnr then
+		local selected = new_order[vars.term_tab_idx or 1]
+		vars.term_bufnr = selected and (selected.focus or selected.bufs[1]) or nil
+	end
 	return absorb_buf
 end
 
