@@ -456,6 +456,17 @@ to the live screen.
 
 Mouse input in the focused pane in Terminal mode uses Neovim's native handling,
 so mouse-aware applications such as htop receive clicks, drags, and wheel input.
+In an inactive pane left in Terminal mode and following output, vertical wheel
+events are sent to the application when it enables mouse reporting, without
+taking focus or pausing following. Otherwise the wheel scrolls the terminal
+buffer as above. Alternate-screen mode alone does not enable forwarding.
+Legacy, UTF-8, urxvt and SGR cell reporting are supported; pixel reporting uses
+buffer scrolling instead.
+Clicking an inactive mouse-aware pane left in Terminal mode focuses it in
+Terminal mode and passes the initial click, drags and release through Neovim's
+native handling. Panes left in Normal mode keep native text selection.
+Drags stay with the pane where they started until release, even outside its
+frame; positions outside the pane are clamped to its nearest cell.
 
 ## Commands
 

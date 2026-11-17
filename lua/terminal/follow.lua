@@ -38,7 +38,7 @@ end
 local function mouse_pane()
 	local win = vim.fn.getmousepos().winid
 	-- Let Neovim route input to mouse-aware applications in the focused
-	-- terminal. Inactive panes still use native scrollback navigation.
+	-- terminal. Inactive panes are handled by our wheel mapping below.
 	if win == vim.api.nvim_get_current_win() and vim.api.nvim_get_mode().mode == "t" then return end
 	for _, pane in ipairs(vim.t.term_winids or {}) do
 		if pane == win and vim.api.nvim_win_is_valid(win)
@@ -104,6 +104,9 @@ function M.setup(bufnr)
 		map({ "n", "t" }, key, function()
 			local win = mouse_pane()
 			if win then
+				if M.is_following(win) and require('terminal.mouse').wheel(win, key, vim.fn.getmousepos()) then
+					return ''
+				end
 				-- Don't let native wheel scrolling overshoot the live screen
 				-- and then visibly snap back on every further wheel event.
 				if key == "<ScrollWheelDown>"
@@ -151,9 +154,14 @@ function M.setup(bufnr)
 	for _, prefix in ipairs({ "", "2-", "3-", "4-" }) do
 		local press, release = "<" .. prefix .. "LeftMouse>", "<" .. prefix .. "LeftRelease>"
 		map({ "n", "t" }, press, function()
-			return M.on_left_mouse(vim.fn.getmousepos()) and "" or press
+			local mouse = vim.fn.getmousepos()
+			local native = require('terminal.mouse').on_left_mouse(mouse, press)
+			if native then return native end
+			return M.on_left_mouse(mouse) and "" or press
 		end, { expr = true, noremap = true })
 		map({ "n", "t" }, release, function()
+			local captured = require('terminal.mouse').continue_gesture(vim.fn.getmousepos(), 'release')
+			if captured then return captured end
 			return M.on_left_release() and "" or release
 		end, { expr = true, noremap = true })
 	end
@@ -195,7 +203,10 @@ function M.attach(buf)
 	if attached[buf] then return end
 	attached[buf] = vim.api.nvim_buf_attach(buf, false, {
 		on_lines = function() M.schedule() end,
-		on_detach = function() attached[buf] = nil end,
+		on_detach = function()
+			attached[buf] = nil
+			require('terminal.mouse').detach(buf)
+		end,
 	}) or nil
 end
 

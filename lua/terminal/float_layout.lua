@@ -391,7 +391,6 @@ end
 -- drive them with synthetic positions.
 
 function M.on_left_mouse(mouse)
-	if require("terminal.follow").on_left_mouse(mouse) then return "" end
 	-- Track mode for tabline clicks so LeftRelease can restore it
 	if mouse.screenrow == 1 and vim.o.showtabline > 0 then
 		tabline_click_mode = vim.api.nvim_get_mode().mode
@@ -450,10 +449,15 @@ function M.on_left_mouse(mouse)
 		begin_drag(entry, sep)
 		return ""
 	end
+	local native = require('terminal.mouse').on_left_mouse(mouse, '<LeftMouse>')
+	if native then return native end
+	if require("terminal.follow").on_left_mouse(mouse) then return "" end
 	return "<LeftMouse>"
 end
 
 function M.on_left_drag(mouse)
+	local captured = require('terminal.mouse').continue_gesture(mouse, 'drag')
+	if captured then return captured end
 	if stl_click and not state.view_matches(stl_click) then stl_click = false end
 	if stl_click then
 		-- native statusline drag (drawer): let vim resize
@@ -513,6 +517,8 @@ function M.on_left_drag(mouse)
 end
 
 function M.on_left_release(mouse)
+	local captured = require('terminal.mouse').continue_gesture(mouse, 'release')
+	if captured then return captured end
 	if require("terminal.follow").on_left_release() then return "" end
 	if drag_state then
 		local drag = drag_state
@@ -569,7 +575,16 @@ function M.setup_mouse_mappings(bufnr, api)
 			vim.keymap.set(keymode, event, function()
 				local ev_mouse = vim.fn.getmousepos()
 				local follow = require("terminal.follow")
-				if event:find("LeftMouse", 1, true) and follow.on_left_mouse(ev_mouse) then return "" end
+				if event:find('LeftDrag', 1, true) or event:find('LeftRelease', 1, true) then
+					local captured = require('terminal.mouse').continue_gesture(ev_mouse,
+						event:find('LeftDrag', 1, true) and 'drag' or 'release')
+					if captured then return captured end
+				end
+				if event:find("LeftMouse", 1, true) then
+					local native = require('terminal.mouse').on_left_mouse(ev_mouse, event)
+					if native then return native end
+					if follow.on_left_mouse(ev_mouse) then return "" end
+				end
 				if event:find("LeftRelease", 1, true) and follow.on_left_release() then return "" end
 				if ev_mouse.winid == vim.t.term_winbar_winid or statusline.is_stl_window(ev_mouse.winid) then
 					return ""

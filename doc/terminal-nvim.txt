@@ -554,6 +554,16 @@ mode resumes that mode and returns to the live screen.
 
 Mouse input in the focused pane in Terminal mode uses Neovim's native
 handling, so mouse-aware applications receive clicks, drags, and wheel input.
+In an inactive pane left in Terminal mode and following output, vertical wheel
+events reach applications with mouse reporting enabled, without taking focus
+or pausing following. Otherwise the wheel scrolls the buffer as above.
+Alternate-screen mode alone does not enable forwarding. Legacy, UTF-8, urxvt
+and SGR cell reporting are supported; pixel reporting uses buffer scrolling.
+Clicking an inactive mouse-aware pane left in Terminal mode focuses it in
+Terminal mode. Neovim handles the initial click, drags and release natively.
+Panes left in Normal mode retain text selection.
+Drags stay with their originating pane until release, even outside its frame;
+positions outside the pane are clamped to its nearest cell.
 
 Press `<C-S-w>` (analogous to |CTRL-W|) followed by one of the sub-keys
 below to manipulate the current terminal tab's panes. Sub-keys accept an

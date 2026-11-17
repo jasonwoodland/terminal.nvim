@@ -251,10 +251,13 @@ function M.termopen_with_size(bufnr, num_panes, tab_count, opts)
 			noautocmd = true,
 		})
 		local env = opts.env and next(opts.env) and opts.env or nil
-		return vim.fn.termopen(opts.cmd, { cwd = opts.cwd, env = env })
+		return vim.fn.termopen(opts.cmd, {
+			cwd = opts.cwd, env = env, on_stdout = require('terminal.mouse').observe(bufnr),
+		})
 	end)
 	if state.win_valid(tmp_win) then vim.api.nvim_win_close(tmp_win, true) end
 	if not ok or job <= 0 then
+		require('terminal.mouse').detach(bufnr)
 		state.remove_term_from_order(bufnr)
 		if vim.api.nvim_buf_is_valid(bufnr) then vim.api.nvim_buf_delete(bufnr, { force = true }) end
 		error(ok and "Could not start terminal job" or job, 0)
