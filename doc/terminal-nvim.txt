@@ -4,48 +4,50 @@ Author:	Jason Woodland <https://github.com/jasonwoodland>
 Repo:	https://github.com/jasonwoodland/terminal.nvim
 
 ==============================================================================
-Contents					*terminal.nvim-contents*
+Contents					      *terminal.nvim-contents*
 
-    1. Introduction ........................ |terminal.nvim-intro|
-    2. Requirements ........................ |terminal.nvim-requirements|
-    3. Installation ........................ |terminal.nvim-installation|
-    4. Configuration ....................... |terminal.nvim-configuration|
-    5. Commands ............................ |terminal.nvim-commands|
-    6. Mappings ............................ |terminal.nvim-mappings|
-	Toggle and zoom .................... |terminal.nvim-map-toggle|
-	Tabs ............................... |terminal.nvim-map-tabs|
-	Vim tabs ........................... |terminal.nvim-map-vim-tabs|
-	Panes .............................. |terminal.nvim-map-panes|
-	Notifications ...................... |terminal.nvim-map-notifications|
-	Registers .......................... |terminal.nvim-map-registers|
-	Digraphs ........................... |terminal.nvim-map-digraph|
-	Window commands .................... |terminal.nvim-wincmd|
-	<C-w> overrides .................... |terminal.nvim-cw-override|
-    7. Functions ........................... |terminal.nvim-functions|
-    8. Appendix ............................ |terminal.nvim-appendix|
-	Restart and sessions ............... |terminal.nvim-restart|
-	Telescope integration .............. |terminal.nvim-telescope|
-    9. About ............................... |terminal.nvim-about|
+    1. Introduction ....................... |terminal.nvim-intro|
+    2. Requirements ....................... |terminal.nvim-requirements|
+    3. Installation ....................... |terminal.nvim-installation|
+    4. Configuration ...................... |terminal.nvim-configuration|
+    5. Commands ........................... |terminal.nvim-commands|
+    6. Mappings ........................... |terminal.nvim-mappings|
+	Toggle and zoom ................... |terminal.nvim-map-toggle|
+	Tabs .............................. |terminal.nvim-map-tabs|
+	Vim tabs .......................... |terminal.nvim-map-vim-tabs|
+	Panes ............................. |terminal.nvim-map-panes|
+	Notifications ..................... |terminal.nvim-map-notifications|
+	Registers ......................... |terminal.nvim-map-registers|
+	Digraphs .......................... |terminal.nvim-map-digraph|
+	Mouse scrolling and following ..... |terminal.nvim-mouse-follow|
+	Window commands ................... |terminal.nvim-wincmd|
+	<C-w> overrides ................... |terminal.nvim-cw-override|
+    7. Functions .......................... |terminal.nvim-functions|
+	Launch options .................... |terminal.nvim-launch-options|
+    8. Appendix ........................... |terminal.nvim-appendix|
+	Restart and sessions .............. |terminal.nvim-restart|
+	Telescope integration ............. |terminal.nvim-telescope|
+    9. About .............................. |terminal.nvim-about|
 
 ==============================================================================
-1. Introduction						*terminal.nvim-intro*
+1. Introduction						 *terminal.nvim-intro*
 
-terminal.nvim turns Neovim into a terminal multiplexer. It organises terminal
+terminal.nvim turns Neovim into a terminal multiplexer.  It organises terminal
 buffers into "terminal tabs", each of which can hold multiple panes split
-vertically and horizontally, nesting like Vim windows. A subset of |CTRL-W|
-commands is available with terminal-specific behavior. Terminals can
-be displayed as a drawer pinned to the bottom of the screen or as a centered
+vertically and horizontally, nesting like Vim windows.  A subset of |CTRL-W|
+commands is available with terminal-specific behavior.  Terminals can be
+displayed as a drawer pinned to the bottom of the screen or as a centered
 floating window, and the current tab can be zoomed to take over the full
-editor area.
-Ordinary |:terminal| buffers and other plugins' terminals are not managed.
+editor area.  Ordinary |:terminal| buffers and other plugins' terminals are
+not managed.
 
 ==============================================================================
-2. Requirements					*terminal.nvim-requirements*
+2. Requirements					  *terminal.nvim-requirements*
 
 Neovim 0.11 or newer.
 
 ==============================================================================
-3. Installation					*terminal.nvim-installation*
+3. Installation					  *terminal.nvim-installation*
 
 Using lazy.nvim: >lua
 
@@ -54,32 +56,32 @@ Using lazy.nvim: >lua
       opts = {},
     }
 <
-The plugin is activated by calling |terminal.setup()|. When using `lazy.nvim`,
-providing an `opts` table (even an empty one) is sufficient.
+The plugin is activated by calling |terminal.setup()|.  When using
+`lazy.nvim`, providing an `opts` table (even an empty one) is sufficient.
 
 ==============================================================================
-4. Configuration				*terminal.nvim-configuration*
+4. Configuration				 *terminal.nvim-configuration*
 
-Pass a table to |terminal.setup()| to override any of the defaults. Below is
+Pass a table to |terminal.setup()| to override any of the defaults.  Below is
 the full default configuration: >lua
 
     require("terminal").setup({
       height = 0.5,
       drawer = {
-	winpinned = true,
+        winpinned = true,
       },
       winbar = true,
       show_winbar_when_single_tab = false,
       float = {
-	enabled = false,
-	padding = { x = 24, y = 4 },
-	border  = false,
-	winblend = 0,
-	overlay = {
-	  enabled  = true,
-	  winblend = 75,
-	  hl       = "TerminalOverlay",
-	},
+        enabled = false,
+        padding = { x = 24, y = 4 },
+        border  = false,
+        winblend = 0,
+        overlay = {
+          enabled  = true,
+          winblend = 75,
+          hl       = "TerminalOverlay",
+        },
       },
       float_zoom = true,
       float_zoom_show_tabline = true,
@@ -89,135 +91,135 @@ the full default configuration: >lua
       osc_colors = true,
       cabbrev = true,
       keys = {
-	toggle			= "<C-S-Space>",
-	normal_mode		= "<C-S-\\>",
-	zoom			= "<C-S-z>",
-	float_toggle		= "<C-S-f>",
-	new			= "<C-S-n>",
-	wincmd			= "<C-S-w>",
-	delete			= "<C-S-c>",
-	prev			= "<C-S-[>",
-	next			= "<C-S-]>",
-	last_tab		= "<C-S-o>",
-	last_pane		= "<C-S-p>",
-	pane_left		= "<C-S-h>",
-	pane_down		= "<C-S-j>",
-	pane_up			= "<C-S-k>",
-	pane_right		= "<C-S-l>",
-	vsplit			= "<C-S-v>",
-	split			= "<C-S-s>",
-	break_to_tab		= "<C-S-t>",
-	go_to_tab		= "<C-S-%d>",
-	move_prev		= "<C-S-M-[>",
-	move_next		= "<C-S-M-]>",
-	paste_register		= "<C-S-r>",
-	digraph			= "<C-S-i>",
-	equalize		= "<C-S-=>",
-	vim_tab_next		= "<C-PageDown>",
-	vim_tab_prev		= "<C-PageUp>",
-	vim_tab_move_prev	= "<C-M-PageUp>",
-	vim_tab_move_next	= "<C-M-PageDown>",
-	move_to_vim_tab_prev	= "<C-S-M-PageUp>",
-	move_to_vim_tab_next	= "<C-S-M-PageDown>",
-	last_notification	= "<C-S-a>",
+        toggle			= "<C-S-Space>",
+        normal_mode		= "<C-S-\\>",
+        zoom			= "<C-S-z>",
+        float_toggle		= "<C-S-f>",
+        new			= "<C-S-n>",
+        wincmd			= "<C-S-w>",
+        delete			= "<C-S-c>",
+        prev			= "<C-S-[>",
+        next			= "<C-S-]>",
+        last_tab		= "<C-S-o>",
+        last_pane		= "<C-S-p>",
+        pane_left		= "<C-S-h>",
+        pane_down		= "<C-S-j>",
+        pane_up			= "<C-S-k>",
+        pane_right		= "<C-S-l>",
+        vsplit			= "<C-S-v>",
+        split			= "<C-S-s>",
+        break_to_tab		= "<C-S-t>",
+        go_to_tab		= "<C-S-%d>",
+        move_prev		= "<C-S-M-[>",
+        move_next		= "<C-S-M-]>",
+        paste_register		= "<C-S-r>",
+        digraph			= "<C-S-i>",
+        equalize		= "<C-S-=>",
+        vim_tab_next		= "<C-PageDown>",
+        vim_tab_prev		= "<C-PageUp>",
+        vim_tab_move_prev	= "<C-M-PageUp>",
+        vim_tab_move_next	= "<C-M-PageDown>",
+        move_to_vim_tab_prev	= "<C-S-M-PageUp>",
+        move_to_vim_tab_next	= "<C-S-M-PageDown>",
+        last_notification	= "<C-S-a>",
       },
     })
 <
-height						*terminal.nvim-opt-height*
-		Terminal drawer height. An integer is treated as an absolute
+height						    *terminal.nvim-opt-height*
+		Terminal drawer height.  An integer is treated as an absolute
 		number of lines; a float between 0 and 1 is treated as a
-		fraction of 'lines'. Default: `0.5` (half the screen).
+		fraction of 'lines'.  Default: `0.5` (half the screen).
 
-drawer						*terminal.nvim-opt-drawer*
+drawer						    *terminal.nvim-opt-drawer*
 		Options applied to terminal panes while they are in drawer
 		mode: >lua
 
-		    drawer = {
-		      winpinned = true,
-		    }
+                    drawer = {
+                      winpinned = true,
+                    }
 <
 		`winpinned` sets |'winpinned'| on drawer panes when that
-		option is available. This prevents |:only| and |:fclose| from
-		closing the drawer. Set it to `false` to retain Neovim's
-		normal window-closing behaviour. It is disabled for floating
-		and zoomed terminal panes. Default: `true`.
+		option is available.  This prevents |:only| and |:fclose| from
+		closing the drawer.  Set it to `false` to retain Neovim's
+		normal window-closing behaviour.  It is disabled for floating
+		and zoomed terminal panes.  Default: `true`.
 
-winbar						*terminal.nvim-opt-winbar*
+winbar						    *terminal.nvim-opt-winbar*
 		When true, enables a clickable terminal-tab strip in the
-		'winbar' area of the topmost terminal pane. By default it is
+		'winbar' area of the topmost terminal pane.  By default it is
 		drawn only when there are two or more terminal tabs; see
-		|terminal.nvim-opt-show_winbar_when_single_tab|. Default:
+		|terminal.nvim-opt-show_winbar_when_single_tab|.  Default:
 		`true`.
 
-			*terminal.nvim-opt-show_winbar_when_single_tab*
-show_winbar_when_single_tab ~
+show_winbar_when_single_tab    *terminal.nvim-opt-show_winbar_when_single_tab*
 		When true, shows the terminal-tab winbar even while the
-		current Vim tab has only one terminal tab. By default the
+		current Vim tab has only one terminal tab.  By default the
 		winbar appears only when there are two or more terminal tabs.
-		Requires `winbar = true`. Default: `false`.
+		Requires `winbar = true`.  Default: `false`.
 
-set_buffer_name				*terminal.nvim-opt-set_buffer_name*
+set_buffer_name				   *terminal.nvim-opt-set_buffer_name*
 		When true, names terminal buffers from their OSC title using
-		the format `term://{terminal-job-pid}//{title}`. On Neovim
+		the format `term://{terminal-job-pid}//{title}`.  On Neovim
 		versions before 0.13, an inactive terminal's rename is
 		deferred until it is focused, preventing the inactive buffer
-		from changing Neovim's outer title. terminal.nvim does not
+		from changing Neovim's outer title.  terminal.nvim does not
 		modify 'title' or 'titlestring'; Neovim's normal title
-		handling follows the renamed active buffer. Default: `true`.
+		handling follows the renamed active buffer.  Default: `true`.
 
-float						*terminal.nvim-opt-float*
-		Initial window mode. Set to `false` to start in drawer mode,
+float						     *terminal.nvim-opt-float*
+		Initial window mode.  Set to `false` to start in drawer mode,
 		`true` to enable with default layout, or provide a table to
-		customise. The default is a table with `enabled = false`, so
+		customise.  The default is a table with `enabled = false`, so
 		the float layout is preconfigured but starts in drawer mode;
 		toggle to float with |terminal.float_toggle()| (mapped to
 		`<C-S-f>` by default): >lua
 
-		    float = {
-		      enabled	= false,
-		      padding	= { x = 24, y = 4 },
-		      border	= false,
-		      winblend	= 0,
-		      overlay	= {
-			enabled		= true,
-			winblend	= 75,
-			hl		= "TerminalOverlay",
-		      },
-		    }
+                    float = {
+                      enabled	= false,
+                      padding	= { x = 24, y = 4 },
+                      border	= false,
+                      winblend	= 0,
+                      overlay	= {
+                        enabled		= true,
+                        winblend	= 75,
+                        hl		= "TerminalOverlay",
+                      },
+                    }
 <
-		`enabled` defines the initial mode for new Vim tabs. When
+		`enabled` defines the initial mode for new Vim tabs.  When
 		`false`, the terminal opens as a drawer.
 		|terminal.float_toggle()| changes only the current Vim tab's
-		mode, leaving configuration and other tabs unchanged. Zoom
+		mode, leaving configuration and other tabs unchanged.  Zoom
 		restores command-line/ruler options when leaving the tab or
-		closing its panes. Operations that cannot fit all recursive
+		closing its panes.  Operations that cannot fit all recursive
 		pane minimums are rejected before replacing the current view.
 
 		`padding` is the gap from the editor edges in columns/rows.
 
 		`border` supports "single", "double", "rounded", "solid", or
-		`false` for no border. Conventional eight-character
+		`false` for no border.  Conventional eight-character
 		rectangular arrays also work, but shortened arrays, partial
 		borders, per-side highlights and "shadow" do not have full
-		|nvim_open_win()| semantics. Default: `false`.
+		|nvim_open_win()| semantics.  Default: `false`.
 
 		`winblend` sets the pseudo-transparency (|'winblend'|) of the
 		floating terminal panes and winbar (0 = opaque, 100 =
-		transparent). Default `0`.
+		transparent).  Default `0`.
 
 		`overlay` toggles a dimming backdrop drawn behind the float to
-		obscure the underlying buffers. Set to `true` for defaults,
+		obscure the underlying buffers.  Set to `true` for defaults,
 		`false` to disable, or a table to customise: >lua
 
-		    overlay = {
-		      enabled  = true,
-		      winblend = 75,           -- 0-100, lower = more dimming
-		      hl       = "TerminalOverlay",
-		    }
+                    overlay = {
+                      enabled  = true,
+                      winblend = 75,           -- 0-100, lower = more dimming
+                      hl       = "TerminalOverlay",
+                    }
 <
-		When passed as a table, the overlay is on unless `enabled =
-		false`. The `TerminalOverlay` highlight group defaults to a
-		black background and can be overridden with |nvim_set_hl()|.
+		When passed as a table, the overlay is on unless
+		`enabled = false`.  The `TerminalOverlay` highlight group
+		defaults to a black background and can be overridden with
+		|nvim_set_hl()|.
 
 		`winblend` and `overlay` only apply when the float is in its
 		normal (non-zoomed) state; float zoom remains opaque and
@@ -225,236 +227,233 @@ float						*terminal.nvim-opt-float*
 
 float_zoom					*terminal.nvim-opt-float_zoom*
 		When true, |terminal.zoom()| produces a fullscreen floating
-		zoom window even in drawer mode. When false, zoom instead
-		grows the drawer to the largest possible height. Default:
+		zoom window even in drawer mode.  When false, zoom instead
+		grows the drawer to the largest possible height.  Default:
 		`true`.
 
-float_zoom_show_tabline		*terminal.nvim-opt-float_zoom_show_tabline*
+float_zoom_show_tabline		   *terminal.nvim-opt-float_zoom_show_tabline*
 		Whether to keep the 'tabline' visible while a float zoom is
-		active. Default: `true`.
+		active.  Default: `true`.
 
-float_zoom_hide_cmdline		*terminal.nvim-opt-float_zoom_hide_cmdline*
+float_zoom_hide_cmdline		   *terminal.nvim-opt-float_zoom_hide_cmdline*
 		Whether to hide the |cmdline| while a float zoom is active.
 		Default: `false`.
 
-osc_notifications			*terminal.nvim-opt-osc_notifications*
+osc_notifications			 *terminal.nvim-opt-osc_notifications*
 		When true, OSC 9 / OSC 99 / OSC 777 escape sequences from
 		terminal programs are passed through to your host terminal
 		emulator and also recorded so |terminal.go_to_notification()|
 		(mapped to `<C-S-a>` by default) can jump to the originating
-		buffer. Default: `true`.
+		buffer.  Default: `true`.
 
 osc_colors					*terminal.nvim-opt-osc_colors*
 		Answer OSC 10/11 queries with the current |hl-Normal|
 		foreground and background when 'termguicolors' is enabled.
-		Default: `true`. Applies only to managed terminal buffers,
+		Default: `true`.  Applies only to managed terminal buffers,
 		retaining Neovim's light/dark fallback for unset colors or
-		cterm rendering. Window-specific highlights, transparency
+		cterm rendering.  Window-specific highlights, transparency
 		blending, and inherited host terminal colors are not resolved.
 		Set to `false` to retain Neovim's handler or use your own
-		responder. Remove any existing color-query workaround before
+		responder.  Remove any existing color-query workaround before
 		enabling this option.
 
-cabbrev						*terminal.nvim-opt-cabbrev*
+cabbrev						   *terminal.nvim-opt-cabbrev*
 		Enable command-line abbreviations listed in
-		|terminal.nvim-commands|. Default: `true`. Expansion requires
-		the command line to contain exactly the alias. Set `false` to
-		leave existing abbreviations unchanged. Independent of
-		|terminal.nvim-opt-keys|.
+		|terminal.nvim-commands|.  Default: `true`.  Expansion
+		requires the command line to contain exactly the alias.  Set
+		`false` to leave existing abbreviations unchanged.
+		Independent of |terminal.nvim-opt-keys|.
 
-keys						*terminal.nvim-opt-keys*
-		A table mapping action names to key sequences. Set any entry
+keys						      *terminal.nvim-opt-keys*
+		A table mapping action names to key sequences.  Set any entry
 		to `false` to disable that mapping, or set `keys = false` to
-		disable every default keyboard mapping. Mouse handlers remain
-		enabled. See |terminal.nvim-mappings| for the meaning of each
-		action. Values may also be lists of keys. Each `go_to_tab`
+		disable every default keyboard mapping.  Mouse handlers remain
+		enabled.  See |terminal.nvim-mappings| for the meaning of each
+		action.  Values may also be lists of keys.  Each `go_to_tab`
 		string must contain an integer placeholder such as `%d`.
 		Normal-mode <C-w> and z overrides are buffer-local to managed
 		terminals when keys is not false; their prefixes are not
 		independently configurable.
 
 ==============================================================================
-5. Commands					*terminal.nvim-commands*
+5. Commands					      *terminal.nvim-commands*
 
 These commands use the public |terminal.nvim-functions| to create and control
 managed terminal tabs and panes.
 
-:TermNew [cmd]					*terminal.nvim-:TermNew*
+:TermNew [cmd]					      *terminal.nvim-:TermNew*
 :tnew [cmd]
 		Create a managed terminal tab, optionally running a shell
-		command. Calls |terminal.new()|.
+		command.  Calls |terminal.new()|.
 
-:TermSplit [cmd]				*terminal.nvim-:TermSplit*
-:tsplit [cmd]
-:st [cmd]
+:TermSplit [cmd]				    *terminal.nvim-:TermSplit*
+:tsplit [cmd] :st [cmd]
 		Split the managed pane horizontally (or open the workspace if
 		none exists).
 
-:TermVsplit [cmd]				*terminal.nvim-:TermVsplit*
-:tvsplit [cmd]
-:vst [cmd]
+:TermVsplit [cmd]				   *terminal.nvim-:TermVsplit*
+:tvsplit [cmd] :vst [cmd]
 		Split the managed pane vertically (or open the workspace if
 		none exists).
 
-:TermDelete					*terminal.nvim-:TermDelete*
-:tdelete
-:td
+:TermDelete					   *terminal.nvim-:TermDelete*
+:tdelete :td
 		Force-delete the current terminal buffer, prompting first if
 		the job has child processes.
 
-:TermReset					*terminal.nvim-:TermReset*
+:TermReset					    *terminal.nvim-:TermReset*
 :treset
-		Replace the current terminal buffer with a fresh one. Keeps
-		the tab identity, pane position and geometry. Uses the same
+		Replace the current terminal buffer with a fresh one.  Keeps
+		the tab identity, pane position and geometry.  Uses the same
 		confirmation as TermDelete; a startup failure leaves the
 		original job intact.
 
-:TermResize [size]				*terminal.nvim-:TermResize*
+:TermResize [size]				   *terminal.nvim-:TermResize*
 :tresize [size]
-		Resize the drawer or float. Omit size to reset to default
-		size. Specify either rows or percentage relative to terminal
-		dimensions. Floats accept widthxheight e.g. `:tresize 80x24`
+		Resize the drawer or float.  Omit size to reset to default
+		size.  Specify either rows or percentage relative to terminal
+		dimensions.  Floats accept widthxheight e.g. `:tresize 80x24`
 		Calls |terminal.resize()|.
 
-:TermRename [name]				*terminal.nvim-:TermRename*
+:TermRename [name]				   *terminal.nvim-:TermRename*
 :trename [name]
 		Set the current managed pane's winbar/picker name, or prompt
-		when omitted. Names may contain spaces.
+		when omitted.  Names may contain spaces.
 
-:TermRename!					*terminal.nvim-:TermRename!*
+:TermRename!					  *terminal.nvim-:TermRename!*
 :trename!
-		Clear the custom name and restore its automatic title. Calls
+		Clear the custom name and restore its automatic title.  Calls
 		|terminal.rename()|.
 
-:TermPicker					*terminal.nvim-:TermPicker*
+:TermPicker					   *terminal.nvim-:TermPicker*
 :tpicker
-		Navigate to a managed pane using Telescope. Requires
+		Navigate to a managed pane using Telescope.  Requires
 		telescope.nvim; see |terminal.nvim-telescope|.
 
-:TermJob {command}				*terminal.nvim-:TermJob*
-		Run a command in a temporary terminal split. A successful exit
-		closes the buffer. Failed output remains, with the exit status
-		in b:terminal_job_status. These jobs are separate from managed
-		terminal tabs.
+:TermJob {command}				      *terminal.nvim-:TermJob*
+		Run a command in a temporary terminal split.  A successful
+		exit closes the buffer.  Failed output remains, with the exit
+		status in b:terminal_job_status.  These jobs are separate from
+		managed terminal tabs.
 
-:TermJobClose					*terminal.nvim-:TermJobClose*
+:TermJobClose					 *terminal.nvim-:TermJobClose*
 		Close the newest remaining TermJob buffer, including a running
-		job. Repeated calls reach older jobs.
+		job.  Repeated calls reach older jobs.
 
-:FugitiveJob {command}				*terminal.nvim-:FugitiveJob*
-		Like TermJob, calling FugitiveDidChange() on success. Requires
-		vim-fugitive.
+:FugitiveJob {command}				  *terminal.nvim-:FugitiveJob*
+		Like TermJob, calling FugitiveDidChange() on success.
+		Requires vim-fugitive.
 
 Delete and reset use nvim_get_proc_children() to detect direct children of the
-terminal job and ask before closing them, or when inspection fails. Background
-jobs count; this does not detect the PTY foreground process group. The check
-is synchronous, and Neovim may fall back to pgrep on some platforms.
+terminal job and ask before closing them, or when inspection fails.
+Background jobs count; this does not detect the PTY foreground process group.
+The check is synchronous, and Neovim may fall back to pgrep on some platforms.
 
 Only terminals created through this plugin's tabs and panes are managed and
-deleted on exit regardless of status. Ordinary :term buffers and other
+deleted on exit regardless of status.  Ordinary :term buffers and other
 plugins' terminals retain native exit behavior and are excluded from picker
 results, mode tracking, input mappings, title handling, notifications and
-color queries. Auxiliary TermJob/FugitiveJob buffers retain their separate
-policy above.
-Closing a Vim tab appends its managed terminal tabs to the Vim tab you land in,
-including hidden panes, preserving jobs, layouts and names. The destination's
-selection and drawer visibility are unchanged. Ordinary terminals are unaffected.
+color queries.  Auxiliary TermJob/FugitiveJob buffers retain their separate
+policy above.  Closing a Vim tab appends its managed terminal tabs to the Vim
+tab you land in, including hidden panes, preserving jobs, layouts and names.
+The destination's selection and drawer visibility are unchanged.  Ordinary
+terminals are unaffected.
 
 ==============================================================================
-6. Mappings					*terminal.nvim-mappings*
+6. Mappings					      *terminal.nvim-mappings*
 
 Unless noted otherwise, every default mapping is active in both Normal
 (|Normal-mode|) and Terminal-Job (|Terminal-mode|) modes, so the same key
-works in a managed terminal or in regular text. Normal-mode shortcuts are
-global; Terminal-mode shortcuts are buffer-local to managed panes. All keys
+works in a managed terminal or in regular text.  Normal-mode shortcuts are
+global; Terminal-mode shortcuts are buffer-local to managed panes.  All keys
 are configurable via the `keys` table; see |terminal.nvim-opt-keys|.
 
 In addition to the defaults below, `<C-S-1>` through `<C-S-9>` jump directly
-to terminal tab 1 through 9 by index. The pattern is configurable via the
+to terminal tab 1 through 9 by index.  The pattern is configurable via the
 `go_to_tab` key (a format string where `%d` is replaced with the digit; set it
 to `false` to disable these maps).
 
 ------------------------------------------------------------------------------
-Toggle and zoom					*terminal.nvim-map-toggle*
+Toggle and Zoom					    *terminal.nvim-map-toggle*
 
-<C-S-Space>					*terminal.nvim-<C-S-Space>*
-		Toggle the terminal open or closed. When closed, opens the
-		most recent terminal tab in the current Vim tab. When opening,
-		an optional |count| sets the drawer height in lines. Calls
-		|terminal.toggle()|.
+<C-S-Space>					   *terminal.nvim-<C-S-Space>*
+		Toggle the terminal open or closed.  When closed, opens the
+		most recent terminal tab in the current Vim tab.  When
+		opening, an optional |count| sets the drawer height in lines.
+		Calls |terminal.toggle()|.
 
-<C-S-\>						*terminal.nvim-<C-S-\>*
+<C-S-\>						       *terminal.nvim-<C-S-\>*
 		Leave Terminal mode and enter Normal mode (sends
-		`<C-\><C-n>`). Terminal mode only.
+		`<C-\><C-n>`).  Terminal mode only.
 
-<C-S-z>						*terminal.nvim-<C-S-z>*
-		Toggle zoom. In float mode (or when
+<C-S-z>						       *terminal.nvim-<C-S-z>*
+		Toggle zoom.  In float mode (or when
 		|terminal.nvim-opt-float_zoom| is true) the current terminal
 		tab fills the editor area; otherwise the drawer
-		expands/contracts to its previous size. Calls
+		expands/contracts to its previous size.  Calls
 		|terminal.zoom()|.
 
-<C-S-f>						*terminal.nvim-<C-S-f>*
-		Toggle between float and drawer mode. Flips the `enabled` flag
-		on |terminal.nvim-opt-float| (or the boolean form of the
-		option) and rebuilds the current tab. When closed or zoomed,
-		opens in float mode and clears the zoom state. Calls
+<C-S-f>						       *terminal.nvim-<C-S-f>*
+		Toggle between float and drawer mode.  Flips the `enabled`
+		flag on |terminal.nvim-opt-float| (or the boolean form of the
+		option) and rebuilds the current tab.  When closed or zoomed,
+		opens in float mode and clears the zoom state.  Calls
 		|terminal.float_toggle()|.
 
-<C-S-=>						*terminal.nvim-<C-S-=>*
+<C-S-=>						       *terminal.nvim-<C-S-=>*
 		Equalize pane heights and widths, keeping the overall
-		workspace size. Calls |terminal.equalize()|.
+		workspace size.  Calls |terminal.equalize()|.
 
 ------------------------------------------------------------------------------
-Tabs						*terminal.nvim-map-tabs*
+Tabs						      *terminal.nvim-map-tabs*
 
-<C-S-n>						*terminal.nvim-<C-S-n>*
-		Open a new terminal tab after the current one. Calls
+<C-S-n>						       *terminal.nvim-<C-S-n>*
+		Open a new terminal tab after the current one.  Calls
 		|terminal.new()|.
 
-<C-S-c>						*terminal.nvim-<C-S-c>*
+<C-S-c>						       *terminal.nvim-<C-S-c>*
 		Delete the current terminal pane (and its tab if it was the
-		last pane), prompting if a job is still running. Calls
+		last pane), prompting if a job is still running.  Calls
 		|terminal.delete()|.
 
-<C-S-[>						*terminal.nvim-<C-S-[>*
-		Switch to the previous terminal tab (wraps). Calls
+<C-S-[>						       *terminal.nvim-<C-S-[>*
+		Switch to the previous terminal tab (wraps).  Calls
 		|terminal.prev()|.
 
-<C-S-]>						*terminal.nvim-<C-S-]>*
-		Switch to the next terminal tab (wraps). Calls
+<C-S-]>						       *terminal.nvim-<C-S-]>*
+		Switch to the next terminal tab (wraps).  Calls
 		|terminal.next()|.
 
-<C-S-1> ... <C-S-9>				*terminal.nvim-<C-S-1>*
-		Jump to terminal tab 1...9 by index. Calls |terminal.go_to()|.
-		Note: `<C-S-9>` is bound only when it does not collide with
-		the configured last_notification string.
+<C-S-1> ... <C-S-9>				       *terminal.nvim-<C-S-1>*
+		Jump to terminal tab 1...9 by index.  Calls
+		|terminal.go_to()|.  Note: `<C-S-9>` is bound only when it
+		does not collide with the configured last_notification string.
 
-<C-S-M-[>					*terminal.nvim-<C-S-M-[>*
+<C-S-M-[>					     *terminal.nvim-<C-S-M-[>*
 		Move the current terminal tab one position to the left within
-		its Vim tab. Calls |terminal.move()| with `-1`.
+		its Vim tab.  Calls |terminal.move()| with `-1`.
 
-<C-S-M-]>					*terminal.nvim-<C-S-M-]>*
+<C-S-M-]>					     *terminal.nvim-<C-S-M-]>*
 		Move the current terminal tab one position to the right within
-		its Vim tab. Calls |terminal.move()| with `1`.
+		its Vim tab.  Calls |terminal.move()| with `1`.
 
-<C-S-o>						*terminal.nvim-<C-S-o>*
+<C-S-o>						       *terminal.nvim-<C-S-o>*
 		Jump to the last-visited terminal tab.
 
 ------------------------------------------------------------------------------
-Vim tabs					*terminal.nvim-map-vim-tabs*
+Vim Tabs					  *terminal.nvim-map-vim-tabs*
 
 These mappings operate on Neovim's own tab pages while preserving the active
 terminal mode, so switching back into a terminal pane resumes Terminal mode
 automatically.
 
-<C-PageUp>					*terminal.nvim-<C-PageUp>*
+<C-PageUp>					    *terminal.nvim-<C-PageUp>*
 		Go to the previous Vim tab page (|:tabprevious|).
 
-<C-PageDown>					*terminal.nvim-<C-PageDown>*
+<C-PageDown>					  *terminal.nvim-<C-PageDown>*
 		Go to the next Vim tab page (|:tabnext|).
 
-<C-M-PageUp>					*terminal.nvim-<C-M-PageUp>*
+<C-M-PageUp>					  *terminal.nvim-<C-M-PageUp>*
 		Move the current Vim tab page one position to the left.
 
 <C-M-PageDown>					*terminal.nvim-<C-M-PageDown>*
@@ -464,121 +463,122 @@ automatically.
 		Move the current terminal tab to the previous Vim tab page.
 		Calls |terminal.move_to_vim_tab()| with `-1`.
 
-<C-S-M-PageDown>			*terminal.nvim-<C-S-M-PageDown>*
-		Move the current terminal tab to the next Vim tab page. Calls
+<C-S-M-PageDown>			      *terminal.nvim-<C-S-M-PageDown>*
+		Move the current terminal tab to the next Vim tab page.  Calls
 		|terminal.move_to_vim_tab()| with `1`.
 
 ------------------------------------------------------------------------------
-Panes						*terminal.nvim-map-panes*
+Panes						     *terminal.nvim-map-panes*
 
-<C-S-v>						*terminal.nvim-<C-S-v>*
+<C-S-v>						       *terminal.nvim-<C-S-v>*
 		Split the current pane side by side, adding a new pane to the
-		right (like |CTRL-W_v|). Calls |terminal.vsplit()|.
+		right (like |CTRL-W_v|).  Calls |terminal.vsplit()|.
 
-<C-S-s>						*terminal.nvim-<C-S-s>*
+<C-S-s>						       *terminal.nvim-<C-S-s>*
 		Split the current pane stacked, adding a new pane below (like
-		|CTRL-W_s|). Calls |terminal.hsplit()|.
+		|CTRL-W_s|).  Calls |terminal.hsplit()|.
 
-<C-S-h>						*terminal.nvim-<C-S-h>*
+<C-S-h>						       *terminal.nvim-<C-S-h>*
 		Focus the pane to the left of the current one.
 
-<C-S-j>						*terminal.nvim-<C-S-j>*
+<C-S-j>						       *terminal.nvim-<C-S-j>*
 		Focus the pane below the current one.
 
-<C-S-k>						*terminal.nvim-<C-S-k>*
+<C-S-k>						       *terminal.nvim-<C-S-k>*
 		Focus the pane above the current one.
 
-<C-S-l>						*terminal.nvim-<C-S-l>*
+<C-S-l>						       *terminal.nvim-<C-S-l>*
 		Focus the pane to the right of the current one.
 
-<C-S-p>						*terminal.nvim-<C-S-p>*
+<C-S-p>						       *terminal.nvim-<C-S-p>*
 		Jump to the last-visited pane within the current terminal tab.
 
-<C-S-t>						*terminal.nvim-<C-S-t>*
+<C-S-t>						       *terminal.nvim-<C-S-t>*
 		Break the current pane out of its split into a new terminal
-		tab of its own (like |CTRL-W_T|). No-op if the current tab has
-		only one pane. Calls |terminal.break_pane_to_tab()|.
+		tab of its own (like |CTRL-W_T|).  No-op if the current tab
+		has only one pane.  Calls |terminal.break_pane_to_tab()|.
 
 ------------------------------------------------------------------------------
-Notifications				*terminal.nvim-map-notifications*
+Notifications				     *terminal.nvim-map-notifications*
 
-<C-S-a>						*terminal.nvim-<C-S-a>*
+<C-S-a>						       *terminal.nvim-<C-S-a>*
 		Jump to the terminal that emitted the most recent OSC 9 / OSC
-		99 / OSC 777 notification. Calls
-		|terminal.go_to_notification()|. Requires
+		99 / OSC 777 notification.  Calls
+		|terminal.go_to_notification()|.  Requires
 		|terminal.nvim-opt-osc_notifications| to be enabled.
 
 ------------------------------------------------------------------------------
-Registers					*terminal.nvim-map-registers*
+Registers					 *terminal.nvim-map-registers*
 
-These mappings are active in Terminal mode only. Register and expression paste
-use |nvim_paste()|, so bracketed-paste markers follow the child application's
-mode and native terminal paste filters apply where supported. If the prompt or
-expression switches away from its originating terminal, the result is
-discarded. |terminal.send()| remains a raw channel send.
+These mappings are active in Terminal mode only.  Register and expression
+paste use |nvim_paste()|, so bracketed-paste markers follow the child
+application's mode and native terminal paste filters apply where supported.
+If the prompt or expression switches away from its originating terminal, the
+result is discarded.  |terminal.send()| remains a raw channel send.
 
-<C-S-r>{register}				*terminal.nvim-<C-S-r>*
-		Insert the contents of {register} into the terminal. See
+<C-S-r>{register}				       *terminal.nvim-<C-S-r>*
+		Insert the contents of {register} into the terminal.  See
 		|registers| for the list of available registers.
 
-<C-S-r>=					*terminal.nvim-<C-S-r>=*
+<C-S-r>=					      *terminal.nvim-<C-S-r>=*
 		Prompt for an expression (see |expression|) and insert the
 		result of evaluating it into the terminal.
 
 ------------------------------------------------------------------------------
-Digraphs					*terminal.nvim-map-digraph*
+Digraphs					   *terminal.nvim-map-digraph*
 
-<C-S-i>{char1}{char2}				*terminal.nvim-<C-S-i>*
+<C-S-i>{char1}{char2}				       *terminal.nvim-<C-S-i>*
 		Like |i_CTRL-K| but for Terminal mode: enter a digraph (see
 		|digraph|) and send the resulting character to the terminal.
 		An on-screen indicator is shown while waiting for the second
-		character. For an undefined ASCII pair, Neovim's digraph_get()
-		returns the second character, which is sent to the terminal.
-		Non-ASCII pairs also send the second character. Escape,
-		leaving the buffer or leaving Terminal mode cancels the
-		session and releases its indicator.
+		character.  For an undefined ASCII pair, Neovim's
+		digraph_get() returns the second character, which is sent to
+		the terminal.  Non-ASCII pairs also send the second character.
+		Escape, leaving the buffer or leaving Terminal mode cancels
+		the session and releases its indicator.
 
 ------------------------------------------------------------------------------
-Window commands						*terminal.nvim-wincmd*
-
-MOUSE SCROLLING AND FOLLOWING			*terminal.nvim-mouse-follow*
+Mouse scrolling and following			  *terminal.nvim-mouse-follow*
 
 Scrolling up with the mouse wheel in an inactive terminal pane pauses
-following without taking focus or changing its saved terminal mode. Scrolling
+following without taking focus or changing its saved terminal mode.  Scrolling
 back to the bottom resumes following; further downward scrolling stops at the
-live screen. Right-click an inactive pane (or a pane in Normal mode) to open
+live screen.  Right-click an inactive pane (or a pane in Normal mode) to open
 Neovim's native popup at the mouse pointer, with a checked "Follow output"
-item. Enabling it jumps to the live screen without taking focus; disabling it
-pauses following. Escape dismisses the menu. Focusing a pane left in Terminal
-mode resumes that mode and returns to the live screen.
+item.  Enabling it jumps to the live screen without taking focus; disabling it
+pauses following.  Escape dismisses the menu.  Focusing a pane left in
+Terminal mode resumes that mode and returns to the live screen.
 
 Mouse input in the focused pane in Terminal mode uses Neovim's native
 handling, so mouse-aware applications receive clicks, drags, and wheel input.
 In an inactive pane left in Terminal mode and following output, vertical wheel
 events reach applications with mouse reporting enabled, without taking focus
-or pausing following. Otherwise the wheel scrolls the buffer as above.
-Alternate-screen mode alone does not enable forwarding. Legacy, UTF-8, urxvt
+or pausing following.  Otherwise the wheel scrolls the buffer as above.
+Alternate-screen mode alone does not enable forwarding.  Legacy, UTF-8, urxvt
 and SGR cell reporting are supported; pixel reporting uses buffer scrolling.
 Clicking an inactive mouse-aware pane left in Terminal mode focuses it in
-Terminal mode. Neovim handles the initial click, drags and release natively.
-Panes left in Normal mode retain text selection.
-Drags stay with their originating pane until release, even outside its frame;
-positions outside the pane are clamped to its nearest cell.
+Terminal mode.  Neovim handles the initial click, drags and release natively.
+Panes left in Normal mode retain text selection.  Drags stay with their
+originating pane until release, even outside its frame; positions outside the
+pane are clamped to its nearest cell.
 
-Press `<C-S-w>` (analogous to |CTRL-W|) followed by one of the sub-keys
-below to manipulate the current terminal tab's panes. Sub-keys accept an
-optional |count| where indicated.
+------------------------------------------------------------------------------
+Window Commands						*terminal.nvim-wincmd*
+
+Press `<C-S-w>` (analogous to |CTRL-W|) followed by one of the sub-keys below
+to manipulate the current terminal tab's panes.  Sub-keys accept an optional
+|count| where indicated.
 
 Panes split into rows and columns using a frame-tree model based on Neovim.
 Drawer navigation uses native window commands; float navigation stays within
-its panes. Splits always go right/below. Rotate/exchange preserve slot sizes,
-and close prefers the next sibling. Pane sizing uses a one-cell minimum,
-not Vim's window-size preferences. These commands do not promise exact parity
-with all Vim options. Rotating beside a split sibling reports |E443|.
-Separators and statuslines between stacked drawer panes support mouse
+its panes.  Splits always go right/below.  Rotate/exchange preserve slot
+sizes, and close prefers the next sibling.  Pane sizing uses a one-cell
+minimum, not Vim's window-size preferences.  These commands do not promise
+exact parity with all Vim options.  Rotating beside a split sibling reports
+|E443|.  Separators and statuslines between stacked drawer panes support mouse
 dragging.
 
-Navigation ~
+NAVIGATION
 
 w		Cycle to the next window; with [count], go to window N (like
 		|CTRL-W_w|).
@@ -591,21 +591,21 @@ p		Jump to the previous window.
 t		Focus the top-left window (like |CTRL-W_t|).
 b		Focus the bottom-right window (like |CTRL-W_b|).
 
-Like directional navigation, t/b include editor windows in drawer mode
-and stay within the current terminal tab's panes in float mode.
+Like directional navigation, t/b include editor windows in drawer mode and
+stay within the current terminal tab's panes in float mode.
 
-Pane management ~
+PANE MANAGEMENT
 
 v		Split side by side; add a new pane to the right (like
 		|CTRL-W_v|).
 s		Split stacked; add a new pane below (like |CTRL-W_s|).
-c		Delete the current pane (with running-process prompt). The
+c		Delete the current pane (with running-process prompt).  The
 		neighbouring pane absorbs the freed space, like |CTRL-W_c|.
 T		Break the current pane out into a new terminal tab immediately
-		after the current tab (like |CTRL-W_T|). Does nothing when the
-		current tab has only one pane.
+		after the current tab (like |CTRL-W_T|).  Does nothing when
+		the current tab has only one pane.
 
-Resize ~
+RESIZE
 
 >		Grow current pane width by [count] (default 1).
 <		Shrink current pane width by [count] (default 1).
@@ -621,14 +621,15 @@ _		Maximise pane height within the terminal; with [count], set
 In drawers, +, -, counted _, and {count}<CR> redistribute between panes first.
 The drawer grows only when neighbouring panes reach their minimum height.
 Shrinking gives space back to neighbours; a full-height pane moves the drawer
-boundary when no stacked neighbour can take the space. Side-by-side panes share
-their row's height. Growth is clamped to available editor space.
-An uncounted _ maximises within the existing workspace. In floats, height
-commands redistribute within the existing bounds. Use |terminal.resize()| or
-|terminal.nvim-:TermResize| to resize the whole workspace proportionally. Pane
-height changes replace any percentage drawer size previously set by TermResize.
+boundary when no stacked neighbour can take the space.  Side-by-side panes
+share their row's height.  Growth is clamped to available editor space.  An
+uncounted _ maximises within the existing workspace.  In floats, height
+commands redistribute within the existing bounds.  Use |terminal.resize()| or
+|terminal.nvim-:TermResize| to resize the whole workspace proportionally.
+Pane height changes replace any percentage drawer size previously set by
+TermResize.
 
-Move, rotate and exchange ~
+MOVE, ROTATE AND EXCHANGE
 
 H		Move the current pane to the far left, full height
 		(|CTRL-W_H|).
@@ -637,293 +638,295 @@ L		Move the current pane to the far right, full height
 K		Move the current pane to the top, full width (|CTRL-W_K|).
 J		Move the current pane to the bottom, full width (|CTRL-W_J|).
 r		Rotate the panes of the current row/column forward
-		(|CTRL-W_r|). Fails with |E443| when a sibling is itself
+		(|CTRL-W_r|).  Fails with |E443| when a sibling is itself
 		split.
 R		Rotate the panes of the current row/column backward.
 x		Exchange the current pane with the next one; with [count],
 		with pane N of the current row/column (|CTRL-W_x|).
 
 ------------------------------------------------------------------------------
-<C-w> overrides					*terminal.nvim-cw-override*
+<C-w> Overrides					   *terminal.nvim-cw-override*
 
 When the cursor is in a terminal pane in Normal mode, terminal.nvim handles
 the |CTRL-W| sub-commands using the same sub-keys documented in
-|terminal.nvim-wincmd|, with break-to-tab using uppercase `<C-w>T`
-and `{count}<CR>` is only available through `<C-S-w>`. Navigation commands
-(`h`, `j`, `k`, `l`, `w`, and `p`) work like normal Vim window commands,
-including moving between terminal and non-terminal windows when the terminal
-is open as a drawer.
+|terminal.nvim-wincmd|, with break-to-tab using uppercase `<C-w>T` and
+`{count}<CR>` is only available through `<C-S-w>`.  Navigation commands (`h`,
+`j`, `k`, `l`, `w`, and `p`) work like normal Vim window commands, including
+moving between terminal and non-terminal windows when the terminal is open as
+a drawer.
 
-z{height}<CR>						*terminal.nvim-z<CR>*
-		In Normal mode inside a pane, sets the pane's height
-		like the terminal prefix's {count}<CR>: redistribute first,
-		then grow the drawer on overflow. Floats resize within their
-		existing bounds. All other `z`
-		commands (`zz`, `zt`, folds, plain `z<CR>`) pass
-		through untouched.
+z{height}<CR>						 *terminal.nvim-z<CR>*
+		In Normal mode inside a pane, sets the pane's height like the
+		terminal prefix's {count}<CR>: redistribute first, then grow
+		the drawer on overflow.  Floats resize within their existing
+		bounds.  All other `z` commands (`zz`, `zt`, folds, plain
+		`z<CR>`) pass through untouched.
 
-These overrides are buffer-local to managed terminals. Outside those buffers,
-existing |CTRL-W| and `z` mappings are unchanged.
-The `<C-S-w>` prefix is available in Normal and Terminal mode.
+These overrides are buffer-local to managed terminals.  Outside those buffers,
+existing |CTRL-W| and `z` mappings are unchanged.  The `<C-S-w>` prefix is
+available in Normal and Terminal mode.
 
 ==============================================================================
-7. Functions					*terminal.nvim-functions*
+7. Functions					     *terminal.nvim-functions*
 
 The following functions are exposed on the `terminal` module: >lua
 
     local terminal = require("terminal")
 <
-terminal.setup({config})				*terminal.setup()*
+terminal.setup({config})				    *terminal.setup()*
 		Initialise the plugin and apply {config} on top of the
-		defaults described in |terminal.nvim-configuration|. Must be
-		called before any of the keymaps or commands are usable. Call
+		defaults described in |terminal.nvim-configuration|.  Must be
+		called before any of the keymaps or commands are usable.  Call
 		once during initialization; later calls with options raise an
-		error before changing configuration. Calls without options (or
-		with an empty table) are harmless.
+		error before changing configuration.  Calls without options
+		(or with an empty table) are harmless.
 
-terminal.toggle([{opts}])				*terminal.toggle()*
-		Toggle the terminal in the current Vim tab. {opts} is an
+terminal.toggle([{opts}])				   *terminal.toggle()*
+		Toggle the terminal in the current Vim tab.  {opts} is an
 		optional table:
-		    • `{ open = true }`  – open if closed, otherwise no-op.
+		    • `{ open = true }` – open if closed, otherwise no-op.
 		    • `{ open = false }` – close if open, otherwise no-op.
-		Without {opts}, simply flips the open state. When opening with
-		a |count| greater than 1, the count sets the drawer height in
-		lines. Returns true, including an already-open/already-closed
-		no-op, or false and a reason for invalid options, insufficient
-		room, or failure. Only the optional boolean open field is
-		accepted; invalid options leave the workspace unchanged.
+		Without {opts}, simply flips the open state.  When opening
+		with a |count| greater than 1, the count sets the drawer
+		height in lines.  Returns true, including an
+		already-open/already-closed no-op, or false and a reason for
+		invalid options, insufficient room, or failure.  Only the
+		optional boolean open field is accepted; invalid options leave
+		the workspace unchanged.
 
-terminal.zoom()						*terminal.zoom()*
-		Toggle the zoom state of the current terminal tab. Behaviour
+terminal.zoom()						     *terminal.zoom()*
+		Toggle the zoom state of the current terminal tab.  Behaviour
 		depends on |terminal.nvim-opt-float| and
-		|terminal.nvim-opt-float_zoom|. Returns true, or false and a
-		reason for insufficient room or failure. Rejected changes
+		|terminal.nvim-opt-float_zoom|.  Returns true, or false and a
+		reason for insufficient room or failure.  Rejected changes
 		restore the previous zoom settings.
 
-terminal.float_toggle()				*terminal.float_toggle()*
+terminal.float_toggle()				     *terminal.float_toggle()*
 		Toggle between float and drawer mode in the current Vim tab,
-		rebuilding its view immediately. Configuration defines the
+		rebuilding its view immediately.  Configuration defines the
 		initial mode only; other Vim tabs retain their display modes.
 		When closed or zoomed, opens in float mode and clears the zoom
-		state. Returns true, or false and a reason for insufficient
-		room or failure. Rejected changes restore the previous mode
+		state.  Returns true, or false and a reason for insufficient
+		room or failure.  Rejected changes restore the previous mode
 		settings.
 
-terminal.resize([{opts}])				*terminal.resize()*
+terminal.resize([{opts}])				   *terminal.resize()*
 		Resize the current Vim tab's terminal workspace, preserving
-		pane proportions. Returns true, or false and an error message.
-		Options: height and/or width, as positive integer cells or
-		strings from "1%" to "100%". Width is only supported in float
-		mode. Omitted dimensions retain their previous settings; nil
-		or {} resets the current mode to its configured defaults
-		(height or float padding). Examples: >lua
-
-		    terminal.resize({ height = 24 })
-		    terminal.resize({ width = "80%", height = "50%" })
+		pane proportions.  Returns true, or false and an error
+		message.  Options: height and/or width, as positive integer
+		cells or strings from "1%" to "100%".  Width is only supported
+		in float mode.  Omitted dimensions retain their previous
+		settings; nil or {} resets the current mode to its configured
+		defaults (height or float padding).  Examples: >lua
+                    terminal.resize({ height = 24 })
+                    terminal.resize({ width = "80%", height = "50%" })
 <
 		Percentages use the available editor area, excluding the
 		command line, visible tabline, and float border or required
-		editor rows. Float sizes include the workspace's winbar and
-		pane separators. Explicit sizes that exceed this area, or
-		cannot fit the panes, fail without changing the view. Resizing
-		exits zoom and leaves hidden workspaces hidden. Sizes are
-		local to the Vim tab and survive native sessions. Percentage
-		sizes adapt when the Neovim window changes.
+		editor rows.  Float sizes include the workspace's winbar and
+		pane separators.  Explicit sizes that exceed this area, or
+		cannot fit the panes, fail without changing the view.
+		Resizing exits zoom and leaves hidden workspaces hidden.
+		Sizes are local to the Vim tab and survive native sessions.
+		Percentage sizes adapt when the Neovim window changes.
 
-terminal.equalize()					*terminal.equalize()*
+terminal.equalize()					 *terminal.equalize()*
 		Equalize pane heights and widths in the open terminal tab,
-		retaining the overall workspace dimensions. Has no effect when
-		hidden. Returns true, including hidden/single-pane no-ops, or
-		false and a reason when no terminal tabs exist or the action
-		fails.
+		retaining the overall workspace dimensions.  Has no effect
+		when hidden.  Returns true, including hidden/single-pane
+		no-ops, or false and a reason when no terminal tabs exist or
+		the action fails.
 
-terminal.new([{opts}])					*terminal.new()*
+terminal.new([{opts}])					      *terminal.new()*
 		Create a new terminal tab after the current one and switch to
-		it. Returns the new buffer number, or false and a reason if
-		the layout cannot fit or its view cannot be installed. See
-		|terminal.nvim-launch-options| for optional
-		launch settings.
+		it.  Returns the new buffer number, or false and a reason if
+		the layout cannot fit or its view cannot be installed.  See
+		|terminal.nvim-launch-options| for optional launch settings.
 
-LAUNCH OPTIONS					*terminal.nvim-launch-options*
+terminal.delete([{bufnr}])				   *terminal.delete()*
+		Delete a managed pane; defaults to the current buffer.  An
+		explicit buffer number can target a hidden pane or another Vim
+		tab.  If it is the last pane in its terminal tab, that
+		terminal tab is removed.  Prompts when the job has child
+		processes or process inspection fails.  Returns true, or false
+		and a reason for cancellation, an invalid target, or failure.
+		Hidden workspaces stay hidden.  When acting on another pane,
+		preserves the caller's focus and mode; deleting the focused
+		pane moves focus to its neighbour or the editor.
+
+terminal.reset([{bufnr}])				    *terminal.reset()*
+		Replace a managed terminal job, keeping its pane and tab.
+		Defaults to the current buffer.  An explicit buffer number can
+		target a hidden pane or another Vim tab.  Uses the same
+		process confirmation as terminal.delete().  A startup failure
+		keeps the old job.  Returns the replacement buffer on success,
+		or false and a reason for cancellation, an invalid target, or
+		failure.  Reuses the original command, directory and
+		environment overrides, keeping the custom name and saved mode.
+		Hidden workspaces stay hidden.  When acting on another pane,
+		preserves the caller's focus and mode.
+
+terminal.split({dir} [, {opts}])			    *terminal.split()*
+		Split the current pane, adding a new terminal pane after it.
+		{dir} is `"row"` for a side-by-side split or `"col"` for a
+		stacked split.  The new pane takes half the current pane's
+		space (Vim split sizing).  If no terminal tab exists, a new
+		one is created.  A hidden existing tab is split and opened.
+		Accepts |terminal.nvim-launch-options| and returns the new
+		buffer number, or false and a reason if the layout cannot fit
+		or its view cannot be installed.
+
+terminal.vsplit([{opts}])				   *terminal.vsplit()*
+		Split the current pane side by side; equivalent to
+		`terminal.split("row", opts)`.
+
+terminal.hsplit([{opts}])				   *terminal.hsplit()*
+		Split the current pane stacked; equivalent to
+		`terminal.split("col", opts)`.
+
+terminal.next()						     *terminal.next()*
+		Switch to the next terminal tab (wraps around).  Returns the
+		result of terminal.switch(1), including when hidden.
+
+terminal.prev()						     *terminal.prev()*
+		Switch to the previous terminal tab (wraps around).  Returns
+		the result of terminal.switch(-1), including when hidden.
+
+terminal.switch({delta} [, {clamp}])			   *terminal.switch()*
+		Switch terminal tabs by integer {delta} in the current Vim
+		tab.  By default the index wraps; pass `true` for the optional
+		boolean {clamp} to stop at the first/last tab instead.
+		Returns the result of |terminal.go_to()|.  Zero and clamped
+		moves that keep the same selection succeed without changing
+		the last-tab history.
+
+terminal.go_to({index})					    *terminal.go_to()*
+		Select terminal tab {index} (positive integer, 1-based) in the
+		current Vim tab.  When hidden, updates the selected tab and
+		remembered pane without opening the workspace or changing
+		focus or mode.  Reopening shows the selected tab.  Updates
+		last-tab history when the selection changes.  Returns true,
+		including when already selected; otherwise false and a reason
+		for invalid input, no terminal tabs, an out-of-range index, or
+		a failed visible switch.  Invalid requests leave the selection
+		unchanged.
+
+terminal.move({direction})				     *terminal.move()*
+		Move the current terminal tab one position within its Vim tab.
+		{direction} is `-1` for left or `1` for right; both wrap.
+		Also works while hidden, without opening the workspace.
+		Returns true, including with only one terminal tab; otherwise
+		false and a reason for an invalid direction, no terminal tabs,
+		or failure.
+
+terminal.move_to_vim_tab({direction})		  *terminal.move_to_vim_tab()*
+		Move the current terminal tab to an adjacent Vim |tabpage|.
+		{direction} is `-1` for previous or `1` for next; both wrap.
+		Requires focus in a managed terminal pane.  Transfers the
+		whole terminal tab and follows it.  Returns true, or false and
+		a reason for an invalid direction, no focused managed pane, no
+		adjacent Vim tab, insufficient room, or failure.  Layout fit
+		is checked before changing ownership or closing windows.  If
+		rendering fails after transfer begins, the original layouts,
+		ownership and selection are restored; jobs are kept running.
+
+terminal.break_pane_to_tab()			*terminal.break_pane_to_tab()*
+		Move the current pane out of its split into a new terminal tab
+		immediately after the current one, and switch to it.  Requires
+		focus in a managed terminal pane.  Returns true, or false and
+		a reason when no managed pane is focused, the tab has only one
+		pane, the layout cannot fit, or the operation fails.
+
+terminal.go_to_notification()		       *terminal.go_to_notification()*
+		Jump to the terminal that produced the most recent OSC
+		notification.  Notifies the user if no notification has been
+		recorded.  Returns true on successful focus, or false and a
+		reason if no notification is available or its pane cannot be
+		focused.  Keeps the existing warning notification on failure.
+
+terminal.list()						     *terminal.list()*
+		List managed terminal panes across all Vim tabs, including
+		hidden panes.  Returns records in Vim-tab/terminal-tab/pane
+		order with fields:
+		    bufnr	Buffer handle; use with terminal.focus().
+		    tabpage	Owning Vim tabpage handle.
+		    tabnr	Vim tab number (1-based).
+		    tab_id	Stable terminal-tab ID in this session.
+		    tab_index	Terminal-tab position (1-based).
+		    pane_index	Pane position in layout leaf order (1-based).
+		    title	Custom name, OSC title, or buffer name (in
+				that order).
+		Does not change focus.  Auxiliary TermJob/FugitiveJob buffers
+		are excluded.
+
+terminal.rename({name} [, {bufnr}])			   *terminal.rename()*
+		Set the current managed pane's display name, or target an
+		explicit buffer.  Custom names override OSC titles in the
+		winbar and picker, survive resets and pane moves, and do not
+		change the buffer URI.  An empty string restores the latest
+		automatic title.  Names are trimmed and must not contain
+		control characters.  Returns true, or false plus a reason for
+		invalid input or an unmanaged buffer.  Does not change focus.
+
+terminal.focus({bufnr})					    *terminal.focus()*
+		Navigate to the owning Vim tab, terminal tab and pane.  Opens
+		a hidden workspace and restores the pane's saved
+		Terminal/Normal mode.  Resolves current ownership rather than
+		relying on previously recorded indices.  Returns true, or
+		false plus a reason for stale/unmanaged buffers or an
+		unavailable layout.  Does not open a duplicate pane in the
+		editor.
+
+terminal.send({text} [, {bufnr}])			     *terminal.send()*
+		Send the string {text} to a managed pane's job channel.  With
+		no {bufnr}, targets the last focused pane in the current Vim
+		tab, including when hidden.  An explicit buffer number targets
+		a managed pane in any Vim tab.  Does not open terminals or
+		change focus or mode.  Sends exactly the supplied text: no
+		newline or bracketed-paste markers are added.  Returns true on
+		success, or false and an error message for invalid input,
+		missing/unmanaged panes, missing jobs, or failed channel
+		sends.  Ordinary :terminal buffers are excluded.
+
+terminal.config						     *terminal.config*
+		The fully-merged configuration table.  Read-only — modify at
+		your own risk.
+
+------------------------------------------------------------------------------
+Launch options					*terminal.nvim-launch-options*
 
 new(), vsplit(), hsplit() and split(dir, opts) accept these optional fields:
-	cmd	String (run through the shell) or argument list (run directly).
-		Defaults to $SHELL or 'shell'.
+	cmd	String (run through the shell) or argument list (run
+		directly).  Defaults to $SHELL or 'shell'.
 	cwd	Starting directory, including relative paths and ~/ expansion.
 		Defaults to the source window's current Neovim directory.
 	env	Table of string environment overrides; parent variables are
 		inherited.
 	name	Custom pane name; omitted or empty uses an automatic title.
 
-Splits do not inherit their sibling's launch settings. Invalid options raise
+Splits do not inherit their sibling's launch settings.  Invalid options raise
 an error before changing the workspace; process-start failures preserve
-existing panes. Launch settings are captured for |terminal.reset()|.
-
-terminal.delete([{bufnr}])				*terminal.delete()*
-		Delete a managed pane; defaults to the current buffer. An
-		explicit buffer number can target a hidden pane or another Vim
-		tab. If it is the last pane in its terminal tab, that terminal
-		tab is removed. Prompts when the job has child processes or
-		process inspection fails. Returns true, or false and a reason
-		for cancellation, an invalid target, or failure. Hidden
-		workspaces stay hidden. When acting on another pane, preserves
-		the caller's focus and mode; deleting the focused pane moves
-		focus to its neighbour or the editor.
-
-terminal.reset([{bufnr}])				*terminal.reset()*
-		Replace a managed terminal job, keeping its pane and tab.
-		Defaults to the current buffer. An explicit buffer number can
-		target a hidden pane or another Vim tab. Uses the same process
-		confirmation as terminal.delete(). A startup failure keeps the
-		old job. Returns the replacement buffer on success, or false
-		and a reason for cancellation, an invalid target, or failure.
-		Reuses the original command, directory and environment
-		overrides, keeping the custom name and saved mode. Hidden
-		workspaces stay hidden. When acting on another pane, preserves
-		the caller's focus and mode.
-
-terminal.split({dir} [, {opts}])			*terminal.split()*
-		Split the current pane, adding a new terminal pane after it.
-		{dir} is `"row"` for a side-by-side split or `"col"` for a
-		stacked split. The new pane takes half the current pane's
-		space (Vim split sizing). If no terminal tab exists, a new one
-		is created. A hidden existing tab is split and opened. Accepts
-		|terminal.nvim-launch-options| and returns the new buffer
-		number, or false and a reason if the layout cannot fit or its
-		view cannot be installed.
-
-terminal.vsplit([{opts}])				*terminal.vsplit()*
-		Split the current pane side by side; equivalent to
-		`terminal.split("row", opts)`.
-
-terminal.hsplit([{opts}])				*terminal.hsplit()*
-		Split the current pane stacked; equivalent to
-		`terminal.split("col", opts)`.
-
-terminal.next()						*terminal.next()*
-		Switch to the next terminal tab (wraps around). Returns the
-		result of terminal.switch(1), including when hidden.
-
-terminal.prev()						*terminal.prev()*
-		Switch to the previous terminal tab (wraps around). Returns
-		the result of terminal.switch(-1), including when hidden.
-
-terminal.switch({delta} [, {clamp}])			*terminal.switch()*
-		Switch terminal tabs by integer {delta} in the current Vim
-		tab. By default the index wraps; pass `true` for the optional
-		boolean {clamp} to stop at the first/last tab instead. Returns
-		the result of |terminal.go_to()|. Zero and clamped moves that
-		keep the same selection succeed without changing the last-tab
-		history.
-
-terminal.go_to({index})					*terminal.go_to()*
-		Select terminal tab {index} (positive integer, 1-based) in the
-		current Vim tab. When hidden, updates the selected tab and
-		remembered pane without opening the workspace or changing
-		focus or mode. Reopening shows the selected tab. Updates
-		last-tab history when the selection changes. Returns true,
-		including when already selected; otherwise false and a reason
-		for invalid input, no terminal tabs, an out-of-range index, or
-		a failed visible switch. Invalid requests leave the selection
-		unchanged.
-
-terminal.move({direction})				*terminal.move()*
-		Move the current terminal tab one position within its Vim tab.
-		{direction} is `-1` for left or `1` for right; both wrap. Also
-		works while hidden, without opening the workspace. Returns
-		true, including with only one terminal tab; otherwise false
-		and a reason for an invalid direction, no terminal tabs, or
-		failure.
-
-terminal.move_to_vim_tab({direction})		*terminal.move_to_vim_tab()*
-		Move the current terminal tab to an adjacent Vim |tabpage|.
-		{direction} is `-1` for previous or `1` for next; both wrap.
-		Requires focus in a managed terminal pane. Transfers the whole
-		terminal tab and follows it. Returns true, or false and a
-		reason for an invalid direction, no focused managed pane, no
-		adjacent Vim tab, insufficient room, or failure. Layout fit is
-		checked before changing ownership or closing windows.
-		If rendering fails after transfer begins, the original layouts,
-		ownership and selection are restored; jobs are kept running.
-
-terminal.break_pane_to_tab()			*terminal.break_pane_to_tab()*
-		Move the current pane out of its split into a new terminal tab
-		immediately after the current one, and switch to it. Requires
-		focus in a managed terminal pane. Returns true, or false and a
-		reason when no managed pane is focused, the tab has only one
-		pane, the layout cannot fit, or the operation fails.
-
-terminal.go_to_notification()		*terminal.go_to_notification()*
-		Jump to the terminal that produced the most recent OSC
-		notification. Notifies the user if no notification has been
-		recorded. Returns true on successful focus, or false and a
-		reason if no notification is available or its pane cannot be
-		focused. Keeps the existing warning notification on failure.
-
-terminal.list()						*terminal.list()*
-		List managed terminal panes across all Vim tabs, including
-		hidden panes. Returns records in Vim-tab/terminal-tab/pane
-		order with fields:
-		    bufnr       Buffer handle; use with terminal.focus().
-		    tabpage     Owning Vim tabpage handle.
-		    tabnr       Vim tab number (1-based).
-		    tab_id      Stable terminal-tab ID in this session.
-		    tab_index   Terminal-tab position (1-based).
-		    pane_index  Pane position in layout leaf order (1-based).
-		    title       Custom name, OSC title, or buffer name (in
-		                that order).
-		Does not change focus. Auxiliary TermJob/FugitiveJob buffers
-		are excluded.
-
-terminal.rename({name} [, {bufnr}])			*terminal.rename()*
-		Set the current managed pane's display name, or target an
-		explicit buffer. Custom names override OSC titles in the
-		winbar and picker, survive resets and pane moves, and do not
-		change the buffer URI. An empty string restores the latest
-		automatic title. Names are trimmed and must not contain
-		control characters. Returns true, or false plus a reason for
-		invalid input or an unmanaged buffer. Does not change focus.
-
-terminal.focus({bufnr})					*terminal.focus()*
-		Navigate to the owning Vim tab, terminal tab and pane. Opens a
-		hidden workspace and restores the pane's saved Terminal/Normal
-		mode. Resolves current ownership rather than relying on
-		previously recorded indices. Returns true, or false plus a
-		reason for stale/unmanaged buffers or an unavailable layout.
-		Does not open a duplicate pane in the editor.
-
-terminal.send({text} [, {bufnr}])			*terminal.send()*
-		Send the string {text} to a managed pane's job channel. With
-		no {bufnr}, targets the last focused pane in the current Vim
-		tab, including when hidden. An explicit buffer number targets
-		a managed pane in any Vim tab. Does not open terminals or
-		change focus or mode. Sends exactly the supplied text: no
-		newline or bracketed-paste markers are added. Returns true on
-		success, or false and an error message for invalid input,
-		missing/unmanaged panes, missing jobs, or failed channel
-		sends. Ordinary :terminal buffers are excluded.
-
-terminal.config						*terminal.config*
-		The fully-merged configuration table. Read-only — modify at
-		your own risk.
+existing panes.  Launch settings are captured for |terminal.reset()|.
 
 ==============================================================================
-8. Appendix					*terminal.nvim-appendix*
+8. Appendix					      *terminal.nvim-appendix*
 
-RESTART AND SESSIONS				*terminal.nvim-restart*
+------------------------------------------------------------------------------
+Restart and sessions				       *terminal.nvim-restart*
 
 On Neovim 0.13+ (with |SessionWritePre|), |:restart| automatically restores
 managed terminal workspaces in their original Vim tabs alongside the editor
-session. Native |:mksession| files include these workspaces, respecting
-'sessionoptions' terminal/tabpages settings. |:restart!| discards the session
+session.  Native |:mksession| files include these workspaces, respecting
+'sessionoptions' terminal/tabpages settings.  |:restart!| discards the session
 as usual.
 
 Terminal tabs, pane sizes, focus/modes, custom names, launch commands,
-directories, environment overrides and view modes are preserved. Jobs start
-fresh; scrollback and commands typed into a shell are not saved. Ordinary
+directories, environment overrides and view modes are preserved.  Jobs start
+fresh; scrollback and commands typed into a shell are not saved.  Ordinary
 :term buffers retain Neovim's native session behavior.
 
-TELESCOPE INTEGRATION				*terminal.nvim-telescope*
+------------------------------------------------------------------------------
+Telescope integration				     *terminal.nvim-telescope*
 
 With telescope.nvim installed: >lua
 
@@ -932,27 +935,28 @@ With telescope.nvim installed: >lua
       require("telescope").extensions.terminal.terminals()
     end, { desc = "Terminals" })
 <
-Also available as :TermPicker or :Telescope terminal terminals. Selection
+Also available as :TermPicker or :Telescope terminal terminals.  Selection
 navigates to the pane's Vim tab and terminal workspace, including hidden
-panes. Live previews match the terminal's scroll position and display plain
-text. Pass Telescope options to terminals(opts) to customize the picker, or
+panes.  Live previews match the terminal's scroll position and display plain
+text.  Pass Telescope options to terminals(opts) to customize the picker, or
 call require("terminal.telescope").terminals(opts) directly.
 
-STARTING AS A FULLSCREEN TERMINAL MULTIPLEXER
+------------------------------------------------------------------------------
+Starting as a fullscreen terminal multiplexer
 
 If your workflow starts from the shell, you can launch Neovim directly into a
 fullscreen terminal.nvim session: >sh
 
     nvim +"lua require('terminal').toggle()" +"lua require('terminal').zoom()"
 <
-This assumes your configuration already calls terminal.setup(). It opens
+This assumes your configuration already calls terminal.setup().  It opens
 terminal.nvim immediately and zooms it to fill the editor area.
 
 ==============================================================================
-9. About						*terminal.nvim-about*
+9. About						 *terminal.nvim-about*
 
-Maintained by Jason Woodland. Contributions and feature requests welcome.
+Maintained by Jason Woodland.  Contributions and feature requests welcome.
 
     https://github.com/jasonwoodland/terminal.nvim
 
- vim:tw=78:ts=8:noet:ft=help:norl:sw=16
+ vim:tw=78:ts=8:noet:ft=help:norl:
