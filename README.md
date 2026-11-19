@@ -451,8 +451,9 @@ mode. Leave a pane in Normal mode to keep your place in its scrollback.
 - **Return to Terminal mode.** Right-click the focused pane in Normal mode and
   select **Enter terminal mode** to return to live output.
 
-Refocusing a pane left in Terminal mode restores that mode and returns to the
-live screen.
+Clicking or navigating into a pane paused by the wheel keeps its scrollback
+position in Normal mode. Scroll back to the live screen to resume Terminal
+mode if the pane was in Terminal mode before scrolling.
 
 terminal.nvim also forwards vertical wheel input to mouse-aware applications
 such as htop in unfocused panes left in Terminal mode. The pane must be

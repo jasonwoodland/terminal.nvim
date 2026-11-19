@@ -552,8 +552,10 @@ Right-click an unfocused pane to toggle "Follow output" in Neovim's popup
 menu.  The check mark shows whether following is on.  Turning it on jumps to
 the live screen without taking focus.  Press Escape to dismiss the menu.
 Right-click the focused pane in Normal mode and select "Enter terminal mode"
-to return to live output.  Refocusing a pane left in Terminal mode restores
-that mode and returns to the live screen.
+to return to live output.  Clicking or navigating into a pane paused by the
+wheel keeps its scrollback position in Normal mode.  Scroll back to the live
+screen to resume Terminal mode if the pane was in Terminal mode before
+scrolling.
 
 terminal.nvim also forwards vertical wheel input to applications in unfocused
 panes left in Terminal mode.  The pane must be following output and the

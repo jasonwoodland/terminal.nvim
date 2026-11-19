@@ -104,7 +104,8 @@ function M.restore_current()
 	if vim.bo.buftype == "terminal" and not state.is_managed() then return end
 	if vim.bo.buftype ~= "terminal" then
 		vim.cmd("stopinsert")
-	elseif vim.b.term_mode == "t" or vim.b.term_mode == nil then
+	elseif (vim.b.term_mode == "t" or vim.b.term_mode == nil)
+		and not require("terminal.follow").is_wheel_paused(vim.api.nvim_get_current_win()) then
 		vim.cmd("startinsert")
 	else
 		vim.cmd("stopinsert")

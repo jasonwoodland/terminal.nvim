@@ -451,7 +451,8 @@ function M.on_left_mouse(mouse)
 	end
 	local native = require('terminal.mouse').on_left_mouse(mouse, '<LeftMouse>')
 	if native then return native end
-	if require("terminal.follow").on_left_mouse(mouse) then return "" end
+	local focus = require("terminal.follow").on_left_mouse(mouse)
+	if focus then return focus end
 	return "<LeftMouse>"
 end
 
@@ -519,7 +520,6 @@ end
 function M.on_left_release(mouse)
 	local captured = require('terminal.mouse').continue_gesture(mouse, 'release')
 	if captured then return captured end
-	if require("terminal.follow").on_left_release() then return "" end
 	if drag_state then
 		local drag = drag_state
 		drag_state = nil
@@ -583,9 +583,9 @@ function M.setup_mouse_mappings(bufnr, api)
 				if event:find("LeftMouse", 1, true) then
 					local native = require('terminal.mouse').on_left_mouse(ev_mouse, event)
 					if native then return native end
-					if follow.on_left_mouse(ev_mouse) then return "" end
+					local focus = follow.on_left_mouse(ev_mouse)
+					if focus then return focus end
 				end
-				if event:find("LeftRelease", 1, true) and follow.on_left_release() then return "" end
 				if ev_mouse.winid == vim.t.term_winbar_winid or statusline.is_stl_window(ev_mouse.winid) then
 					return ""
 				end

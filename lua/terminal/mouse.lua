@@ -85,13 +85,10 @@ function M.detach(buf)
 	if gesture and gesture.buf == buf then gesture = nil end
 end
 
-function M.focus(win, buf)
-	if not vim.api.nvim_win_is_valid(win) or vim.api.nvim_win_get_buf(win) ~= buf
-		or not require('terminal.state').is_managed(buf) then return end
-	require('terminal.mode').record()
-	vim.api.nvim_set_current_win(win)
-	require('terminal.follow').set_following(win, true)
-	require('terminal.mode').restore(win, 't')
+function M.is_reporting(buf)
+	-- A terminal opened outside our launcher has no stdout observer.
+	local tracker = trackers[buf]
+	return tracker and tracker.tracking ~= nil
 end
 
 function M.on_left_mouse(mouse, key)
@@ -106,13 +103,13 @@ function M.on_left_mouse(mouse, key)
 	for _, candidate in ipairs(vim.t.term_winids or {}) do
 		if win == candidate then pane = true; break end
 	end
-	if not pane then return end
+	if not pane or require("terminal.follow").is_wheel_paused(win) then return end
 	if win == vim.api.nvim_get_current_win() and vim.api.nvim_get_mode().mode ~= 't' then return end
 	gesture = { win = win, buf = buf }
 	if win == vim.api.nvim_get_current_win() then return end
 	-- Expressions cannot change windows. Focus outside textlock, then replay
 	-- the original key without remapping: Neovim owns the entire mouse gesture.
-	return string.format('<Cmd>lua require("terminal.mouse").focus(%d,%d)<CR>%s', win, buf, key)
+	return string.format('<Cmd>lua require("terminal.follow").focus_terminal(%d,%d)<CR>%s', win, buf, key)
 end
 
 function M.continue_gesture(mouse, action)

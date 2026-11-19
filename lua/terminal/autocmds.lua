@@ -196,6 +196,7 @@ function M.setup(api)
 				if vim.api.nvim_get_mode().mode == "t" then return end
 				if vim.bo[bufnr].buftype == "terminal" then
 					vim.b[bufnr].term_mode = "n"
+					follow.on_normal_mode(winid)
 				end
 			end)
 		end,
