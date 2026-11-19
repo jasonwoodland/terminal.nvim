@@ -35,8 +35,7 @@ function M.set_following(win, enabled)
 	if enabled then scroll_to_live(win) end
 end
 
-local function mouse_pane()
-	local win = vim.fn.getmousepos().winid
+local function mouse_pane(win)
 	-- Let Neovim route input to mouse-aware applications in the focused
 	-- terminal. Inactive panes are handled by our wheel mapping below.
 	if win == vim.api.nvim_get_current_win() and vim.api.nvim_get_mode().mode == "t" then return end
@@ -102,9 +101,18 @@ function M.setup(bufnr)
 	end
 	for _, key in ipairs({ "<ScrollWheelUp>", "<ScrollWheelDown>" }) do
 		map({ "n", "t" }, key, function()
-			local win = mouse_pane()
+			local mouse = vim.fn.getmousepos()
+			if mouse.winid == vim.t.term_winbar_winid then
+				local state = require("terminal.state")
+				local delta = key == "<ScrollWheelUp>" and -1 or 1
+				state.defer_view(state.capture_view(), function()
+					require("terminal").switch(delta, true)
+				end)
+				return ""
+			end
+			local win = mouse_pane(mouse.winid)
 			if win then
-				if M.is_following(win) and require('terminal.mouse').wheel(win, key, vim.fn.getmousepos()) then
+				if M.is_following(win) and require('terminal.mouse').wheel(win, key, mouse) then
 					return ''
 				end
 				-- Don't let native wheel scrolling overshoot the live screen
@@ -166,7 +174,7 @@ function M.setup(bufnr)
 		end, { expr = true, noremap = true })
 	end
 	local function right_mouse(key)
-		local win = mouse_pane()
+		local win = mouse_pane(vim.fn.getmousepos().winid)
 		if not win then return key end
 		local source = vim.api.nvim_get_current_win()
 		local source_mode = require("terminal.mode").record()

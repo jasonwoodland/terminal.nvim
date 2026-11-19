@@ -63,6 +63,27 @@ local ok, err = xpcall(function()
 	ui.wait([[return vim.t.term_tab_idx == 1]], 'winbar press processed')
 	ui.request('nvim_input_mouse', 'left', 'release', '', 0, bar[1], bar[2] + 1)
 	ui.wait([[return vim.t.term_tab_idx == 1 and vim.api.nvim_get_mode().mode == 'nt']], 'winbar click switches tab and restores mode')
+	ui.lua([[
+		local terminal = require('terminal')
+		local switch = terminal.switch
+		_G.wheel_switches = 0
+		terminal.switch = function(...)
+			local result = switch(...)
+			_G.wheel_switches = _G.wheel_switches + 1
+			return result
+		end
+	]])
+	local function wheel(direction, index, mode)
+		bar = ui.lua([[return vim.api.nvim_win_get_position(vim.t.term_winbar_winid)]])
+		local switches = ui.lua('return _G.wheel_switches')
+		ui.request('nvim_input_mouse', 'wheel', direction, '', 0, bar[1], bar[2] + 1)
+		ui.wait(('return _G.wheel_switches > %d and vim.t.term_tab_idx == %d and vim.api.nvim_get_mode().mode == %q')
+			:format(switches, index, mode), 'winbar wheel ' .. direction)
+	end
+	wheel('up', 1, 'nt')
+	wheel('down', 2, 't')
+	wheel('down', 2, 't')
+	wheel('up', 1, 'nt')
 	assert(ui.redraws > 0, 'attached UI consumed redraw notifications')
 	assert(ui.lua('return vim.v.errmsg') == '', 'no asynchronous UI errors')
 end, debug.traceback)

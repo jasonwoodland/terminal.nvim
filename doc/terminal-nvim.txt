@@ -151,6 +151,10 @@ winbar						    *terminal.nvim-opt-winbar*
 		|terminal.nvim-opt-show_winbar_when_single_tab|.  Default:
 		`true`.
 
+		Scroll up or down over the winbar to select the previous or
+		next terminal tab.  Scrolling stops at the first and last
+		tabs.
+
 show_winbar_when_single_tab    *terminal.nvim-opt-show_winbar_when_single_tab*
 		When true, shows the terminal-tab winbar even while the
 		current Vim tab has only one terminal tab.  By default the

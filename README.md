@@ -11,7 +11,7 @@ Use Neovim as your terminal multiplexer.
 - Vim-style pane commands: splits, directional navigation, resizing, rotate/exchange, and move-to-edge
 - Unobtrusive, idiomatic keymaps that work in both Terminal and Normal modes
 - Toggle fullscreen terminal
-- Clickable winbar with terminal tabs
+- Clickable winbar with terminal tabs. Scroll up or down over the winbar to select the previous or next tab.
 - Fast tab/window switching, reordering and resizing without leaving Terminal mode
 - Inactive panes follow the live terminal screen when left in Terminal mode; Normal mode preserves scrollback
 - Drawer-style and floating window modes
