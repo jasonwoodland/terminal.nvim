@@ -1,28 +1,24 @@
 # terminal.nvim
 
-Use Neovim as your terminal multiplexer.
+Manage terminal tabs and split panes inside Neovim. Each Neovim tab page has
+its own terminal workspace, which you can open as a bottom drawer or a floating
+window.
 
 <img width="1912" height="1242" alt="Screenshot 2026-07-13 at 3 46 15 pm" src="https://github.com/user-attachments/assets/312fa1ca-1be2-48de-ba23-cf7200a8e633" />
 
 ## Features
 
-- Multiple terminal tabs per Vim tab
-- Split panes within terminal tabs — vertical and horizontal, nesting like vim windows
-- Vim-style pane commands: splits, directional navigation, resizing, rotate/exchange, and move-to-edge
-- Unobtrusive, idiomatic keymaps that work in both Terminal and Normal modes
-- Toggle fullscreen terminal
-- Clickable winbar with terminal tabs. Scroll up or down over the winbar to select the previous or next tab.
-- Fast tab/window switching, reordering and resizing without leaving Terminal mode
-- Inactive panes follow the live terminal screen when left in Terminal mode; Normal mode preserves scrollback
-- Drawer-style and floating window modes
-- Mouse-draggable pane borders in float mode
-- Preserve and restore terminal buffer mode when switching focus
-- Insert the contents of registers while in Terminal mode
-- OSC notification passthrough and bell
-- Activity indicator for background terminal tabs
-- Confirm before deleting or resetting a terminal with child processes
-- Fully configurable keymaps
-- Restore terminal workspaces with `:restart` and native sessions (Neovim 0.13+)
+- Open multiple terminal tabs per Neovim tab page and nest horizontal and vertical splits in each.
+- Use Vim-style commands to navigate, resize, rotate, exchange, and move panes to the edge of the layout.
+- Switch and reorder tabs or resize panes without leaving Terminal mode. Each pane remembers its mode when you switch focus.
+- Toggle between a bottom drawer and a floating window, zoom to fill the editor, or drag pane borders in float mode.
+- Click terminal tabs in the winbar or scroll over it to switch tabs. Activity indicators mark background tabs with new output.
+- [Follow live output and browse scrollback in unfocused panes](#mouse-scrolling-and-output-following) without moving focus.
+- Insert registers and digraphs directly in Terminal mode.
+- Receive terminal bells and OSC notifications, and jump to the pane that sent the latest notification.
+- Confirm before deleting or resetting a terminal with child processes.
+- Customize or disable the default keymaps.
+- Restore terminal workspaces with `:restart` and native sessions on Neovim 0.13+.
 
 ## Installation
 
@@ -422,19 +418,17 @@ Press <kbd>&lt;C-S-w&gt;</kbd> followed by a sub-key (works in both Normal and T
   </tbody>
 </table>
 
-Splits nest like vim windows: panes form rows and columns, and all of the
-commands above use a frame-tree model based on Neovim's window implementation.
-Drawer navigation uses native window commands and can leave the drawer; float
-navigation stays within its panes. Height commands redistribute space between
+Terminal panes nest in rows and columns like Neovim splits. In drawer mode,
+navigation can also move focus into editor windows. In float mode, navigation
+stays within the terminal panes. Height commands redistribute space between
 panes first. Drawers grow only when neighbouring panes reach their minimum
 height; shrinking a pane gives space back to its neighbours. A full-height
 pane moves the drawer boundary when no stacked neighbour can take the space.
 Side-by-side peers share their row's height. Floats retain their outer bounds.
 Use `TermResize` to resize the whole workspace proportionally.
-Splits always go right/below, rotate/exchange keep fixed-size
-slots, and close prefers the next sibling. Pane sizing uses a minimum of one
-cell rather than Vim's window-size preferences. This is a subset of `CTRL-W`,
-with terminal-specific behavior, rather than exact parity with every Vim option.
+New splits open to the right or below the current pane. Rotating or exchanging
+panes preserves their positions' sizes. Closing a pane gives its space to the
+next sibling when available. Panes can shrink to one cell.
 
 ### Normal mode `<C-w>` overrides
 
@@ -444,29 +438,34 @@ When focused in a terminal pane window, `<C-w>` sub-keys are overridden to contr
 
 ### Mouse scrolling and output following
 
-Scroll up in an inactive terminal pane with the mouse wheel to pause output following
-without changing its saved terminal mode or taking focus. Scroll back to the
-bottom to resume; further downward scrolling stops at the live screen.
-Right-click an inactive pane (or a pane in Normal mode) to open Neovim's native
-popup at the mouse pointer, with a checked **Follow output** item.
-Enabling it jumps to the live screen without
-focusing the pane; disabling it pauses following. Escape dismisses the menu.
-Focusing a pane that was left in Terminal mode resumes that mode and returns
-to the live screen.
+terminal.nvim keeps live output visible in unfocused panes left in Terminal
+mode. Leave a pane in Normal mode to keep your place in its scrollback.
 
-Mouse input in the focused pane in Terminal mode uses Neovim's native handling,
-so mouse-aware applications such as htop receive clicks, drags, and wheel input.
-In an inactive pane left in Terminal mode and following output, vertical wheel
-events are sent to the application when it enables mouse reporting, without
-taking focus or pausing following. Otherwise the wheel scrolls the terminal
-buffer as above. Alternate-screen mode alone does not enable forwarding.
-Legacy, UTF-8, urxvt and SGR cell reporting are supported; pixel reporting uses
-buffer scrolling instead.
-Clicking an inactive mouse-aware pane left in Terminal mode focuses it in
-Terminal mode and passes the initial click, drags and release through Neovim's
-native handling. Panes left in Normal mode keep native text selection.
-Drags stay with the pane where they started until release, even outside its
-frame; positions outside the pane are clamped to its nearest cell.
+- **Browse scrollback without changing focus.** Scroll up over an unfocused pane
+  to pause following and read earlier output. Scroll back to the live screen
+  to resume. The wheel stops at the live screen.
+- **Toggle output following from the mouse menu.** Right-click an unfocused
+  pane and select **Follow output**. The check mark
+  shows whether following is on. Turning it on jumps to the live screen
+  without taking focus. Press Escape to dismiss the menu.
+- **Return to Terminal mode.** Right-click the focused pane in Normal mode and
+  select **Enter terminal mode** to return to live output.
+
+Refocusing a pane left in Terminal mode restores that mode and returns to the
+live screen.
+
+terminal.nvim also forwards vertical wheel input to mouse-aware applications
+such as htop in unfocused panes left in Terminal mode. The pane must be
+following output and the application must have enabled mouse reporting.
+Otherwise the wheel browses the terminal buffer as described above.
+Legacy, UTF-8, urxvt, and SGR cell reporting support forwarding. Pixel reporting
+uses scrollback, and using the alternate screen alone leaves forwarding off.
+
+Clicking an unfocused mouse-aware pane left in Terminal mode focuses it and
+passes the initial click, drag, and release to the application through Neovim.
+A drag stays with its original pane until release, with positions outside the
+pane clamped to its nearest cell. Focused panes in Terminal mode use Neovim's
+native mouse handling, and panes left in Normal mode support text selection.
 
 ## Commands
 
