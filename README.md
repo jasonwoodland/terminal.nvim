@@ -663,9 +663,15 @@ terminal.new({
 ```
 
 `cmd` accepts an argument list (run directly) or a string (run through the shell).
-Defaults are `$SHELL` or `&shell`, the current Neovim directory, inherited
-environment, and an automatic title. `env` adds or overrides variables; values
-must be strings. Splits use these defaults independently of sibling jobs.
+Defaults are `$SHELL` or `&shell`, inherited environment, and an automatic title.
+New splits and terminal tabs inherit the invoking terminal pane's current
+directory, detected from the shell process on Linux and macOS (using `lsof`
+on macOS), with OSC 7 shell reports as a fallback. Without a usable directory,
+they use that pane's original launch directory, then Neovim's current directory.
+When invoked from an editor window (including a new Neovim tab), they use that
+window's effective Neovim directory. An explicit `cwd` always takes precedence.
+Remote OSC 7 hosts are ignored. `env` adds or overrides variables; values must
+be strings. Commands, environment overrides and names are not inherited.
 `reset()` restarts the original command, directory and environment overrides,
 retaining the current custom name. Invalid options and process-start failures
 preserve existing panes.
@@ -695,7 +701,10 @@ also works with `:mksession` and respects `sessionoptions`' `terminal`/`tabpages
 settings. `:restart!` discards the session as usual.
 
 Terminal tabs, pane sizes, focus/modes, names, launch settings and view modes are
-preserved. Jobs start fresh; scrollback and commands typed into a shell are not saved.
+preserved. Each pane's current working directory is captured when saving, so
+`cd` changes survive restart, including in hidden panes. Directory detection
+uses the same fallbacks as new panes. Jobs start fresh; scrollback and commands
+typed into a shell are not saved.
 
 ## Telescope integration
 

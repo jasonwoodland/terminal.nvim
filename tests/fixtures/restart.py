@@ -113,6 +113,20 @@ with tempfile.TemporaryDirectory(prefix="terminal-restart-") as directory:
         )
         initial = state()
         assert initial["tabs"] == 2 and initial["panes"] == 4
+        # Change hidden and visible shells independently, without OSC integration.
+        cwd_targets = {}
+        for title in ("Shell", "Tests", "Database", "Server"):
+            target = base / (title + " working directory")
+            target.mkdir()
+            cwd_targets[title] = str(target.resolve())
+        query(
+            "local targets = vim.json.decode(" + json.dumps(json.dumps(cwd_targets)) + "); "
+            "for _, item in ipairs(require('terminal').list()) do "
+            "local dir = targets[item.title]; vim.fn.chansend(vim.b[item.bufnr].terminal_job_id, "
+            "'cd ' .. vim.fn.shellescape(dir) .. '; touch ready\\n') end; return true"
+        )
+        wait_for(lambda: all((Path(path) / "ready").exists() for path in cwd_targets.values()),
+                 "all shells finish cd before restart")
         subprocess.run([nvim, "--server", address, "--remote-send", "<C-\\><C-n><Esc>:restart<CR>"], check=True, timeout=3)
 
         def restored():
@@ -124,6 +138,11 @@ with tempfile.TemporaryDirectory(prefix="terminal-restart-") as directory:
         assert Path(after["file"]).resolve() == two.resolve() and after["reason"] == "restart", after
         names = query("return vim.tbl_map(function(item) return item.title end, require('terminal').list())")
         assert sorted(names) == ["Database", "Server", "Shell", "Tests"], names
+        restored_cwds = query(
+            "local result = {}; for _, item in ipairs(require('terminal').list()) do "
+            "result[item.title] = require('terminal.cwd').resolve(item.bufnr) end; return result"
+        )
+        assert restored_cwds == cwd_targets, restored_cwds
         assert query("local tabs = vim.api.nvim_list_tabpages(); return "
                      "vim.deep_equal(vim.t[tabs[1]].term_float_size, { width = '80%', height = '75%' }) "
                      "and vim.t[tabs[2]].term_drawer_size == '50%'")

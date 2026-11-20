@@ -63,7 +63,7 @@ local function snapshot()
 					local env = vim.deepcopy(settings.env or {})
 					if next(env) == nil then env = vim.empty_dict() end
 					saved.panes[pane] = {
-						cmd = vim.deepcopy(settings.cmd), cwd = settings.cwd, env = env,
+						cmd = vim.deepcopy(settings.cmd), cwd = require("terminal.cwd").resolve(buf), env = env,
 						name = vim.b[buf].terminal_custom_name, mode = pane_mode,
 					}
 					if buf == focus then saved.focus = pane end

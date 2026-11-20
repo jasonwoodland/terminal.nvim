@@ -906,14 +906,19 @@ new(), vsplit(), hsplit() and split(dir, opts) accept these optional fields:
 	cmd	String (run through the shell) or argument list (run
 		directly).  Defaults to $SHELL or 'shell'.
 	cwd	Starting directory, including relative paths and ~/ expansion.
-		Defaults to the source window's current Neovim directory.
+		Defaults to the invoking shell process's directory (Linux or
+		macOS with lsof), then the pane's OSC 7 directory, then its
+		launch directory, then the effective Neovim directory.  Editor
+		windows use their effective Neovim directory.
 	env	Table of string environment overrides; parent variables are
 		inherited.
 	name	Custom pane name; omitted or empty uses an automatic title.
 
-Splits do not inherit their sibling's launch settings.  Invalid options raise
-an error before changing the workspace; process-start failures preserve
-existing panes.  Launch settings are captured for |terminal.reset()|.
+Splits and new terminal tabs inherit only the source pane's directory.  OSC 7
+reports provide a fallback; remote hosts are ignored.  Explicit cwd takes
+precedence.  Invalid options raise an error before changing the workspace;
+process-start failures preserve existing panes.  Launch settings are captured
+for |terminal.reset()|.
 
 ==============================================================================
 8. Appendix					      *terminal.nvim-appendix*
@@ -927,8 +932,10 @@ session.  Native |:mksession| files include these workspaces, respecting
 'sessionoptions' terminal/tabpages settings.  |:restart!| discards the session
 as usual.
 
-Terminal tabs, pane sizes, focus/modes, custom names, launch commands,
-directories, environment overrides and view modes are preserved.  Jobs start
+Terminal tabs, pane sizes, focus/modes, custom names, launch commands, current
+directories, environment overrides and view modes are preserved.  Each pane's
+current directory is detected when saving, including hidden panes, so shell cd
+changes survive restart.  Detection uses the new-pane fallbacks.  Jobs start
 fresh; scrollback and commands typed into a shell are not saved.  Ordinary
 :term buffers retain Neovim's native session behavior.
 

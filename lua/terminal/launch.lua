@@ -20,7 +20,7 @@ function M.normalize(opts)
 	local cwd = opts.cwd
 	assert(cwd == nil or (type(cwd) == "string" and cwd ~= "" and not cwd:find("\0", 1, true)),
 		"cwd must be a directory path")
-	cwd = cwd and vim.fn.fnamemodify(vim.fn.expand(cwd), ":p") or vim.fn.getcwd()
+	cwd = cwd and vim.fn.fnamemodify(vim.fn.expand(cwd), ":p") or require("terminal.cwd").resolve()
 	assert(vim.fn.isdirectory(cwd) == 1, "terminal cwd does not exist: " .. cwd)
 	assert(opts.env == nil or type(opts.env) == "table", "env must be a table")
 	for key, value in pairs(opts.env or {}) do

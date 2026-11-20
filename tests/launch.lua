@@ -72,8 +72,8 @@ assert(plain_settings.cmd == "/bin/sh" and next(plain_settings.env) == nil and n
 local plain_cwd = root .. "/plain-cwd.txt"
 terminal.send("pwd > " .. vim.fn.shellescape(plain_cwd) .. "\n")
 assert(vim.wait(3000, function() return vim.fn.filereadable(plain_cwd) == 1 end, 10), "default shell reports its cwd")
-assert(vim.fn.readfile(plain_cwd)[1] == vim.uv.fs_realpath(first_dir),
-	"default split captures the source window's local cwd before rebuilding panes")
+assert(vim.fn.readfile(plain_cwd)[1] == vim.uv.fs_realpath(second_dir),
+	"default split inherits the source pane's launch cwd without a shell report")
 terminal.delete()
 settle()
 
