@@ -127,13 +127,9 @@ function M.goto_last()
 	end
 end
 
--- wincmd-p behavior: native jump in drawer mode, last-pane jump in float mode.
+-- Both terminal previous-pane shortcuts stay within terminal pane history.
 function M.goto_previous()
-	if not config.is_float_mode() then
-		M.native_wincmd("p")
-	else
-		M.goto_last()
-	end
+	M.goto_last()
 end
 
 -- Borrow from neighbouring panes first, then move the drawer boundary only

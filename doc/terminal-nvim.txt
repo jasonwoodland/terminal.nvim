@@ -97,7 +97,7 @@ the full default configuration: >lua
         delete			= "<C-S-c>",
         prev			= "<C-S-[>",
         next			= "<C-S-]>",
-        last_tab		= "<C-S-o>",
+        last_tab		= "<C-S-Tab>",
         last_pane		= "<C-S-p>",
         pane_left		= "<C-S-h>",
         pane_down		= "<C-S-j>",
@@ -438,7 +438,7 @@ Tabs						      *terminal.nvim-map-tabs*
 		Move the current terminal tab one position to the right within
 		its Vim tab.  Calls |terminal.move()| with `1`.
 
-<C-S-o>						       *terminal.nvim-<C-S-o>*
+<C-S-Tab>					     *terminal.nvim-<C-S-Tab>*
 		Jump to the last-visited terminal tab.
 
 ------------------------------------------------------------------------------
@@ -594,7 +594,8 @@ h		Focus the window to the left (like |CTRL-W_h|).
 j		Focus the window below.
 k		Focus the window above.
 l		Focus the window to the right.
-p		Jump to the previous window.
+p		Jump to the last-visited terminal pane, like <C-S-p>, in every
+		display mode.
 t		Focus the top-left window (like |CTRL-W_t|).
 b		Focus the bottom-right window (like |CTRL-W_b|).
 

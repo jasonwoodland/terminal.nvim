@@ -101,7 +101,7 @@ require("terminal").setup({
     delete = "<C-S-c>",
     prev = "<C-S-[>",
     next = "<C-S-]>",
-    last_tab = "<C-S-o>",
+    last_tab = "<C-S-Tab>",
     last_pane = "<C-S-p>",
     pane_left = "<C-S-h>",
     pane_down = "<C-S-j>",
@@ -220,7 +220,7 @@ Normal-mode shortcuts are global; Terminal-mode shortcuts apply only to managed 
     <tr>
       <td align="center">✓</td>
       <td align="center">✓</td>
-      <td><kbd>&lt;C-S-o&gt;</kbd></td>
+      <td><kbd>&lt;C-S-Tab&gt;</kbd></td>
       <td>Jump to last-visited tab</td>
     </tr>
     <tr><th colspan="4" align="left">Vim tabs</th></tr>
@@ -354,7 +354,7 @@ Press <kbd>&lt;C-S-w&gt;</kbd> followed by a sub-key (works in both Normal and T
     </tr>
     <tr>
       <td><kbd>p</kbd></td>
-      <td>Jump to the previous (last-visited) pane</td>
+      <td>Jump to the last-visited terminal pane, like &lt;C-S-p&gt; in every display mode</td>
     </tr>
     <tr>
       <td><kbd>t</kbd> / <kbd>b</kbd></td>

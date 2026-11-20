@@ -3,7 +3,7 @@ vim.opt.runtimepath:prepend(vim.fn.fnamemodify(arg[0], ":p:h:h"))
 vim.env.SHELL = "/bin/sh"
 local terminal = require("terminal")
 local state = require("terminal.state")
-terminal.setup({ keys = { last_tab = "<F8>" }, set_buffer_name = false })
+terminal.setup({ set_buffer_name = false })
 local function settle() vim.wait(150, function() return false end) end
 local function current_id() return state.get_current_tab().id end
 local function previous_id()
@@ -11,7 +11,7 @@ local function previous_id()
 	return idx and state.get_tabs()[idx].id
 end
 local function last()
-	vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes("<F8>", true, false, true), "xt", false)
+	vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes("<C-S-Tab>", true, false, true), "xt", false)
 	settle()
 end
 terminal.toggle()

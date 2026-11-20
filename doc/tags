@@ -36,6 +36,7 @@ terminal.nvim-<C-S-M-PageUp>	terminal-nvim.txt	/*terminal.nvim-<C-S-M-PageUp>*
 terminal.nvim-<C-S-M-[>	terminal-nvim.txt	/*terminal.nvim-<C-S-M-[>*
 terminal.nvim-<C-S-M-]>	terminal-nvim.txt	/*terminal.nvim-<C-S-M-]>*
 terminal.nvim-<C-S-Space>	terminal-nvim.txt	/*terminal.nvim-<C-S-Space>*
+terminal.nvim-<C-S-Tab>	terminal-nvim.txt	/*terminal.nvim-<C-S-Tab>*
 terminal.nvim-<C-S-[>	terminal-nvim.txt	/*terminal.nvim-<C-S-[>*
 terminal.nvim-<C-S-\>	terminal-nvim.txt	/*terminal.nvim-<C-S-\\>*
 terminal.nvim-<C-S-]>	terminal-nvim.txt	/*terminal.nvim-<C-S-]>*
@@ -48,7 +49,6 @@ terminal.nvim-<C-S-j>	terminal-nvim.txt	/*terminal.nvim-<C-S-j>*
 terminal.nvim-<C-S-k>	terminal-nvim.txt	/*terminal.nvim-<C-S-k>*
 terminal.nvim-<C-S-l>	terminal-nvim.txt	/*terminal.nvim-<C-S-l>*
 terminal.nvim-<C-S-n>	terminal-nvim.txt	/*terminal.nvim-<C-S-n>*
-terminal.nvim-<C-S-o>	terminal-nvim.txt	/*terminal.nvim-<C-S-o>*
 terminal.nvim-<C-S-p>	terminal-nvim.txt	/*terminal.nvim-<C-S-p>*
 terminal.nvim-<C-S-r>	terminal-nvim.txt	/*terminal.nvim-<C-S-r>*
 terminal.nvim-<C-S-r>=	terminal-nvim.txt	/*terminal.nvim-<C-S-r>=*
