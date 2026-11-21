@@ -20,6 +20,25 @@ for _, case in ipairs({ { false, false }, { false, true }, { true, false }, { tr
 			ui.wait([[return vim.api.nvim_get_current_buf() == source_buf and vim.wo.winbar ~= ''
 				and vim.api.nvim_get_mode().mode == 't']], 'second tab makes winbar visible')
 		end
+		ui.wait([[return vim.api.nvim_buf_line_count(source_buf) <= vim.api.nvim_win_get_height(0)
+			- (vim.wo.winbar ~= '' and 1 or 0)]], 'empty terminal resize settles without scrollback')
+		local empty_pos = ui.lua([[
+			vim.o.mouse, vim.o.mousetime = 'a', 0
+			_G.empty_leaves = 0
+			_G.empty_watch = vim.api.nvim_create_autocmd('TermLeave', {
+				callback = function() empty_leaves = empty_leaves + 1 end,
+			})
+			local p = vim.api.nvim_win_get_position(0)
+			return {p[1] + 2, p[2] + 2}
+		]])
+		for _, mods in ipairs({ '', 'S', 'C' }) do
+			ui.request('nvim_input_mouse', 'wheel', 'up', mods, 0, empty_pos[1], empty_pos[2])
+		end
+		ui.lua([[vim.wait(50, function() return false end); vim.api.nvim_del_autocmd(empty_watch)]])
+		assert(ui.lua([[return vim.api.nvim_get_mode().mode == 't' and empty_leaves == 0
+			and vim.fn.winsaveview().topline == 1
+			and require('terminal.follow').is_following(vim.api.nvim_get_current_win())]]),
+			'wheel-up without scrollback preserves Terminal mode and following')
 		ui.lua([[
 			local lines = {}
 			for i = 1, 100 do lines[i] = 'output ' .. i .. '\r\n' end

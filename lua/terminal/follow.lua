@@ -180,6 +180,8 @@ function M.setup(bufnr)
 				if not focused_insert and M.is_following(win) and mouse_input.wheel(win, direction, mouse) then
 					return ''
 				end
+				-- Without scrollback, wheel-up cannot leave the live screen.
+				if not down and live_top(win) == 1 then return "" end
 				-- Don't let native wheel scrolling overshoot the live screen
 				-- and then visibly snap back on every further wheel event.
 				if down
