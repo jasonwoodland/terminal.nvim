@@ -302,6 +302,14 @@ managed terminal tabs and panes.
 		Force-delete the current terminal buffer, prompting first if
 		the job has child processes.
 
+:TermTabClose					 *terminal.nvim-:TermTabClose*
+:ttabclose
+		Close all panes in the selected terminal tab of the current
+		Vim tab.  Works from editor windows and hidden workspaces.
+		Asks once if any pane has child processes, runs a program
+		directly, or cannot be inspected; cancellation leaves every
+		pane intact.  Calls |terminal.close_tab()|.
+
 :TermReset					    *terminal.nvim-:TermReset*
 :treset
 		Replace the current terminal buffer with a fresh one.  Keeps
@@ -761,6 +769,14 @@ terminal.delete([{bufnr}])				   *terminal.delete()*
 		Hidden workspaces stay hidden.  When acting on another pane,
 		preserves the caller's focus and mode; deleting the focused
 		pane moves focus to its neighbour or the editor.
+
+terminal.close_tab()					*terminal.close_tab()*
+		Close the selected terminal tab and all its panes.  Confirms
+		before deleting any panes if any job has child processes, runs
+		a program directly, or cannot be inspected.  Returns true, or
+		false and a reason if cancelled, there is no terminal tab, or
+		the view cannot be reopened.  Other terminal tabs are kept;
+		hidden workspaces stay hidden and editor focus is preserved.
 
 terminal.reset([{bufnr}])				    *terminal.reset()*
 		Replace a managed terminal job, keeping its pane and tab.

@@ -1,5 +1,6 @@
 terminal-nvim.txt	terminal-nvim.txt	/*terminal-nvim.txt*
 terminal.break_pane_to_tab()	terminal-nvim.txt	/*terminal.break_pane_to_tab()*
+terminal.close_tab()	terminal-nvim.txt	/*terminal.close_tab()*
 terminal.config	terminal-nvim.txt	/*terminal.config*
 terminal.delete()	terminal-nvim.txt	/*terminal.delete()*
 terminal.equalize()	terminal-nvim.txt	/*terminal.equalize()*
@@ -24,6 +25,7 @@ terminal.nvim-:TermRename!	terminal-nvim.txt	/*terminal.nvim-:TermRename!*
 terminal.nvim-:TermReset	terminal-nvim.txt	/*terminal.nvim-:TermReset*
 terminal.nvim-:TermResize	terminal-nvim.txt	/*terminal.nvim-:TermResize*
 terminal.nvim-:TermSplit	terminal-nvim.txt	/*terminal.nvim-:TermSplit*
+terminal.nvim-:TermTabClose	terminal-nvim.txt	/*terminal.nvim-:TermTabClose*
 terminal.nvim-:TermVsplit	terminal-nvim.txt	/*terminal.nvim-:TermVsplit*
 terminal.nvim-<C-M-PageDown>	terminal-nvim.txt	/*terminal.nvim-<C-M-PageDown>*
 terminal.nvim-<C-M-PageUp>	terminal-nvim.txt	/*terminal.nvim-<C-M-PageUp>*

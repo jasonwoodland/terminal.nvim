@@ -224,7 +224,7 @@ function M.go_to_notification()
 end
 
 local lifecycle = require("terminal.lifecycle")
-for _, name in ipairs({ "new", "split", "vsplit", "hsplit", "delete", "reset" }) do M[name] = lifecycle[name] end
+for _, name in ipairs({ "new", "split", "vsplit", "hsplit", "delete", "reset", "close_tab" }) do M[name] = lifecycle[name] end
 
 -- Like CTRL-W_T: move the current pane out of its split into a new terminal
 -- tab of its own. Fails if the pane's tab has only one pane.

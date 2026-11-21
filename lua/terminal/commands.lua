@@ -21,6 +21,9 @@ function M.setup(api)
 		end
 	end
 	vim.api.nvim_create_user_command("TermDelete", pane_action(api.delete), {})
+	vim.api.nvim_create_user_command("TermTabClose", pane_action(api.close_tab), {
+		desc = "Close the selected terminal tab, confirming if panes have running programs",
+	})
 	vim.api.nvim_create_user_command("TermReset", pane_action(api.reset), {})
 	vim.api.nvim_create_user_command("TermResize", function(opts)
 		local dimensions, err = require("terminal.size").parse(opts.args)
@@ -59,6 +62,7 @@ function M.setup(api)
 	utils.alias("tsplit", "TermSplit")
 	utils.alias("tvsplit", "TermVsplit")
 	utils.alias("tdelete", "TermDelete")
+	utils.alias("ttabclose", "TermTabClose")
 	utils.alias("tpicker", "TermPicker")
 	utils.alias("tresize", "TermResize")
 	utils.alias("treset", "TermReset")

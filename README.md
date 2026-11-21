@@ -505,6 +505,11 @@ them. They expand only when the command line contains exactly the alias.
       <td>Delete the current terminal buffer</td>
     </tr>
     <tr>
+      <td><code>:TermTabClose</code></td>
+      <td><code>:ttabclose</code></td>
+      <td>Close every pane in the selected terminal tab, confirming if any pane has running programs</td>
+    </tr>
+    <tr>
       <td><code>:TermReset</code></td>
       <td><code>:treset</code></td>
       <td>Replace the current terminal job, preserving its pane</td>
@@ -528,6 +533,11 @@ them. They expand only when the command line contains exactly the alias.
 </table>
 
 Use `:tabnew | TermNew` to open a managed terminal in a new Vim tab.
+
+`:TermTabClose` closes the selected terminal tab in the current Vim tab, even
+from an editor window or while the workspace is hidden. It asks once if any
+pane has child processes, runs a program directly, or cannot be inspected.
+Cancelling keeps all panes.
 
 `:TermResize 24` sets the workspace height in rows; `:TermResize 50%` uses
 half the available editor area. Floats also accept `:TermResize 120x24` or
@@ -599,6 +609,7 @@ terminal.reset(bufnr)               -- Replace a pane's job; omit bufnr for the 
 terminal.rename("Frontend")        -- Set current pane's winbar/picker name; "" restores its automatic title
 terminal.new()                      -- Create new terminal tab
 terminal.delete(bufnr)              -- Delete a pane; omit bufnr for the current pane
+terminal.close_tab()                -- Close all panes in the selected terminal tab
 terminal.vsplit()                   -- Split the current pane side by side
 terminal.hsplit()                   -- Split the current pane stacked
 terminal.break_pane_to_tab()        -- Move the current pane into its own terminal tab

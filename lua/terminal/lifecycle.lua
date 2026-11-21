@@ -27,19 +27,24 @@ local function rollback_launch(original, selected, previous_id, buf, caller, was
 	return false, reason
 end
 
-local function confirm_terminal_close(bufnr)
+local function terminal_close_warning(bufnr)
 	local job_id = vim.b[bufnr].terminal_job_id
 	if not job_id then
-		return true
+		return nil
 	end
 	local ok, pid = pcall(vim.fn.jobpid, job_id)
 	if not ok or not pid then
-		return true -- Job already exited.
+		return nil -- Job already exited.
 	end
 	local inspected, children = pcall(vim.api.nvim_get_proc_children, pid)
-	if inspected and #children == 0 then return true end
-	local message = inspected and "Terminal has child processes. Close anyway?"
+	if inspected and #children == 0 then return end
+	return inspected and "Terminal has child processes. Close anyway?"
 		or "Could not inspect terminal child processes. Close anyway?"
+end
+
+local function confirm_terminal_close(bufnr)
+	local message = terminal_close_warning(bufnr)
+	if not message then return true end
 	return vim.fn.confirm(message, "&Yes\n&No", 2) == 1
 end
 
@@ -95,6 +100,63 @@ function M.delete(bufnr)
 		else winbar.update() end
 		return true
 	end)
+end
+
+-- A directly launched program can be busy without having child processes.
+-- Only a shell launched without a command is eligible for silent tab close.
+local function running_program(buf)
+	local job = vim.b[buf].terminal_job_id
+	if not job or vim.fn.jobwait({ job }, 0)[1] ~= -1 then return false end
+	local settings = vim.b[buf].terminal_launch
+	local cmd = settings and settings.cmd
+	local args = type(cmd) == "table" and cmd or { cmd }
+	local shells = { sh = true, bash = true, zsh = true, fish = true, dash = true,
+		ksh = true, csh = true, tcsh = true, nu = true, pwsh = true, powershell = true, cmd = true }
+	if not args[1] or not shells[vim.fn.fnamemodify(args[1], ":t"):gsub("%.exe$", "")] then return true end
+	for i = 2, #args do
+		if args[i] ~= "-l" and args[i] ~= "-i" and args[i] ~= "--login" and args[i] ~= "--interactive" then
+			return true
+		end
+	end
+	return false
+end
+
+function M.close_tab()
+	local entry = state.get_current_tab()
+	if not entry then return false, "No terminal tab to close" end
+	local bufs = vim.deepcopy(entry.bufs)
+	for _, buf in ipairs(bufs) do
+		if terminal_close_warning(buf) or running_program(buf) then
+			if vim.fn.confirm("Terminal tab has running programs or could not be inspected. Close all panes?",
+				"&Yes\n&No", 2) ~= 1 then
+				return false, "Terminal tab close cancelled"
+			end
+			break
+		end
+	end
+	local current = state.get_current_tab()
+	if not current or current.id ~= entry.id or not vim.deep_equal(current.bufs, bufs) then
+		return false, "Terminal tab changed while confirming close"
+	end
+	local caller = context.capture()
+	local from_pane = vim.tbl_contains(bufs, caller.buf)
+	mode.record()
+	state.set_toggling()
+	window.save_tab_state()
+	local open = state.is_term_open()
+	if open then window.close_pane_windows() end
+	for _, buf in ipairs(bufs) do
+		state.remove_term_from_order(buf)
+		vim.api.nvim_buf_delete(buf, { force = true })
+	end
+	local selected = state.get_current_tab()
+	vim.t.term_bufnr = selected and (selected.focus or selected.bufs[1]) or nil
+	local shown = not open or window.reopen_current_tab() or #state.get_tabs() == 0
+	if not open then winbar.update() end
+	if not from_pane then context.restore(caller) end
+	state.sync_zoom_options()
+	if not shown then return false, "Terminal tab was closed but the workspace could not be reopened" end
+	return true
 end
 
 local function reset_pane(old, tab_idx)
