@@ -374,6 +374,10 @@ Press <kbd>&lt;C-S-w&gt;</kbd> followed by a sub-key (works in both Normal and T
       <td>Delete current terminal (the neighboring pane absorbs the space)</td>
     </tr>
     <tr>
+      <td><kbd>o</kbd></td>
+      <td>Keep the current pane and close its siblings; confirm once with the number of panes running active processes. Declining closes none.</td>
+    </tr>
+    <tr>
       <td><kbd>T</kbd></td>
       <td>Break current pane out into its own tab after the current tab (requires multiple panes)</td>
     </tr>
@@ -610,6 +614,7 @@ terminal.rename("Frontend")        -- Set current pane's winbar/picker name; "" 
 terminal.new()                      -- Create new terminal tab
 terminal.delete(bufnr)              -- Delete a pane; omit bufnr for the current pane
 terminal.close_tab()                -- Close all panes in the selected terminal tab
+terminal.only()                     -- Keep the current pane; close its siblings after confirmation
 terminal.vsplit()                   -- Split the current pane side by side
 terminal.hsplit()                   -- Split the current pane stacked
 terminal.break_pane_to_tab()        -- Move the current pane into its own terminal tab

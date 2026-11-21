@@ -18,13 +18,15 @@ terminal.focus(first)
 settle()
 local before, wins = state.get_term_order(), vim.deepcopy(vim.t.term_winids)
 local confirm, inspect = vim.fn.confirm, vim.api.nvim_get_proc_children
-local prompts, answer = 0, 2
-vim.fn.confirm = function(_, _, default)
+local prompts, answer, message = 0, 2, nil
+vim.fn.confirm = function(text, _, default)
+	message = text
 	prompts = prompts + 1
 	assert(default == 2, "confirmation defaults to No")
 	return answer
 end
 local ok = terminal.close_tab()
+assert(message == "1 of 2 terminal panes has a running process. Close tab anyway?", "tab prompt includes affected counts")
 assert(not ok and prompts == 1, "busy nonfocused pane triggers confirmation")
 assert(vim.deep_equal(state.get_term_order(), before) and vim.deep_equal(vim.t.term_winids, wins),
 	"cancellation preserves all panes and windows")
@@ -55,6 +57,7 @@ local program = terminal.new({ cmd = { "sleep", "60" } })
 answer = 2
 assert(not terminal.close_tab() and prompts == 4 and vim.api.nvim_buf_is_valid(program),
 	"direct programs without children also require confirmation")
+assert(message == "1 terminal pane has a running process. Close tab anyway?", "single-pane prompt uses singular grammar")
 answer = 1
 assert(terminal.close_tab() and prompts == 5 and not vim.api.nvim_buf_is_valid(program),
 	"direct program closes after confirmation")

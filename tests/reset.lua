@@ -12,17 +12,20 @@ local old = vim.api.nvim_get_current_buf()
 local original = state.get_current_tab()
 local wins = vim.deepcopy(vim.t.term_winids)
 local inspect, confirm = vim.api.nvim_get_proc_children, vim.fn.confirm
-local confirmations, answer = 0, 2
+local confirmations, answer, message = 0, 2, nil
 vim.api.nvim_get_proc_children = function() return { 12345 } end
-vim.fn.confirm = function(_, _, default)
+vim.fn.confirm = function(text, _, default)
+	message = text
 	assert(default == 2, "confirmation defaults to keeping the terminal")
 	confirmations = confirmations + 1
 	return answer
 end
 local cancelled, cancellation = terminal.reset()
+assert(message == "This terminal pane has a running process. Reset anyway?", "reset has its own action text")
 assert(cancelled == false and type(cancellation) == "string", "reset cancellation is returned")
 assert(vim.api.nvim_get_current_buf() == old and confirmations == 1, "reset cancellation leaves the job intact")
 cancelled, cancellation = terminal.delete()
+assert(message == "This terminal pane has a running process. Close anyway?", "delete uses close text")
 assert(cancelled == false and type(cancellation) == "string", "delete cancellation is returned")
 assert(vim.api.nvim_buf_is_valid(old) and confirmations == 2, "delete uses the same confirmation")
 answer = 1
@@ -38,6 +41,7 @@ assert(confirmations == 3, "TermReset also confirms")
 vim.api.nvim_get_proc_children = function() error("unavailable") end
 answer = 2
 terminal.reset()
+assert(message == "Could not check for a running process. Reset anyway?", "failed reset inspection uses reset text")
 assert(vim.api.nvim_get_current_buf() == replaced and confirmations == 4, "inspection failure asks instead of silently killing the job")
 vim.api.nvim_get_proc_children = function() return {} end
 local termopen = vim.fn.termopen

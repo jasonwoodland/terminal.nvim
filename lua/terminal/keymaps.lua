@@ -225,6 +225,8 @@ function M.setup(api, bufnr)
 						panes.goto_edge(true)
 					elseif key_match(c, "c", "<C-S-c>") then
 						api.delete()
+					elseif key_match(c, "o", "<C-o>", "<C-S-o>") then
+						api.only()
 					elseif c == "T" then
 						api.break_pane_to_tab()
 					elseif key_match(c, "<CR>", "<C-S-CR>") and explicit_count then
@@ -271,6 +273,7 @@ function M.setup(api, bufnr)
 		{ { "t", "<C-t>" }, function() panes.goto_edge(false) end },
 		{ { "b", "<C-b>" }, function() panes.goto_edge(true) end },
 		{ { "c", "<C-c>" }, api.delete },
+		{ { "o", "<C-o>" }, api.only },
 		{ { "v", "<C-v>" }, api.vsplit },
 		{ { "s", "<C-s>" }, api.hsplit },
 		{ { "x", "<C-x>" }, function() panes.exchange(vim.v.count > 0 and vim.v.count or nil) end },

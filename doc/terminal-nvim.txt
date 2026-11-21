@@ -617,6 +617,12 @@ v		Split side by side; add a new pane to the right (like
 s		Split stacked; add a new pane below (like |CTRL-W_s|).
 c		Delete the current pane (with running-process prompt).  The
 		neighbouring pane absorbs the freed space, like |CTRL-W_c|.
+o		Keep the current terminal pane and close the other panes in
+		its terminal tab.  Confirms once with the number of sibling
+		panes running active processes, plus any that could not be
+		inspected.  Declining closes no panes, including idle ones.
+		Other terminal tabs and editor windows are kept.  Also mapped
+		as <C-w>o in managed panes.  Calls |terminal.only()|.
 T		Break the current pane out into a new terminal tab immediately
 		after the current tab (like |CTRL-W_T|).  Does nothing when
 		the current tab has only one pane.
@@ -777,6 +783,16 @@ terminal.close_tab()					*terminal.close_tab()*
 		false and a reason if cancelled, there is no terminal tab, or
 		the view cannot be reopened.  Other terminal tabs are kept;
 		hidden workspaces stay hidden and editor focus is preserved.
+
+terminal.only()						     *terminal.only()*
+		Close every sibling of the current terminal pane.  Uses the
+		same process checks as terminal.close_tab(), with one prompt
+		counting affected panes with active processes or inspection
+		failures.  No panes close if confirmation is declined.
+		Returns true, or false and a reason if cancelled, the current
+		buffer is not a pane, or the view could not be reopened.  A
+		single pane is a silent no-op.  Other terminal tabs and editor
+		windows are preserved.
 
 terminal.reset([{bufnr}])				    *terminal.reset()*
 		Replace a managed terminal job, keeping its pane and tab.

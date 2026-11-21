@@ -95,6 +95,7 @@ terminal.nvim-restart	terminal-nvim.txt	/*terminal.nvim-restart*
 terminal.nvim-telescope	terminal-nvim.txt	/*terminal.nvim-telescope*
 terminal.nvim-wincmd	terminal-nvim.txt	/*terminal.nvim-wincmd*
 terminal.nvim-z<CR>	terminal-nvim.txt	/*terminal.nvim-z<CR>*
+terminal.only()	terminal-nvim.txt	/*terminal.only()*
 terminal.prev()	terminal-nvim.txt	/*terminal.prev()*
 terminal.rename()	terminal-nvim.txt	/*terminal.rename()*
 terminal.reset()	terminal-nvim.txt	/*terminal.reset()*
