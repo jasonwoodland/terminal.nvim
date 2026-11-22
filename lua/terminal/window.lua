@@ -175,7 +175,16 @@ local function finalize_tab(wins, bufs, tab_idx, st)
 	state.set_activity(tab_idx, false)
 	activity.sync()
 
-	mode.apply(st.modes and bufs[focus_idx] and st.modes[tostring(bufs[focus_idx])])
+	local follow = require("terminal.follow")
+	for i, win in ipairs(wins) do
+		local view = vim.b[bufs[i]].terminal_wheel_view
+		if view then
+			follow.restore_wheel_view(win, view)
+			vim.b[bufs[i]].terminal_wheel_view = nil
+		end
+	end
+	mode.apply(follow.is_wheel_paused(wins[focus_idx]) and "n"
+		or (st.modes and bufs[focus_idx] and st.modes[tostring(bufs[focus_idx])]))
 
 	statusline.update()
 	winbar.update()
@@ -288,6 +297,8 @@ function M.save_tab_state()
 	for _, win in ipairs(wins) do
 		if state.win_valid(win) and state.is_managed(vim.api.nvim_win_get_buf(win)) then
 			local buf = vim.api.nvim_win_get_buf(win)
+			vim.b[buf].terminal_wheel_view = require("terminal.follow").is_wheel_paused(win)
+				and vim.api.nvim_win_call(win, vim.fn.winsaveview) or nil
 			vim.b[buf].terminal_preview_topline = vim.fn.getwininfo(win)[1].topline
 			vim.b[buf].terminal_preview_line_count = vim.api.nvim_buf_line_count(buf)
 			vim.b[buf].terminal_preview_following = require("terminal.follow").is_following(win)

@@ -28,6 +28,11 @@ function M.is_wheel_paused(win)
 	return paused[win] == true and wheel_insert[win] == vim.api.nvim_win_get_buf(win)
 end
 
+function M.restore_wheel_view(win, view)
+	paused[win], wheel_down[win], wheel_insert[win] = true, nil, vim.api.nvim_win_get_buf(win)
+	vim.api.nvim_win_call(win, function() vim.fn.winrestview(view) end)
+end
+
 function M.on_normal_mode(win)
 	if wheel_insert[win] ~= vim.api.nvim_win_get_buf(win) then
 		paused[win], wheel_down[win], wheel_insert[win] = nil, nil, nil
@@ -227,6 +232,9 @@ function M.setup(bufnr)
 				or key:match("Release>$") or key:match("Drag>$") then return end
 			if key:match("Mouse>$") then
 				if vim.fn.getmousepos().winid ~= win then return end
+			elseif vim.fn.maparg(key, "t") ~= "" then
+				-- Terminal shortcuts also work while browsing scrollback.
+				return
 			end
 			wheel_insert[win] = nil
 			M.on_normal_mode(win)

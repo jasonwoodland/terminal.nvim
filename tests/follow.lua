@@ -180,6 +180,20 @@ for _, case in ipairs({ { false, false }, { false, true }, { true, false }, { tr
 		ui.lua([[vim.o.mousescroll = 'ver:1,hor:0']])
 		ui.request('nvim_input_mouse', 'wheel', 'up', '', 0, pos[1], pos[2])
 		ui.wait([[return require('terminal.follow').is_wheel_paused(source_win)]], 'wheel arms terminal re-entry')
+		for _, zoomed in ipairs({ true, false }) do
+			ui.input('<C-S-z>')
+			ui.wait([[source_win = vim.api.nvim_get_current_win()
+				return (not not vim.t.term_zoom) == ]] .. tostring(zoomed) .. [[ and vim.api.nvim_get_current_buf() == source_buf
+				and require('terminal.follow').is_wheel_paused(source_win)]],
+				'zoom preserves pending wheel re-entry')
+		end
+		ui.lua([[for _, win in ipairs(vim.t.term_winids) do
+			if win ~= source_win then focus = win end
+		end]])
+		for _ = 1, 12 do ui.request('nvim_input_mouse', 'wheel', 'down', '', 0, pos[1], pos[2]) end
+		ui.wait([[return at_live_screen() and vim.api.nvim_get_mode().mode == 't']], 'wheel resumes Terminal mode after zoom')
+		ui.request('nvim_input_mouse', 'wheel', 'up', '', 0, pos[1], pos[2])
+		ui.wait([[return require('terminal.follow').is_wheel_paused(source_win)]], 'scroll back before G')
 		ui.input('G')
 		ui.wait([[return not require('terminal.follow').is_wheel_paused(source_win)
 			and vim.api.nvim_win_get_cursor(source_win)[1] == vim.api.nvim_buf_line_count(source_buf)]],
