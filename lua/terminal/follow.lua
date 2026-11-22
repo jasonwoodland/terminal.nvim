@@ -13,7 +13,8 @@ local menu_mode
 local function live_top(win)
 	local buf = vim.api.nvim_win_get_buf(win)
 	local height = vim.api.nvim_win_get_height(win) - (vim.wo[win].winbar ~= "" and 1 or 0)
-	return math.max(1, vim.api.nvim_buf_line_count(buf) - height + 1)
+	-- A maximized sibling can leave this pane with no visible text rows.
+	return math.max(1, vim.api.nvim_buf_line_count(buf) - math.max(1, height) + 1)
 end
 
 function M.is_following(win)
