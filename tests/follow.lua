@@ -219,6 +219,12 @@ for _, case in ipairs({ { false, false }, { false, true }, { true, false }, { tr
 			for _, mods in ipairs({ '', 'S', 'C' }) do
 				ui.request('nvim_input_mouse', 'wheel', 'down', mods, 0, pos[1], pos[2])
 			end
+			for _, direction in ipairs({ 'right', 'left' }) do
+				local before = ui.lua([[return vim.fn.winsaveview()]])
+				ui.request('nvim_input_mouse', 'wheel', direction, 'S', 0, pos[1], pos[2])
+				assert(vim.deep_equal(before, ui.lua([[return vim.fn.winsaveview()]])),
+					'Shift-wheel ' .. direction .. ' preserves the terminal cursor and viewport')
+			end
 			if start_mode == 't' then
 				ui.request('nvim_input_mouse', 'wheel', 'left', '', 0, pos[1], pos[2])
 				ui.request('nvim_input_mouse', 'wheel', 'right', '', 0, pos[1], pos[2])
@@ -230,8 +236,16 @@ for _, case in ipairs({ { false, false }, { false, true }, { true, false }, { tr
 			ui.request('nvim_input_mouse', 'wheel', 'up', '', 0, pos[1], pos[2])
 			ui.wait([[return vim.api.nvim_get_mode().mode:sub(1, 1) == 'n' and not at_live_screen()]],
 				'focused wheel scrolls into scrollback')
-			for _ = 1, 12 do ui.request('nvim_input_mouse', 'wheel', 'down', '', 0, pos[1], pos[2]) end
-			ui.wait([[return at_live_screen()]], 'focused wheel returns to live screen')
+			local bottom, height = unpack(ui.lua([[local height = vim.api.nvim_win_get_height(0)
+				local bottom = vim.api.nvim_buf_line_count(0) - height + (vim.wo.winbar ~= '' and 1 or 0) + 1
+				local row = bottom - height - 4
+				vim.fn.winrestview({ topline = row, lnum = row })
+				return { bottom, height }]]))
+			ui.request('nvim_input_mouse', 'wheel', 'down', 'S', 0, pos[1], pos[2])
+			local remaining = bottom - ui.lua([[return vim.fn.winsaveview().topline]])
+			assert(remaining > 0 and remaining <= height, 'Shift-wheel advances a full page before the final partial page')
+			ui.request('nvim_input_mouse', 'wheel', 'down', 'S', 0, pos[1], pos[2])
+			ui.wait([[return at_live_screen()]], 'Shift-wheel stops at the live screen with less than a page remaining')
 			ui.wait("return vim.api.nvim_get_mode().mode:sub(1, 1) == " .. vim.inspect(start_mode),
 				'focused wheel preserves the mode from before scrolling')
 			assert(ui.lua([[return require('terminal.follow').is_following(source_win) == (... == 't')]], start_mode),

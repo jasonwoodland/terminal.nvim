@@ -101,6 +101,11 @@ function M.focus_terminal(win, buf)
 	mode.restore(win, "t")
 end
 
+function M.finish_wheel_page(win)
+	scroll_to_live(win)
+	resume_after_wheel(win)
+end
+
 function M.on_left_mouse(mouse)
 	local win = mouse_pane(mouse.winid)
 	if not win or mouse.line == 0 or M.is_wheel_paused(win) then return end
@@ -189,19 +194,33 @@ function M.setup(bufnr)
 				if not down and live_top(win) == 1 then return "" end
 				-- Don't let native wheel scrolling overshoot the live screen
 				-- and then visibly snap back on every further wheel event.
-				if down
-					and vim.api.nvim_win_call(win, vim.fn.winsaveview).topline >= live_top(win) then
-					resume_after_wheel(win)
-					return ""
+				local last_page = false
+				if down then
+					local remaining = live_top(win) - vim.api.nvim_win_call(win, vim.fn.winsaveview).topline
+					if remaining == 0 or (remaining < 0 and key ~= "<S-ScrollWheelDown>") then
+						resume_after_wheel(win)
+						return ""
+					end
+					last_page = key == "<S-ScrollWheelDown>" and remaining <= vim.api.nvim_win_get_height(win)
 				end
 				if focused_insert or (win ~= vim.api.nvim_get_current_win() and vim.b[buf].term_mode == "t") then
 					wheel_insert[win] = buf
 				end
 				paused[win] = true
 				wheel_down[win] = down or nil
+				if last_page then
+					-- Apply the final partial page after the expression mapping returns.
+					return ("<Cmd>lua require('terminal.follow').finish_wheel_page(%d)<CR>"):format(win)
+				end
 				-- Scroll the buffer using Neovim's Normal-mode wheel handling.
 				if focused_insert then return "<C-\\><C-n>" .. key end
 			end
+			return key
+		end, { expr = true, noremap = true })
+	end
+	for _, key in ipairs({ "<S-ScrollWheelLeft>", "<S-ScrollWheelRight>" }) do
+		map({ "n", "t" }, key, function()
+			if mouse_pane(vim.fn.getmousepos().winid, true) then return "" end
 			return key
 		end, { expr = true, noremap = true })
 	end
