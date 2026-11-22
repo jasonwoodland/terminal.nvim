@@ -215,6 +215,23 @@ function M.setup(bufnr)
 		end
 	end
 	if not bufnr then
+		vim.on_key(function(_, typed)
+			if typed == "" or not next(wheel_insert) then return end
+			local win = vim.api.nvim_get_current_win()
+			if wheel_insert[win] ~= vim.api.nvim_get_current_buf() then return end
+			-- Inspect the original input: wheel-up itself maps to a mode switch.
+			-- Neovim can report several wheel events together after a mapping.
+			local key = vim.fn.keytrans(typed):gsub("<[%w%-]*ScrollWheel%a+>", "")
+			-- A release can finish the click that brought this pane into focus.
+			if key == "" or key == "<MouseMove>"
+				or key:match("Release>$") or key:match("Drag>$") then return end
+			if key:match("Mouse>$") then
+				if vim.fn.getmousepos().winid ~= win then return end
+			end
+			wheel_insert[win] = nil
+			M.on_normal_mode(win)
+			vim.b.term_mode = "n"
+		end, vim.api.nvim_create_namespace("terminal.wheel_scrollback"))
 		vim.api.nvim_create_autocmd("WinScrolled", {
 			group = "Term",
 			callback = function()

@@ -178,6 +178,16 @@ for _, case in ipairs({ { false, false }, { false, true }, { true, false }, { tr
 		ui.lua([[require('terminal.mode').restore(source_win, 't')]])
 		ui.wait([[return vim.api.nvim_get_mode().mode == 't' and at_live_screen()]], 'focus source at live screen')
 		ui.lua([[vim.o.mousescroll = 'ver:1,hor:0']])
+		ui.request('nvim_input_mouse', 'wheel', 'up', '', 0, pos[1], pos[2])
+		ui.wait([[return require('terminal.follow').is_wheel_paused(source_win)]], 'wheel arms terminal re-entry')
+		ui.input('G')
+		ui.wait([[return not require('terminal.follow').is_wheel_paused(source_win)
+			and vim.api.nvim_win_get_cursor(source_win)[1] == vim.api.nvim_buf_line_count(source_buf)]],
+			'G cancels re-entry and still moves to the last line')
+		ui.request('nvim_input_mouse', 'wheel', 'down', '', 0, pos[1], pos[2])
+		ui.wait([[return vim.api.nvim_get_mode().mode:sub(1, 1) == 'n' and vim.b.term_mode == 'n']], 'wheel stays in Normal mode after G')
+		ui.input('i')
+		ui.wait([[return vim.api.nvim_get_mode().mode == 't']], 'explicitly resume Terminal mode after G')
 		for _, start_mode in ipairs({ 't', 'n' }) do
 			if start_mode == 'n' then
 				ui.lua([[require('terminal.follow').set_following(source_win, true)]])
