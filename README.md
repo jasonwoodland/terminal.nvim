@@ -96,6 +96,10 @@ require("terminal").setup({
     normal_mode = "<C-S-\\>",
     zoom = "<C-S-z>",
     float_toggle = "<C-S-f>",
+    page_up = "<C-S-PageUp>",
+    page_down = "<C-S-PageDown>",
+    half_page_up = "<C-S-u>",
+    half_page_down = "<C-S-d>",
     new = "<C-S-n>",
     wincmd = "<C-S-w>",
     delete = "<C-S-c>",
@@ -454,6 +458,11 @@ mode. Leave a pane in Normal mode to keep your place in its scrollback.
   without taking focus. Press Escape to dismiss the menu.
 - **Return to Terminal mode.** Right-click the focused pane in Normal mode and
   select **Enter terminal mode** to return to live output.
+
+In the focused terminal pane, use `Ctrl-Shift-PageUp` / `PageDown` for a full
+page or `Ctrl-Shift-U` / `D` for half a page (hold Ctrl and Shift for both
+directions). Scrolling up from Terminal mode pauses input until you scroll
+back to the live screen. Starting in Normal mode keeps you in Normal mode.
 
 Clicking or navigating into a pane paused by the wheel keeps its scrollback
 position in Normal mode. Scroll back to the live screen to resume Terminal

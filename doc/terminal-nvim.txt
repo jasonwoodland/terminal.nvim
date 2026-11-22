@@ -92,6 +92,10 @@ the full default configuration: >lua
         normal_mode		= "<C-S-\\>",
         zoom			= "<C-S-z>",
         float_toggle		= "<C-S-f>",
+        page_up			= "<C-S-PageUp>",
+        page_down		= "<C-S-PageDown>",
+        half_page_up		= "<C-S-u>",
+        half_page_down		= "<C-S-d>",
         new			= "<C-S-n>",
         wincmd			= "<C-S-w>",
         delete			= "<C-S-c>",
@@ -551,6 +555,11 @@ Mouse scrolling and following			  *terminal.nvim-mouse-follow*
 
 terminal.nvim keeps live output visible in unfocused panes left in Terminal
 mode.  Leave a pane in Normal mode to keep your place in its scrollback.
+
+In the focused terminal pane, <C-S-PageUp> and <C-S-PageDown> scroll by one
+page.  <C-S-u> and <C-S-d> scroll by half a page.  Scrolling up from Terminal
+mode pauses input.  Scrolling down to the live screen resumes it.  Scrolling
+from Normal mode keeps the pane in Normal mode.
 
 Scroll up over an unfocused pane to pause following and read earlier output.
 The pane keeps its saved mode and focus stays where it is.  Scroll back to the

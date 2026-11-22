@@ -45,6 +45,20 @@ for _, case in ipairs({ { false, false }, { false, true }, { true, false }, { tr
 			vim.api.nvim_chan_send(channel, table.concat(lines) .. '\27[3;1Hprompt')
 		]])
 		ui.wait([[return vim.api.nvim_buf_line_count(source_buf) > 80]], 'scrollback populated')
+		for _, keys in ipairs({{'<C-S-PageUp>', '<C-S-PageDown>'}, {'<C-S-u>', '<C-S-d>'}}) do
+			local top, height = unpack(ui.lua([[return {vim.fn.winsaveview().topline,
+				vim.api.nvim_win_get_height(0) - (vim.wo.winbar ~= '' and 1 or 0)}]]))
+			ui.input(keys[1])
+			ui.wait([[return vim.fn.mode() == 'n' and require('terminal.follow').is_wheel_paused(vim.api.nvim_get_current_win())]], 'keyboard pauses terminal input')
+			local rows = keys[1] == '<C-S-u>' and math.floor(height / 2) or height
+			assert(ui.lua([[return vim.fn.winsaveview().topline]]) == math.max(1, top - rows), 'shortcut scroll distance')
+			ui.input(keys[2])
+			ui.wait([[return vim.fn.mode() == 't']], 'keyboard resumes terminal input at bottom')
+		end
+		ui.input('<C-\\><C-n><C-S-u><C-S-d>')
+		ui.wait([[return vim.fn.mode() == 'n' and not require('terminal.follow').is_wheel_paused(vim.api.nvim_get_current_win())]], 'normal mode stays normal')
+		ui.input('i')
+		ui.wait([[return vim.fn.mode() == 't']], 'return to terminal input')
 		ui.input('<F9>')
 		ui.wait([[return #vim.t.term_winids == 2 and vim.api.nvim_get_mode().mode == 't']], 'split focuses new pane')
 		ui.lua([[

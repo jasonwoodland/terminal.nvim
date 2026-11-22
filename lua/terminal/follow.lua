@@ -10,11 +10,15 @@ local menu_target
 local menu_source
 local menu_mode
 
-local function live_top(win)
-	local buf = vim.api.nvim_win_get_buf(win)
+local function screen_height(win)
 	local height = vim.api.nvim_win_get_height(win) - (vim.wo[win].winbar ~= "" and 1 or 0)
 	-- A maximized sibling can leave this pane with no visible text rows.
-	return math.max(1, vim.api.nvim_buf_line_count(buf) - math.max(1, height) + 1)
+	return math.max(1, height)
+end
+
+local function live_top(win)
+	local buf = vim.api.nvim_win_get_buf(win)
+	return math.max(1, vim.api.nvim_buf_line_count(buf) - screen_height(win) + 1)
 end
 
 function M.is_following(win)
@@ -105,6 +109,31 @@ end
 function M.finish_wheel_page(win)
 	scroll_to_live(win)
 	resume_after_wheel(win)
+end
+
+function M.page_keys(direction, half)
+	local win = vim.api.nvim_get_current_win()
+	local insert = vim.api.nvim_get_mode().mode == "t"
+	if insert then
+		if direction > 0 or live_top(win) == 1 then return "" end
+		wheel_insert[win] = vim.api.nvim_get_current_buf()
+	end
+	paused[win], wheel_down[win] = true, nil
+	local command = ("<Cmd>lua require('terminal.follow').scroll_page(%d,%s)<CR>"):format(direction, tostring(half))
+	return (insert and "<C-\\><C-n>" or "") .. command
+end
+
+function M.scroll_page(direction, half)
+	local win = vim.api.nvim_get_current_win()
+	local view = vim.fn.winsaveview()
+	local height = screen_height(win)
+	local rows = math.max(1, half and math.floor(height / 2) or height)
+	local bottom = live_top(win)
+	local top = math.max(1, math.min(bottom, view.topline + direction * rows))
+	view.lnum = view.lnum + top - view.topline
+	view.topline = top
+	vim.fn.winrestview(view)
+	if direction > 0 and top == bottom then resume_after_wheel(win) end
 end
 
 function M.on_left_mouse(mouse)

@@ -32,6 +32,16 @@ function M.setup(api, bufnr)
 	map("t", keys.normal_mode, "<C-\\><C-n>", { noremap = true })
 	map({ "n", "t" }, keys.zoom, api.zoom)
 	map({ "n", "t" }, keys.float_toggle, api.float_toggle)
+	if bufnr then
+		for _, binding in ipairs({
+			{ keys.page_up, -1, false }, { keys.page_down, 1, false },
+			{ keys.half_page_up, -1, true }, { keys.half_page_down, 1, true },
+		}) do
+			map({ "n", "t" }, binding[1], function()
+				return require("terminal.follow").page_keys(binding[2], binding[3])
+			end, { expr = true })
+		end
+	end
 	map({ "n", "t" }, keys.equalize, api.equalize)
 	map({ "n", "t" }, keys.new, api.new, { noremap = true })
 	map({ "n", "t" }, keys.delete, api.delete, { noremap = true })
