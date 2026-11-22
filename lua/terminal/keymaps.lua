@@ -58,11 +58,12 @@ function M.setup(api, bufnr)
 	end)
 
 	for _, pattern in ipairs(utils.key_list(keys.go_to_tab)) do
-		for i = 1, 9 do
-			local key = pattern:format(i)
+		for i = 1, 10 do
+			local key = pattern:format(i % 10)
 			if key ~= keys.last_notification then
 				map({ "n", "t" }, key, function()
 					api.go_to(i)
+					if not state.is_term_open() then api.toggle({ open = true }) end
 				end, { noremap = true })
 			end
 		end

@@ -202,8 +202,8 @@ Normal-mode shortcuts are global; Terminal-mode shortcuts apply only to managed 
     <tr>
       <td align="center">✓</td>
       <td align="center">✓</td>
-      <td><kbd>&lt;C-S-1&gt;</kbd> &hellip; <kbd>&lt;C-S-9&gt;</kbd></td>
-      <td>Go to tab by index</td>
+      <td><kbd>&lt;C-S-0&gt;</kbd> &hellip; <kbd>&lt;C-S-9&gt;</kbd></td>
+      <td>Open the terminal and select a tab by index (0 selects tab 10)</td>
     </tr>
     <tr>
       <td align="center">✓</td>

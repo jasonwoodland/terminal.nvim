@@ -48,7 +48,7 @@ M.config = {
 		vsplit = "<C-S-v>",
 		split = "<C-S-s>",
 		break_to_tab = "<C-S-t>",
-		-- %d is replaced with 1-9; set to false to disable the go-to-tab maps
+		-- %d is replaced with a digit (0 selects tab 10).
 		go_to_tab = "<C-S-%d>",
 		move_prev = "<C-S-M-[>",
 		move_next = "<C-S-M-]>",

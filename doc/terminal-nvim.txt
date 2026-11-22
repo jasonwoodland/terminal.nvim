@@ -377,8 +377,8 @@ works in a managed terminal or in regular text.  Normal-mode shortcuts are
 global; Terminal-mode shortcuts are buffer-local to managed panes.  All keys
 are configurable via the `keys` table; see |terminal.nvim-opt-keys|.
 
-In addition to the defaults below, `<C-S-1>` through `<C-S-9>` jump directly
-to terminal tab 1 through 9 by index.  The pattern is configurable via the
+In addition to the defaults below, `<C-S-0>` through `<C-S-9>` open the
+terminal and select a tab by index (0 selects tab 10).  Configure these with the
 `go_to_tab` key (a format string where `%d` is replaced with the digit; set it
 to `false` to disable these maps).
 
@@ -433,10 +433,10 @@ Tabs						      *terminal.nvim-map-tabs*
 		Switch to the next terminal tab (wraps).  Calls
 		|terminal.next()|.
 
-<C-S-1> ... <C-S-9>				       *terminal.nvim-<C-S-1>*
-		Jump to terminal tab 1...9 by index.  Calls
-		|terminal.go_to()|.  Note: `<C-S-9>` is bound only when it
-		does not collide with the configured last_notification string.
+<C-S-0> ... <C-S-9>				       *terminal.nvim-<C-S-1>*
+		Select the numbered terminal tab and open the workspace if
+		hidden. Zero selects tab 10. If the tab does not exist, open
+		the current selection or start the first terminal.
 
 <C-S-M-[>					     *terminal.nvim-<C-S-M-[>*
 		Move the current terminal tab one position to the left within
